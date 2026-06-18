@@ -1,0 +1,23 @@
+[functions.payment-initiate]
+verify_jwt = true
+
+[functions.payment-verify]
+verify_jwt = true
+
+[functions.payment-esewa-submit]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = true
+
+[functions.webhook-order-insert]
+verify_jwt = false
+
+[functions.webhook-bag-stock]
+verify_jwt = false
+
+[functions.cron-expiring-bags]
+verify_jwt = false
+
+[functions.cron-process-scheduled]
+verify_jwt = false

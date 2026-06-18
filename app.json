@@ -1,0 +1,87 @@
+{
+  "expo": {
+    "name": "Bachayo",
+    "slug": "bachayo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bachayo",
+    "userInterfaceStyle": "automatic",
+    "primaryColor": "#1D9E75",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bachayo.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "बचायो ले पिकअपका लागि QR कोड स्क्यान गर्न क्यामेरा चाहिन्छ।",
+        "NSLocationWhenInUseUsageDescription": "बचायो ले नजिकका रेस्क्यू ब्यागहरू देखाउन तपाईंको स्थान प्रयोग गर्छ।",
+        "NSUserNotificationsUsageDescription": "बचायो ले पिकअप रिमाइन्डर र बुकिङ अपडेटका लागि सूचना पठाउँछ।"
+      }
+    },
+    "android": {
+      "package": "com.bachayo.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1D9E75",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F9F9F7"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F9F9F7"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "बचायो ले QR कोड स्क्यान गर्न क्यामेरा प्रयोग गर्छ।"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "बचायो ले नजिकका पिकअप बिन्दुहरू फेला पार्न स्थान प्रयोग गर्छ।"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#1D9E75"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "बचायो ले कभर फोटो अपलोड गर्न तस्बिरहरूमा पहुँच चाहिन्छ।"
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
