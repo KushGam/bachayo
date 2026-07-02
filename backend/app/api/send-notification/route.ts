@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const result = await deliverNotification(user_id, title, body, {
       type: type || 'system',
-      data: data ?? null,
+      data: data ?? undefined,
     });
 
     if (!result.success) {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 type SupportContactBody = {
   subject?: string;
   message?: string;
@@ -22,12 +20,14 @@ function escapeHtml(text: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.RESEND_API_KEY) {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
       return NextResponse.json(
         { success: false, error: 'Email service is not configured' },
         { status: 503 },
       );
     }
+    const resend = new Resend(resendApiKey);
 
     const { subject, message, email, userId, role } =
       (await request.json()) as SupportContactBody;
