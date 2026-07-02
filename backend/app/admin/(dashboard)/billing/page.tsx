@@ -80,9 +80,9 @@ export default async function AdminBillingPage({
       <PageHeader title="Billing" subtitle="Revenue, trials, and payment tracking" />
 
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="MRR" value={formatNpr(mrr)} accent="revenue" />
-        <StatCard title="Collected this month" value={formatNpr(collected)} accent="revenue" />
-        <StatCard title="Outstanding" value={formatNpr(outstanding)} accent="error" />
+        <StatCard title="MRR" value={formatNpr(mrr)} />
+        <StatCard title="Collected this month" value={formatNpr(collected)} />
+        <StatCard title="Outstanding" value={formatNpr(outstanding)} />
         <StatCard title="Trial conversions" value={conversions ?? 0} subtext="Paid this month" />
       </div>
 

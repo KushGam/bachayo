@@ -2,17 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  Bell,
+  Building2,
+  CreditCard,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  Star,
+  Users,
+} from 'lucide-react';
 
 import { AdminLogo } from '@/components/admin/AdminLogo';
 
 const NAV = [
-  { href: '/admin', label: 'Overview', icon: '▦' },
-  { href: '/admin/partners', label: 'Partners', icon: '⌂' },
-  { href: '/admin/billing', label: 'Billing', icon: '¤' },
-  { href: '/admin/customers', label: 'Customers', icon: '◎' },
-  { href: '/admin/cities', label: 'Cities', icon: '⌖' },
-  { href: '/admin/reviews', label: 'Reviews', icon: '★' },
-  { href: '/admin/notifications', label: 'Notifications', icon: '◉' },
+  { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+  { href: '/admin/partners', label: 'Partners', icon: Building2 },
+  { href: '/admin/billing', label: 'Billing', icon: CreditCard },
+  { href: '/admin/customers', label: 'Customers', icon: Users },
+  { href: '/admin/cities', label: 'Cities', icon: MapPin },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
+  { href: '/admin/notifications', label: 'Notifications', icon: Bell },
 ] as const;
 
 export function AdminSidebar() {
@@ -26,37 +36,49 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-5 py-5">
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-[240px] flex-col bg-[#1A1A1A]">
+      <div className="border-b border-white/[0.08] px-5 pb-5 pt-6">
         <AdminLogo />
       </div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV.map((item) => {
           const active =
             item.href === '/admin'
               ? pathname === '/admin'
               : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const Icon = item.icon;
+
           return (
             <Link
               key={item.href}
               href={item.href}
               className={[
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all duration-150',
                 active
-                  ? 'border-l-[3px] border-[#D85A30] bg-[#FAECE7] pl-[9px] text-[#D85A30]'
-                  : 'border-l-[3px] border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                  ? 'bg-[rgba(216,90,48,0.15)] font-semibold text-[#D85A30]'
+                  : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80',
               ].join(' ')}>
-              <span className="w-4 text-center text-xs opacity-80">{item.icon}</span>
+              {active ? (
+                <span className="absolute inset-y-1 left-0 w-[3px] rounded-r-sm bg-[#D85A30]" />
+              ) : null}
+              <Icon
+                size={16}
+                className={active ? 'text-[#D85A30]' : 'text-white/40'}
+                strokeWidth={active ? 2.25 : 2}
+              />
               {item.label}
             </Link>
           );
         })}
       </nav>
-      <div className="border-t border-gray-100 p-4">
+
+      <div className="border-t border-white/[0.08] px-3 py-4">
         <button
           type="button"
           onClick={() => void signOut()}
-          className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-white/40 transition-all duration-150 hover:bg-[rgba(226,75,74,0.08)] hover:text-[#E24B4A]">
+          <LogOut size={16} />
           Sign out
         </button>
       </div>

@@ -19,9 +19,18 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   );
 }
 
-export function CategoryBadge({ label }: { label: string }) {
+const CATEGORY_STYLES: Record<string, string> = {
+  restaurant: 'bg-[#FAECE7] text-[#993C1D]',
+  cafe: 'bg-[#ECFDF5] text-[#065F46]',
+  bakery: 'bg-[#FEF3C7] text-[#92400E]',
+  mart: 'bg-[#EFF6FF] text-[#1E40AF]',
+  hotel: 'bg-[#F5F3FF] text-[#4C1D95]',
+};
+
+export function CategoryBadge({ label, category }: { label: string; category?: string }) {
+  const style = category ? (CATEGORY_STYLES[category] ?? 'bg-[#FAECE7] text-[#993C1D]') : 'bg-[#FAECE7] text-[#993C1D]';
   return (
-    <span className="inline-flex rounded-md bg-[#FAECE7] px-2 py-0.5 text-xs font-medium text-[#993C1D]">
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${style}`}>
       {label}
     </span>
   );
