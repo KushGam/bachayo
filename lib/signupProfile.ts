@@ -78,7 +78,8 @@ export async function createPartnerAccount(userId: string, data: PartnerSignupDa
     trial_started_at: new Date().toISOString(),
     trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     payment_method_on_file: false,
-    is_active: true,
+    is_active: false,
+    approval_status: 'pending',
   });
 
   return { error: partnerError };

@@ -26,7 +26,7 @@ import {
 import { fetchCustomerOrders } from '@/lib/orders';
 import { fetchActiveReservedBagIds } from '@/lib/reservations';
 import { addRecentSearch, getRecentSearches, removeRecentSearch } from '@/lib/recentSearches';
-import { isPartnerVisibleToCustomers } from '@/lib/subscriptions';
+import { isPartnerVisibleToCustomers, type PartnerSubscriptionFields } from '@/lib/subscriptions';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBagsStore, type HomeBag } from '@/store/useBagsStore';
@@ -184,9 +184,10 @@ export default function HomeScreen() {
 
     const { data, error } = await supabase
       .from('rescue_bags')
-      .select('*, partner:partners(*)')
+      .select('*, partner:partners!inner(*)')
       .eq('status', 'active')
-      .eq('available_date', today);
+      .eq('available_date', today)
+      .eq('partner.approval_status', 'approved');
 
     if (error) {
       setLoading(false);
@@ -202,7 +203,7 @@ export default function HomeScreen() {
           subscription_status?: string | null;
         };
       }).partner;
-      if (!isPartnerVisibleToCustomers(partner)) return false;
+      if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
       if (!partner?.city_id) return cityId === 'kathmandu';
       return partner.city_id === cityId;
     });
@@ -254,6 +255,7 @@ export default function HomeScreen() {
           .eq('status', 'active')
           .eq('available_date', today)
           .eq('partner.is_active', true)
+          .eq('partner.approval_status', 'approved')
           .or(`title.ilike.${pattern},partner.name.ilike.${pattern}`);
 
         if (error) {
@@ -271,7 +273,7 @@ export default function HomeScreen() {
               subscription_status?: string | null;
             };
           }).partner;
-          if (!isPartnerVisibleToCustomers(partner)) return false;
+          if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
           if (!partner?.city_id) return cityId === 'kathmandu';
           return partner.city_id === cityId;
         }) as HomeBag[];

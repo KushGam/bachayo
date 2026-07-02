@@ -27,6 +27,28 @@ const CATEGORY_STYLES: Record<string, string> = {
   hotel: 'bg-[#F5F3FF] text-[#4C1D95]',
 };
 
+export function ApprovalBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-800',
+    approved: 'bg-green-100 text-green-800',
+    suspended: 'bg-red-100 text-red-800',
+    rejected: 'bg-gray-100 text-gray-700',
+    deleted: 'bg-gray-100 text-gray-600',
+  };
+  const labels: Record<string, string> = {
+    pending: '⏳ Pending',
+    approved: '✓ Approved',
+    suspended: '⏸ Suspended',
+    rejected: '✗ Rejected',
+    deleted: '🗑 Deleted',
+  };
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
 export function CategoryBadge({ label, category }: { label: string; category?: string }) {
   const style = category ? (CATEGORY_STYLES[category] ?? 'bg-[#FAECE7] text-[#993C1D]') : 'bg-[#FAECE7] text-[#993C1D]';
   return (

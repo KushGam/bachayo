@@ -4,7 +4,10 @@ import {
   type SubscriptionTier,
 } from '@/constants/subscriptions';
 
-export type PartnerSubscriptionFields = {
+import type { PartnerApprovalFields } from '@/lib/partnerApproval';
+import { isPartnerApproved } from '@/lib/partnerApproval';
+
+export type PartnerSubscriptionFields = PartnerApprovalFields & {
   subscription_tier?: SubscriptionTier | null;
   subscription_status?: SubscriptionStatus | null;
   trial_started_at?: string | null;
@@ -62,6 +65,7 @@ export function formatSubscriptionDate(iso: string | null | undefined) {
 
 export function isPartnerVisibleToCustomers(partner: PartnerSubscriptionFields | null | undefined) {
   if (!partner) return false;
+  if (!isPartnerApproved(partner)) return false;
   if (partner.is_active === false) return false;
   const status = partner.subscription_status ?? 'trial';
   return status === 'trial' || status === 'active';

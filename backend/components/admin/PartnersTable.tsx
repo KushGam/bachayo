@@ -2,16 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useTransition } from 'react';
 
-import {
-  changePartnerTier,
-  deletePartner,
-  extendPartnerTrial,
-  markPartnerPaid,
-  suspendPartner,
-} from '@/app/admin/actions';
-import { CategoryBadge, StatusBadge } from '@/components/admin/StatusBadge';
+import { PartnerAccountActions } from '@/components/admin/PartnerAccountActions';
+import { ApprovalBadge, CategoryBadge, StatusBadge } from '@/components/admin/StatusBadge';
 import { cityLabel, formatRelativeDays, tierLabel, trialDaysLeft } from '@/lib/admin/format';
 
 export type PartnerRow = {
@@ -26,6 +19,7 @@ export type PartnerRow = {
   subscription_tier: string | null;
   subscription_status: string | null;
   trial_ends_at: string | null;
+  approval_status: string;
   owner_name: string | null;
   owner_phone: string | null;
   bags_today: number;
@@ -104,46 +98,6 @@ export function PartnersFilters() {
   );
 }
 
-function PartnerActions({ partner }: { partner: PartnerRow }) {
-  const [open, setOpen] = useState(false);
-  const [pending, start] = useTransition();
-
-  function run(action: () => Promise<void>) {
-    start(async () => {
-      await action();
-      setOpen(false);
-    });
-  }
-
-  return (
-    <div className="relative flex items-center gap-2">
-      <Link href={`/admin/partners/${partner.id}`} className="text-sm font-medium text-[#D85A30] hover:underline">
-        View
-      </Link>
-      <button type="button" onClick={() => setOpen(!open)} className="rounded px-2 py-1 text-gray-500 hover:bg-gray-100">
-        ⋮
-      </button>
-      {open ? (
-        <div className="absolute right-0 top-8 z-20 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => extendPartnerTrial(partner.id, 7))}>Extend trial +7d</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => extendPartnerTrial(partner.id, 14))}>Extend trial +14d</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => extendPartnerTrial(partner.id, 30))}>Extend trial +30d</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => changePartnerTier(partner.id, 'small'))}>Tier: Small</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => changePartnerTier(partner.id, 'medium'))}>Tier: Medium</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => changePartnerTier(partner.id, 'large'))}>Tier: Large</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => run(() => markPartnerPaid(partner.id))}>Mark as paid</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => {
-            if (confirm('Suspend this partner?')) run(() => suspendPartner(partner.id));
-          }}>Suspend</button>
-          <button type="button" disabled={pending} className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => {
-            if (confirm('Delete partner permanently?')) run(() => deletePartner(partner.id));
-          }}>Delete</button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -156,7 +110,8 @@ export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
               <th className="px-4 py-3 text-left">Location</th>
               <th className="px-4 py-3 text-left">Signed up</th>
               <th className="px-4 py-3 text-left">Tier</th>
-              <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Account</th>
+              <th className="px-4 py-3 text-left">Subscription</th>
               <th className="px-4 py-3 text-left">Last active</th>
               <th className="px-4 py-3 text-right">Bags today</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -167,7 +122,7 @@ export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
               <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900">{p.name}</div>
-                  <CategoryBadge label={p.categoryLabel} />
+                  <CategoryBadge label={p.categoryLabel} category={p.category} />
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   <div>{p.owner_name ?? '—'}</div>
@@ -184,6 +139,9 @@ export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
+                  <ApprovalBadge status={p.approval_status} />
+                </td>
+                <td className="px-4 py-3">
                   <StatusBadge status={p.subscription_status ?? 'trial'} label={statusLabel(p)} />
                 </td>
                 <td className="px-4 py-3 text-gray-600">
@@ -191,7 +149,7 @@ export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
                 </td>
                 <td className="px-4 py-3 text-right font-medium">{p.bags_today}</td>
                 <td className="px-4 py-3 text-right">
-                  <PartnerActions partner={p} />
+                  <PartnerAccountActions partnerId={p.id} approvalStatus={p.approval_status} variant="menu" />
                 </td>
               </tr>
             ))}

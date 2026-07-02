@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -34,7 +35,11 @@ import {
 import { hapticButtonPress } from '@/lib/haptics';
 import { isReservedOrderStatus } from '@/lib/orderStatus';
 import { fetchPartnerDayStats, fetchPartnerOrders } from '@/lib/orders';
-import { getTrialDaysRemaining, type PartnerSubscriptionFields } from '@/lib/subscriptions';
+import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
+import {
+  getTrialDaysRemaining,
+  type PartnerSubscriptionFields,
+} from '@/lib/subscriptions';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import type { PartnerOrderWithCustomer } from '@/types/app';
@@ -198,11 +203,30 @@ export default function PartnerDashboardScreen() {
   const trialDaysLeft = getTrialDaysRemaining(
     (partner as (Partner & PartnerSubscriptionFields) | null)?.trial_ends_at,
   );
+  useEffect(() => {
+    if (!partner) return;
+    const status = getPartnerApprovalStatus(partner as PartnerApprovalFields);
+    if (status === 'rejected') {
+      router.replace('/(auth)/partner-rejected');
+      return;
+    }
+    if (status === 'suspended') {
+      router.replace('/(auth)/partner-suspended');
+      return;
+    }
+    if (status === 'deleted') {
+      router.replace('/(auth)/partner-deleted');
+    }
+  }, [partner, router]);
+
   const showOverlapBanner =
     partner &&
     (subscriptionStatus === 'past_due' ||
       subscriptionStatus === 'paused' ||
       (subscriptionStatus === 'trial' && trialDaysLeft <= 7));
+
+  const approvalStatus = partner ? getPartnerApprovalStatus(partner as PartnerApprovalFields) : 'approved';
+  const isPendingApproval = approvalStatus === 'pending';
 
   if (!loading && !partner) {
     return (
@@ -214,12 +238,13 @@ export default function PartnerDashboardScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
-      }>
+    <View style={styles.screenWrap}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
+        }>
       <StatusBar style="light" />
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -343,11 +368,34 @@ export default function PartnerDashboardScreen() {
           />
         ))
       )}
-    </ScrollView>
+      </ScrollView>
+
+      {isPendingApproval ? (
+        <View style={styles.pendingOverlay}>
+          <View style={styles.pendingIconCircle}>
+            <Text style={styles.pendingIcon}>🔒</Text>
+          </View>
+          <Text style={styles.pendingTitle}>Awaiting approval</Text>
+          <Text style={styles.pendingCopy}>
+            Your restaurant is under review. We&apos;ll notify you as soon as you&apos;re approved —
+            usually within 24 hours.
+          </Text>
+          <Pressable
+            style={styles.pendingCallButton}
+            onPress={() => void Linking.openURL('tel:0405290710')}>
+            <Text style={styles.pendingCallButtonText}>Call us: 0405 290 710</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenWrap: {
+    flex: 1,
+    backgroundColor: Palette.background,
+  },
   screen: {
     flex: 1,
     backgroundColor: Palette.background,
@@ -484,5 +532,50 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     textAlign: 'center',
     marginTop: Spacing.xxxl,
+  },
+  pendingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    zIndex: 50,
+  },
+  pendingIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FAECE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingIcon: {
+    fontSize: 48,
+  },
+  pendingTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  pendingCopy: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  pendingCallButton: {
+    marginTop: 24,
+    backgroundColor: Palette.primary,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  pendingCallButtonText: {
+    color: Palette.white,
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

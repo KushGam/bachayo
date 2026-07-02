@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 
 import { PageHeader } from '@/components/admin/StatCard';
+import { PartnerStatusTabs } from '@/components/admin/PartnerStatusTabs';
 import { Pagination, PartnersFilters, PartnersTable, type PartnerRow } from '@/components/admin/PartnersTable';
 import { CATEGORY_LABELS } from '@/lib/admin/constants';
 import { todayIso } from '@/lib/admin/format';
@@ -25,6 +26,7 @@ async function loadPartners(searchParams: Record<string, string | undefined>) {
   if (searchParams.category) query = query.eq('category', searchParams.category);
   if (searchParams.status) query = query.eq('subscription_status', searchParams.status);
   if (searchParams.tier) query = query.eq('subscription_tier', searchParams.tier);
+  if (searchParams.approval) query = query.eq('approval_status', searchParams.approval);
   if (searchParams.q) {
     query = query.or(`name.ilike.%${searchParams.q}%,phone.ilike.%${searchParams.q}%`);
   }
@@ -81,6 +83,7 @@ async function loadPartners(searchParams: Record<string, string | undefined>) {
       subscription_tier: p.subscription_tier,
       subscription_status: p.subscription_status,
       trial_ends_at: p.trial_ends_at,
+      approval_status: (p as { approval_status?: string }).approval_status ?? 'approved',
       owner_name: profile?.full_name ?? null,
       owner_phone: profile?.phone ?? null,
       bags_today: bagsTodayCount.get(p.id) ?? 0,
@@ -97,11 +100,24 @@ export default async function AdminPartnersPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const params = await searchParams;
+  const supabase = createSupabaseAdmin();
+  const { count: pendingCount } = await supabase
+    .from('partners')
+    .select('*', { count: 'exact', head: true })
+    .eq('approval_status', 'pending');
+  const { count: suspendedCount } = await supabase
+    .from('partners')
+    .select('*', { count: 'exact', head: true })
+    .eq('approval_status', 'suspended');
+
   const { rows, page, totalPages } = await loadPartners(params);
 
   return (
     <>
       <PageHeader title="Partners" subtitle="Manage restaurant owners and subscriptions" />
+      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-gray-200" />}>
+        <PartnerStatusTabs pendingCount={pendingCount ?? 0} suspendedCount={suspendedCount ?? 0} />
+      </Suspense>
       <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-gray-200" />}>
         <PartnersFilters />
       </Suspense>

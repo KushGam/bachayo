@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { accountRemoved } = useLocalSearchParams<{ accountRemoved?: string }>();
   const { locale, setLocale, setPendingRole, setAuthRole } = useAuthStore();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -59,6 +60,13 @@ export default function WelcomeScreen() {
         <BachayoLogo />
         <Text style={styles.tagline}>{t(locale, 'tagline')}</Text>
         <Text style={styles.subtagline}>Nepal&apos;s food rescue marketplace</Text>
+        {accountRemoved === '1' ? (
+          <View style={styles.removedBanner}>
+            <Text style={styles.removedText}>
+              This account has been removed. Contact support if you think this is a mistake.
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.actions}>
@@ -137,6 +145,19 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  removedBanner: {
+    marginTop: Spacing.lg,
+    marginHorizontal: Spacing.md,
+    backgroundColor: '#FEE2E2',
+    borderRadius: Border.lg,
+    padding: Spacing.md,
+  },
+  removedText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#991B1B',
+    textAlign: 'center',
   },
   actions: {
     gap: Spacing.md,

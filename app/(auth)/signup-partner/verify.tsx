@@ -9,7 +9,6 @@ import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { signUpWithEmail } from '@/lib/auth';
-import { getTabsRouteForRole } from '@/lib/navigation';
 import { hapticSuccess } from '@/lib/haptics';
 import { createPartnerAccount } from '@/lib/signupProfile';
 import { supabase } from '@/lib/supabase';
@@ -42,7 +41,7 @@ export default function PartnerVerifyScreen() {
     setAuthRole('partner');
     setTimeout(() => {
       resetPartner();
-      router.replace(getTabsRouteForRole('partner'));
+      router.replace('/(auth)/partner-pending');
     }, 2200);
   }, [partner.areaId, partner.cityId, resetPartner, router, setLocation, setAuthRole]);
 
@@ -100,8 +99,8 @@ export default function PartnerVerifyScreen() {
         <View style={styles.successGlow} />
         <Animated.View entering={ZoomIn.duration(400)} style={styles.successCard}>
           <Text style={styles.successEmoji}>🎉</Text>
-          <Text style={styles.successTitle}>Your restaurant is registered!</Text>
-          <Text style={styles.successSubtitle}>Next: add your first rescue bag</Text>
+          <Text style={styles.successTitle}>Application submitted!</Text>
+          <Text style={styles.successSubtitle}>We&apos;ll review your restaurant within 24 hours</Text>
         </Animated.View>
       </View>
     );

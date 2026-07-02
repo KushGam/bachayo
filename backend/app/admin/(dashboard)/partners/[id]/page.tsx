@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { PartnerAccountActions } from '@/components/admin/PartnerAccountActions';
 import { PartnerDetailActions } from '@/components/admin/PartnerDetailActions';
 import { PageHeader } from '@/components/admin/StatCard';
 import { CategoryBadge, StatusBadge } from '@/components/admin/StatusBadge';
@@ -72,6 +73,11 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
   const tier = partner.subscription_tier ?? 'small';
   const tierPrice = TIER_PRICES_NPR[tier] ?? 800;
   const status = partner.subscription_status ?? 'trial';
+  const approvalStatus = (partner as { approval_status?: string }).approval_status ?? 'approved';
+  const rejectionReason = (partner as { rejection_reason?: string | null }).rejection_reason;
+  const suspensionReason = (partner as { suspension_reason?: string | null }).suspension_reason;
+  const approvedAt = (partner as { approved_at?: string | null }).approved_at;
+  const suspendedAt = (partner as { suspended_at?: string | null }).suspended_at;
 
   return (
     <>
@@ -85,6 +91,53 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
         title={partner.name}
         subtitle={`${CATEGORY_LABELS[partner.category] ?? partner.category} · ${cityLabel(partner.city_id)}`}
       />
+
+      <PartnerAccountActions partnerId={id} approvalStatus={approvalStatus} variant="bar" />
+
+      {approvalStatus === 'pending' ? (
+        <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-semibold text-amber-900">
+            ⏳ Awaiting approval — review and approve or reject this restaurant
+          </p>
+          <p className="mt-1 text-sm text-amber-800">
+            Signed up {formatRelativeDays(partner.created_at)} · {partner.phone ?? 'No phone'}
+          </p>
+        </section>
+      ) : null}
+
+      {approvalStatus === 'approved' ? (
+        <section className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
+          <p className="text-sm font-semibold text-green-800">
+            ✓ Approved{approvedAt ? ` on ${formatDate(approvedAt)}` : ''}
+          </p>
+        </section>
+      ) : null}
+
+      {approvalStatus === 'suspended' ? (
+        <section className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-800">
+            ⏸ Suspended{suspendedAt ? ` on ${formatDate(suspendedAt)}` : ''}
+          </p>
+          {suspensionReason ? (
+            <p className="mt-1 text-sm text-red-700">Reason: {suspensionReason}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {approvalStatus === 'rejected' ? (
+        <section className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-800">✗ Rejected</p>
+          {rejectionReason ? (
+            <p className="mt-1 text-sm text-gray-600">Reason: {rejectionReason}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {approvalStatus === 'deleted' ? (
+        <section className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-700">🗑 Account deleted (soft delete — data retained)</p>
+        </section>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">

@@ -30,6 +30,7 @@ import {
   type PartnerReviewRow,
 } from '@/lib/partnerDetail';
 import { decodePartnerMeta, getPartnerBio } from '@/lib/partnerMeta';
+import { isPartnerApproved } from '@/lib/partnerApproval';
 import { isReviewEligibleOrderStatus } from '@/lib/orderStatus';
 import { formatOpeningHours, formatPartnerLocationLabel } from '@/lib/partnerProfile';
 import {
@@ -281,6 +282,13 @@ export default function PartnerDetailScreen() {
     setLoading(true);
     try {
       const detail = await fetchPartnerDetail(id);
+      if (!isPartnerApproved(detail.partner)) {
+        Alert.alert('Not available', 'This restaurant is not yet available on Bachayo.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+        setData(null);
+        return;
+      }
       setData(detail);
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Failed to load partner');

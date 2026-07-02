@@ -77,9 +77,10 @@ export default function ExploreMapExpoGo() {
 
     const { data, error } = await supabase
       .from('rescue_bags')
-      .select('*, partner:partners(*)')
+      .select('*, partner:partners!inner(*)')
       .eq('status', 'active')
-      .eq('available_date', today);
+      .eq('available_date', today)
+      .eq('partner.approval_status', 'approved');
 
     if (error) {
       setErrorText(error.message);
