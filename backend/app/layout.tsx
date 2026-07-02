@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
+import type { Viewport } from 'next';
 
 import '@/app/globals.css';
 
@@ -18,14 +19,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Bachayo — Rescue food. Save money.',
+  title: 'Bachayo — Rescue food. Save money. Nepal.',
   description:
-    'Find discounted rescue bags from restaurants, cafes, and bakeries near you in Nepal. Save up to 70% on great food while reducing waste.',
-  themeColor: '#D85A30',
+    'Find discounted rescue bags from restaurants, cafes, and bakeries in Kathmandu, Pokhara, Lalitpur and Bharatpur. Save up to 70% on great food while reducing waste.',
+  keywords:
+    'food rescue Nepal, discount food Kathmandu, surplus food app, Bachayo',
+  metadataBase: new URL('https://bachayo.vercel.app'),
   openGraph: {
     title: 'Bachayo — Rescue food. Save money.',
     description:
-      'Find discounted rescue bags from restaurants, cafes, and bakeries near you in Nepal.',
+      "Surplus rescue bags from Nepal's best restaurants at 50-70% off.",
+    url: 'https://bachayo.vercel.app',
+    siteName: 'Bachayo',
     images: [
       {
         url: '/og-image.png',
@@ -33,8 +38,19 @@ export const metadata: Metadata = {
         height: 630,
       },
     ],
+    locale: 'en_NP',
     type: 'website',
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Bachayo — Rescue food. Save money.',
+    description: 'Find rescue bags near you in Nepal.',
+    images: ['/og-image.png'],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#D85A30',
 };
 
 export default function RootLayout({

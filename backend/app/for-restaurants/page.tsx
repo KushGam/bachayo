@@ -1,14 +1,15 @@
 import Link from 'next/link';
-import Image from 'next/image';
 
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 
 function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
-  const src = variant === 'light' ? '/bachayo-logo-light.png' : '/bachayo-logo.png';
   return (
-    <span className="inline-flex items-center gap-2">
-      <Image src={src} alt="Bachayo" width={140} height={32} className="h-8 w-auto" />
+    <span
+      className={`inline-flex items-center text-2xl font-extrabold tracking-tight ${
+        variant === 'light' ? 'text-white' : 'text-[#D85A30]'
+      }`}>
+      Bachayo
     </span>
   );
 }

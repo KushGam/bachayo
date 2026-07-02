@@ -2,18 +2,12 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import { WaitlistSignup } from '@/components/WaitlistSignup';
 
 function LogoMark() {
   return (
-    <Link href="/" className="inline-flex items-center gap-2">
-      <Image
-        src="/bachayo-logo-light.png"
-        alt="Bachayo"
-        width={140}
-        height={32}
-        className="h-8 w-auto"
-      />
+    <Link href="/" className="inline-flex items-center">
+      <span className="text-2xl font-extrabold tracking-tight text-white">Bachayo</span>
     </Link>
   );
 }
@@ -26,6 +20,18 @@ export function LandingFooter() {
   return (
     <footer className="bg-[#1A1A1A] py-16">
       <div className="max-w-6xl mx-auto px-6">
+        <div className="mb-8 flex flex-wrap gap-3 justify-center">
+          {['🔒 Secure', '🇳🇵 Made in Nepal', '🌱 Zero waste mission', '💯 Free to use'].map((item) => (
+            <div
+              key={item}
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs text-white/70">
+              {item}
+            </div>
+          ))}
+        </div>
+
+        <WaitlistSignup />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
           <div>
             <div className="flex items-center gap-2">
