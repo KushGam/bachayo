@@ -4,40 +4,6 @@ import { FadeIn } from '@/components/FadeIn';
 import { AnimatedCountUp } from '@/components/AnimatedCountUp';
 import { FaqAccordion } from '@/components/FaqAccordion';
 
-function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
-  const color = variant === 'light' ? '#FFFFFF' : '#D85A30';
-  return (
-    <span className="inline-flex items-center gap-2">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M7 7h10l1.2 14H5.8L7 7Z"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9 7a3 3 0 0 1 6 0"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M9.2 11.2h5.6"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.7"
-        />
-      </svg>
-      <span
-        className="text-[20px] font-bold"
-        style={{ color: variant === 'light' ? '#FFFFFF' : '#D85A30' }}>
-        Bachayo
-      </span>
-    </span>
-  );
-}
-
 function AppStoreButton() {
   return (
     <a

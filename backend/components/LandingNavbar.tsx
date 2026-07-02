@@ -2,21 +2,20 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useMemo, useState } from 'react';
 
 function Logo() {
   return (
     <Link href="/" className="inline-flex items-center gap-2">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M7 7h10l1.2 14H5.8L7 7Z"
-          stroke="#D85A30"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path d="M9 7a3 3 0 0 1 6 0" stroke="#D85A30" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <span className="text-[20px] font-bold text-[#D85A30]">Bachayo</span>
+      <Image
+        src="/bachayo-logo.png"
+        alt="Bachayo"
+        width={140}
+        height={32}
+        className="h-8 w-auto"
+        priority
+      />
     </Link>
   );
 }

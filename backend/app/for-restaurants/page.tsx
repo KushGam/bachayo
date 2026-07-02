@@ -1,29 +1,14 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 
 function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
-  const color = variant === 'light' ? '#FFFFFF' : '#D85A30';
+  const src = variant === 'light' ? '/bachayo-logo-light.png' : '/bachayo-logo.png';
   return (
     <span className="inline-flex items-center gap-2">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M7 7h10l1.2 14H5.8L7 7Z"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9 7a3 3 0 0 1 6 0"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="text-[20px] font-bold" style={{ color: variant === 'light' ? '#FFFFFF' : '#D85A30' }}>
-        Bachayo
-      </span>
+      <Image src={src} alt="Bachayo" width={140} height={32} className="h-8 w-auto" />
     </span>
   );
 }
