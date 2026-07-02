@@ -1,10 +1,14 @@
-import { SymbolView } from 'expo-symbols';
+import { AppSymbol } from '@/components/ui/AppSymbol';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import { Button } from '@/components/ui/Button';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
+import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatNprPaisa, getPickupCountdownLabel } from '@/lib/helpers';
 import { supabase } from '@/lib/supabase';
 import type { CustomerOrderWithDetails } from '@/types/app';
@@ -34,7 +38,8 @@ export default function OrderDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={styles.muted}>Loading order…</Text>
+        <StatusBar style="dark" />
+        <ListSkeleton count={1} />
       </View>
     );
   }
@@ -42,22 +47,18 @@ export default function OrderDetailScreen() {
   if (!order) {
     return (
       <View style={styles.center}>
+        <StatusBar style="dark" />
         <Text style={styles.muted}>Order not found</Text>
-        <Pressable onPress={() => router.back()} style={styles.btn}>
-          <Text style={styles.btnText}>Go back</Text>
-        </Pressable>
+        <Button label="Go back" onPress={() => router.back()} fullWidth={false} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       <Pressable onPress={() => router.back()} style={styles.backBtn}>
-        <SymbolView
-          name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-          size={20}
-          tintColor={Palette.textPrimary}
-        />
+        <AppSymbol ios="chevron.left" android="arrow-back" size={20} color={Palette.textPrimary} />
       </Pressable>
 
       <Text style={styles.title}>{order.partner.name}</Text>
@@ -71,9 +72,10 @@ export default function OrderDetailScreen() {
       </Text>
 
       <View style={styles.qrWrap}>
-        <QRCode value={order.qr_code} size={200} />
+        <QRCode value={order.qr_code} size={200} color={Palette.primary} />
       </View>
       <Text style={styles.qrHint}>Show this QR at pickup</Text>
+      <Text style={styles.payNote}>Pay at pickup · {formatNprPaisa(order.total_price)}</Text>
     </View>
   );
 }
@@ -82,7 +84,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Palette.background,
-    padding: 20,
+    padding: Spacing.lg,
     paddingTop: 56,
   },
   center: {
@@ -90,70 +92,66 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.background,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    gap: 12,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Radius.pill,
     backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
+    ...FloatingShadow,
   },
   title: {
     fontSize: 24,
-    fontWeight: '900',
-    color: Palette.textPrimary,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 16,
-    color: Palette.textMuted,
-    fontWeight: '600',
-    marginTop: 4,
+    color: Palette.textSecondary,
+    marginTop: Spacing.xs,
+    fontWeight: '500',
   },
   countdown: {
-    fontSize: 14,
-    color: Palette.amber,
+    ...Type.bodyMedium,
+    color: Palette.urgency,
     fontWeight: '800',
-    marginTop: 10,
+    marginTop: Spacing.sm,
   },
   meta: {
-    fontSize: 14,
-    color: Palette.textMuted,
-    fontWeight: '600',
-    marginTop: 6,
-    marginBottom: 20,
+    ...Type.bodyMedium,
+    color: Palette.textSecondary,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
   qrWrap: {
     alignSelf: 'center',
-    padding: 16,
+    padding: Spacing.lg,
     backgroundColor: Palette.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
+    borderRadius: 20,
+    ...FloatingShadow,
   },
   qrHint: {
     textAlign: 'center',
-    marginTop: 12,
-    color: Palette.textMuted,
+    marginTop: Spacing.md,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  payNote: {
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    fontSize: 14,
+    color: Palette.primary,
     fontWeight: '600',
   },
   muted: {
-    color: Palette.textMuted,
-    fontWeight: '600',
-  },
-  btn: {
-    backgroundColor: Palette.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  btnText: {
-    color: Palette.white,
-    fontWeight: '800',
+    ...Type.bodyMedium,
+    color: Palette.textSecondary,
   },
 });

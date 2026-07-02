@@ -1,13 +1,5 @@
-import { Suspense, lazy } from 'react';
+import { Redirect } from 'expo-router';
 
-import { ExploreSkeleton } from '@/components/explore/ExploreSkeleton';
-
-const ExploreMapContent = lazy(() => import('@/components/explore/ExploreMapContent'));
-
-export default function ExploreScreen() {
-  return (
-    <Suspense fallback={<ExploreSkeleton />}>
-      <ExploreMapContent />
-    </Suspense>
-  );
+export default function ExploreRedirect() {
+  return <Redirect href="/(tabs)/customer/explore" />;
 }

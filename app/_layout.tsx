@@ -1,9 +1,10 @@
 import { ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,6 +12,7 @@ import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ScreenErrorBoundary } from '@/components/ui/ScreenErrorBoundary';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useNotificationObserver, usePushTokenRegistration } from '@/hooks/useNotifications';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
 import Colors, { Palette } from '@/constants/Colors';
 
@@ -20,43 +22,48 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(auth)',
+  initialRouteName: 'index',
 };
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch((error) => {
+  console.warn('[boot] preventAutoHideAsync failed:', error);
+});
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  console.log('[boot] layout mounted');
 
   useEffect(() => {
-    initAnalytics();
+    try {
+      initAnalytics();
+    } catch (error) {
+      console.error('[boot] initAnalytics failed:', error);
+    }
   }, []);
 
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+  const hideSplash = useCallback(async () => {
+    try {
+      console.log('[boot] hiding splash');
+      await SplashScreen.hideAsync();
+    } catch (error) {
+      console.error('[boot] SplashScreen.hideAsync failed:', error);
     }
-  }, [loaded]);
+  }, []);
 
-  if (!loaded) {
-    return null;
-  }
+  const onRootLayout = useCallback(() => {
+    void hideSplash();
+  }, [hideSplash]);
 
   return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1 }}>
-        <OfflineBanner />
-        <ScreenErrorBoundary>
-          <RootLayoutNav />
-        </ScreenErrorBoundary>
-      </View>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <View style={{ flex: 1 }} onLayout={onRootLayout}>
+          <OfflineBanner />
+          <ScreenErrorBoundary>
+            <RootLayoutNav />
+          </ScreenErrorBoundary>
+        </View>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -66,6 +73,7 @@ function RootLayoutNav() {
 
   usePushTokenRegistration();
   useNotificationObserver();
+  useUnreadNotifications();
 
   const theme = {
     dark: colorScheme === 'dark',
@@ -74,7 +82,7 @@ function RootLayoutNav() {
       background: colors.background,
       card: colors.card,
       text: colors.text,
-      border: colors.lightGreenBg,
+      border: Palette.borderSubtle,
       notification: Palette.amber,
     },
     fonts: {
@@ -87,14 +95,50 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={theme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="loading" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="(landing)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="bag/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="checkout/[orderId]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="bag/[id]"
+          options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="reserve/[bagId]"
+          options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
+          name="checkout/[orderId]"
+          options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
         <Stack.Screen name="order/confirmed" options={{ headerShown: false }} />
+        <Stack.Screen name="order/confirmed/[orderId]" options={{ headerShown: false }} />
         <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="partner/add-bag" options={{ headerShown: false }} />
+        <Stack.Screen name="review/[orderId]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="partner/add-bag"
+          options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen name="partner/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/edit-bag/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/reactivate" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/edit-business" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/edit-location" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/edit-hours" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/about" options={{ headerShown: false }} />
+        <Stack.Screen name="support/help" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
+        <Stack.Screen name="admin/subscriptions" options={{ title: 'Subscriptions', headerShown: true }} />
         <Stack.Screen name="payment/callback" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>

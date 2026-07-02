@@ -1,40 +1,78 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { memo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AppImage } from '@/components/ui/AppImage';
+import { AppSymbol } from '@/components/ui/AppSymbol';
 import { Palette } from '@/constants/Colors';
-import { formatDistanceKm, formatNprPaisa } from '@/lib/helpers';
+import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { getRescueBagImageUrl } from '@/lib/images';
+import { formatDistanceKm, formatNprPaisa, formatRsPaisa, getInitials } from '@/lib/helpers';
+import { getCategoryPillLabel } from '@/constants/partnerCategories';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { HomeBag } from '@/store/useBagsStore';
 
 type RescueBagCardProps = {
   bag: HomeBag;
   onPress: () => void;
+  onPartnerPress?: () => void;
+  isReserved?: boolean;
 };
 
-export const RescueBagCard = memo(function RescueBagCard({ bag, onPress }: RescueBagCardProps) {
+export const RescueBagCard = memo(function RescueBagCard({
+  bag,
+  onPress,
+  onPartnerPress,
+  isReserved = false,
+}: RescueBagCardProps) {
   const locale = useAuthStore((s) => s.locale);
   const left = Math.max(0, bag.quantity_available - bag.quantity_reserved);
-  const displayTitle =
-    locale === 'np' && bag.title_np ? bag.title_np : bag.title;
+  const soldOut = left <= 0;
+  const displayTitle = locale === 'np' && bag.title_np ? bag.title_np : bag.title;
+  const savingsPaisa = Math.max(0, bag.original_price - bag.rescue_price);
+  const savingsPct =
+    bag.original_price > 0
+      ? Math.round((savingsPaisa / bag.original_price) * 100)
+      : 0;
+  const rating = bag.partner.rating ?? 0;
+  const pickupLabel = `${bag.pickup_start.slice(0, 5)} – ${bag.pickup_end.slice(0, 5)}`;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.95 }]}>
-      <Image
-        source={{
-          uri:
-            bag.partner.cover_image_url ||
-            'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=60',
-        }}
-        style={styles.cardImage}
-      />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, FloatingShadow, pressed && styles.pressed]}>
+      <View style={styles.imageCol}>
+        <AppImage
+          source={{ uri: getRescueBagImageUrl(bag) }}
+          style={styles.image}
+        />
+        {savingsPct > 0 ? (
+          <View style={styles.savingsChip}>
+            <Text style={styles.savingsChipText}>-{savingsPct}%</Text>
+          </View>
+        ) : null}
+        {isReserved ? (
+          <View style={styles.reservedBadge}>
+            <Text style={styles.reservedBadgeText}>Reserved ✓</Text>
+          </View>
+        ) : null}
+      </View>
 
-      <View style={styles.cardBody}>
-        <View style={styles.cardRow}>
-          <Text numberOfLines={1} style={styles.partnerName}>
-            {bag.partner.name}
-          </Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{bag.partner.category}</Text>
+      <View style={styles.body}>
+        <View style={styles.topRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(bag.partner.name)}</Text>
+          </View>
+          <View style={styles.partnerMeta}>
+            <Pressable onPress={onPartnerPress} disabled={!onPartnerPress} hitSlop={6}>
+              <Text numberOfLines={1} style={styles.partnerName}>
+                {bag.partner.name}
+              </Text>
+            </Pressable>
+            <Text numberOfLines={1} style={styles.category}>
+              {getCategoryPillLabel(bag.partner.category, locale)}
+              {rating > 0 ? ` · ★ ${rating.toFixed(1)}` : ''}
+            </Text>
           </View>
         </View>
 
@@ -42,21 +80,46 @@ export const RescueBagCard = memo(function RescueBagCard({ bag, onPress }: Rescu
           {displayTitle}
         </Text>
 
-        <View style={styles.priceRow}>
-          <Text style={styles.originalPrice}>{formatNprPaisa(bag.original_price)}</Text>
-          <Text style={styles.rescuePrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+        <View style={styles.metaRow}>
+          <View style={styles.metaChip}>
+            <AppSymbol ios="clock" android="schedule" size={11} color={Palette.primary} />
+            <Text style={styles.metaChipText}>{pickupLabel}</Text>
+          </View>
+          {bag.distance_km != null ? (
+            <View style={styles.metaChip}>
+              <AppSymbol ios="location" android="place" size={11} color={Palette.primary} />
+              <Text style={styles.metaChipText}>
+                {formatDistanceKm(bag.distance_km).replace(' away', '')}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>
-            {bag.distance_km == null ? 'Distance unknown' : formatDistanceKm(bag.distance_km)}
-          </Text>
-          <Text style={styles.metaDot}>•</Text>
-          <Text style={styles.metaText}>
-            {bag.pickup_start.slice(0, 5)} – {bag.pickup_end.slice(0, 5)}
-          </Text>
-          <Text style={styles.metaDot}>•</Text>
-          <Text style={styles.leftText}>{left} left</Text>
+        <View style={styles.footer}>
+          <View>
+            <Text style={styles.rescuePrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+            {bag.original_price > bag.rescue_price ? (
+              <Text style={styles.originalPrice}>
+                {formatNprPaisa(bag.original_price)}
+                {savingsPaisa > 0 ? ` · save ${formatRsPaisa(savingsPaisa)}` : ''}
+              </Text>
+            ) : null}
+          </View>
+          <View
+            style={[
+              styles.stockPill,
+              soldOut && styles.stockPillSoldOut,
+              !soldOut && left <= 3 && styles.stockPillLow,
+            ]}>
+            <Text
+              style={[
+                styles.stockText,
+                soldOut && styles.stockTextSoldOut,
+                !soldOut && left <= 3 && styles.stockTextLow,
+              ]}>
+              {soldOut ? 'Sold out' : left === 1 ? 'Only 1 left!' : left <= 3 ? `Only ${left} left!` : `${left} left`}
+            </Text>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -65,82 +128,157 @@ export const RescueBagCard = memo(function RescueBagCard({ bag, onPress }: Rescu
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Palette.white,
-    borderRadius: 16,
+    flexDirection: 'row',
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
+    borderColor: Palette.borderSubtle,
+    minHeight: 132,
   },
-  cardImage: {
+  pressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.995 }],
+  },
+  imageCol: {
+    width: 112,
+    position: 'relative',
+  },
+  image: {
     width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: Palette.lightGreenBg,
+    height: '100%',
+    minHeight: 132,
   },
-  cardBody: {
-    padding: 14,
-    gap: 8,
+  savingsChip: {
+    position: 'absolute',
+    top: Spacing.sm,
+    left: Spacing.sm,
+    backgroundColor: Palette.primary,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
   },
-  cardRow: {
+  savingsChipText: {
+    ...Type.label,
+    color: Palette.white,
+    fontWeight: '800',
+  },
+  reservedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#10B981',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  reservedBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Palette.white,
+  },
+  body: {
+    flex: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    justifyContent: 'space-between',
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.sm,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Palette.primaryDark,
+  },
+  partnerMeta: {
+    flex: 1,
+    gap: 1,
   },
   partnerName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
+    ...Type.caption,
+    fontWeight: '700',
     color: Palette.textPrimary,
   },
-  badge: {
-    backgroundColor: Palette.lightGreenBg,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  badgeText: {
-    color: Palette.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'capitalize',
+  category: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '600',
   },
   bagTitle: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '600',
     color: Palette.textPrimary,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 10,
-  },
-  originalPrice: {
-    fontSize: 14,
-    color: Palette.textMuted,
-    textDecorationLine: 'line-through',
-  },
-  rescuePrice: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Palette.primary,
+    lineHeight: 19,
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Spacing.xs,
   },
-  metaText: {
-    fontSize: 12.5,
-    color: Palette.textMuted,
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Palette.primaryLight,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
+  },
+  metaChipText: {
+    ...Type.label,
+    color: Palette.primaryDark,
     fontWeight: '600',
   },
-  metaDot: {
-    color: Palette.textMuted,
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  rescuePrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Palette.primary,
+    letterSpacing: -0.3,
+  },
+  originalPrice: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    textDecorationLine: 'line-through',
+    fontWeight: '500',
+  },
+  stockPill: {
+    backgroundColor: Palette.warningBg,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
+  },
+  stockPillLow: {
+    backgroundColor: '#FEF3C7',
+  },
+  stockPillSoldOut: {
+    backgroundColor: '#F3F4F6',
+  },
+  stockText: {
+    ...Type.label,
+    color: Palette.warning,
     fontWeight: '700',
   },
-  leftText: {
-    fontSize: 12.5,
-    color: Palette.amber,
-    fontWeight: '800',
+  stockTextLow: {
+    color: '#92400E',
+  },
+  stockTextSoldOut: {
+    color: '#6B7280',
   },
 });

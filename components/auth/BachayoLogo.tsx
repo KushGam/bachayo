@@ -1,25 +1,46 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { SymbolView } from 'expo-symbols';
+import { Image, StyleSheet, View, type ImageStyle, type ViewStyle } from 'react-native';
 
-import { Palette } from '@/constants/Colors';
+const logoMark = require('@/assets/images/logo-mark.png');
+const logoMarkLight = require('@/assets/images/logo-mark-light.png');
+
+const SIZES = {
+  lg: 64,
+  sm: 40,
+} as const;
 
 type BachayoLogoProps = {
-  size?: 'sm' | 'lg';
+  /** lg = 64px (welcome/auth), sm = 40px (headers/nav) */
+  size?: keyof typeof SIZES;
+  /** dark = white mark on transparent (for terracotta/dark heroes) */
+  variant?: 'light' | 'dark';
+  style?: ViewStyle;
+  imageStyle?: ImageStyle;
 };
 
-export function BachayoLogo({ size = 'lg' }: BachayoLogoProps) {
-  const isLarge = size === 'lg';
+export function BachayoLogo({
+  size = 'lg',
+  variant = 'light',
+  style,
+  imageStyle,
+}: BachayoLogoProps) {
+  const dimension = SIZES[size];
+  const source = variant === 'dark' ? logoMarkLight : logoMark;
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.iconWrap, isLarge ? styles.iconWrapLg : styles.iconWrapSm]}>
-        <SymbolView
-          name={{ ios: 'leaf.fill', android: 'eco', web: 'eco' }}
-          tintColor={Palette.primary}
-          size={isLarge ? 40 : 28}
-        />
-      </View>
-      <Text style={[styles.wordmark, isLarge ? styles.wordmarkLg : styles.wordmarkSm]}>बचायो</Text>
+    <View style={[styles.container, style]}>
+      <Image
+        source={source}
+        style={[
+          {
+            width: dimension,
+            height: dimension,
+            borderRadius: variant === 'light' ? dimension * 0.22 : 0,
+          },
+          imageStyle,
+        ]}
+        resizeMode="contain"
+        accessibilityLabel="Bachayo"
+      />
     </View>
   );
 }
@@ -27,31 +48,6 @@ export function BachayoLogo({ size = 'lg' }: BachayoLogoProps) {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    gap: 12,
-  },
-  iconWrap: {
-    backgroundColor: Palette.lightGreenBg,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconWrapLg: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  iconWrapSm: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  wordmark: {
-    color: Palette.textPrimary,
-    fontWeight: '700',
-  },
-  wordmarkLg: {
-    fontSize: 42,
-  },
-  wordmarkSm: {
-    fontSize: 28,
   },
 });

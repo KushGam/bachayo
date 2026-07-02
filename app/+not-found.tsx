@@ -1,11 +1,15 @@
 import { Link, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Palette } from '@/constants/Colors';
+import { Spacing, Type } from '@/constants/theme';
 
 export default function NotFoundScreen() {
   return (
     <>
+      <StatusBar style="dark" />
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View style={styles.container}>
         <Text style={styles.title}>This screen doesn't exist.</Text>
@@ -23,18 +27,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: Spacing.lg,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    ...Type.h1,
   },
   link: {
-    marginTop: 15,
-    paddingVertical: 15,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
   },
   linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
+    ...Type.bodyMedium,
+    color: Palette.primary,
   },
 });

@@ -1,9 +1,18 @@
 import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { DismissKeyboardView } from '@/components/ui/DismissKeyboardView';
+import { Palette } from '@/constants/Colors';
+import { Spacing } from '@/constants/theme';
 
 type ScreenProps = {
   children: ReactNode;
@@ -19,8 +28,7 @@ export function Screen({
   contentContainerStyle,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const backgroundColor = Colors[colorScheme].background;
+  const backgroundColor = Palette.background;
 
   const containerStyle = [
     styles.container,
@@ -34,24 +42,42 @@ export function Screen({
 
   if (scrollable) {
     return (
-      <ScrollView
-        style={containerStyle}
-        contentContainerStyle={[styles.content, contentContainerStyle]}
-        showsVerticalScrollIndicator={false}>
-        {children}
-      </ScrollView>
+      <View style={containerStyle}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.content, contentContainerStyle]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
+            onScrollBeginDrag={Keyboard.dismiss}>
+            {children}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
     );
   }
 
-  return <View style={[containerStyle, styles.content, contentContainerStyle]}>{children}</View>;
+  return (
+    <DismissKeyboardView style={containerStyle}>
+      <View style={[styles.content, contentContainerStyle]}>{children}</View>
+    </DismissKeyboardView>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  flex: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 100,
   },
 });

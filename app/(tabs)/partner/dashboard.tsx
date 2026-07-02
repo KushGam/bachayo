@@ -1,6 +1,6 @@
-import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -9,39 +9,64 @@ import {
   Text,
   View,
 } from 'react-native';
-import { PartnerCard } from '@/components/cards/PartnerCard';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ActiveBagMiniCard } from '@/components/partner/ActiveBagMiniCard';
+import { DashboardCtaCard } from '@/components/partner/DashboardCtaCard';
+import { buildDashboardStats, DashboardStatsRow } from '@/components/partner/DashboardStatsRow';
+import { PartnerEmptyState } from '@/components/partner/PartnerEmptyState';
+import { PartnerOrderRow } from '@/components/partner/PartnerOrderRow';
+import { PartnerSectionHeader } from '@/components/partner/PartnerSectionHeader';
+import { SubscriptionBanner } from '@/components/partner/SubscriptionBanner';
+import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
+import { getCategoryById } from '@/constants/partnerCategories';
+import { useAuthStore } from '@/store/useAuthStore';
 import { RetryState } from '@/components/ui/RetryState';
-import { StatsSkeleton } from '@/components/ui/Skeleton';
+import { OrderCardSkeleton, StatsSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
-import { formatNprPaisa, getTodayIsoDateLocal } from '@/lib/helpers';
-import { fetchPartnerOrders } from '@/lib/orders';
+import { Spacing } from '@/constants/theme';
+import {
+  formatTodayBilingual,
+  getGreeting,
+  getTodayIsoDateLocal,
+  getYesterdayIsoDateLocal,
+} from '@/lib/helpers';
+import { hapticButtonPress } from '@/lib/haptics';
+import { isReservedOrderStatus } from '@/lib/orderStatus';
+import { fetchPartnerDayStats, fetchPartnerOrders } from '@/lib/orders';
+import { getTrialDaysRemaining, type PartnerSubscriptionFields } from '@/lib/subscriptions';
+import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import type { PartnerOrderWithCustomer } from '@/types/app';
-import type { Partner } from '@/types/database';
+import type { Partner, RescueBag } from '@/types/database';
 
-type TodayStats = {
-  bagsListed: number;
-  reserved: number;
-  pickedUp: number;
-  revenue: number;
-};
+function truncateName(name: string, max = 15) {
+  const trimmed = name.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
 
 export default function PartnerDashboardScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const locale = useAuthStore((s) => s.locale);
   const [partner, setPartner] = useState<Partner | null>(null);
+  const [bags, setBags] = useState<RescueBag[]>([]);
   const [orders, setOrders] = useState<PartnerOrderWithCustomer[]>([]);
-  const [stats, setStats] = useState<TodayStats>({
+  const [todayStats, setTodayStats] = useState({
     bagsListed: 0,
     reserved: 0,
     pickedUp: 0,
     revenue: 0,
   });
+  const [yesterdayStats, setYesterdayStats] = useState<typeof todayStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const today = getTodayIsoDateLocal();
+  const yesterday = getYesterdayIsoDateLocal();
+  const dates = useMemo(() => formatTodayBilingual(), []);
 
   const loadData = useCallback(async () => {
     setFetchError(null);
@@ -60,9 +85,9 @@ export default function PartnerDashboardScreen() {
         .maybeSingle();
 
       if (partnerError) throw partnerError;
-
       if (!partnerData) {
         setPartner(null);
+        setBags([]);
         setOrders([]);
         setLoading(false);
         return;
@@ -70,57 +95,78 @@ export default function PartnerDashboardScreen() {
 
       setPartner(partnerData);
 
-      const [{ data: bags }, orderRows] = await Promise.all([
+      const [bagsRes, orderRows, statsToday, statsYesterday] = await Promise.all([
         supabase
           .from('rescue_bags')
-          .select('id, quantity_available, quantity_reserved, rescue_price, status')
+          .select('*')
           .eq('partner_id', partnerData.id)
-          .eq('available_date', today),
+          .eq('available_date', today)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false }),
         fetchPartnerOrders(partnerData.id, today),
+        fetchPartnerDayStats(partnerData.id, today),
+        fetchPartnerDayStats(partnerData.id, yesterday),
       ]);
 
-      const bagList = bags ?? [];
-      const reserved = bagList.reduce((sum, b) => sum + b.quantity_reserved, 0);
-      const pickedUp = orderRows.filter((o) => o.status === 'picked_up').length;
-      const revenue = orderRows
-        .filter((o) => o.status === 'paid' || o.status === 'picked_up')
-        .reduce((sum, o) => sum + o.total_price, 0);
+      if (bagsRes.error) throw bagsRes.error;
 
-      setStats({
-        bagsListed: bagList.length,
-        reserved,
-        pickedUp,
-        revenue,
-      });
+      setBags(bagsRes.data ?? []);
       setOrders(orderRows);
+      setTodayStats(statsToday);
+      setYesterdayStats(statsYesterday);
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, yesterday]);
+
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   useEffect(() => {
-    if (!partner) return;
+    if (!partner?.id) return;
 
-    const channel = supabase
-      .channel('partner-dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        loadData();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rescue_bags' }, () => {
-        loadData();
-      })
-      .subscribe();
+    const channelName = `partner-dashboard-${partner.id}`;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await subscribePostgresChannel(
+          supabase,
+          channelName,
+          [
+            {
+              table: 'orders',
+              callback: () => {
+                void loadDataRef.current();
+              },
+            },
+            {
+              table: 'rescue_bags',
+              callback: () => {
+                void loadDataRef.current();
+              },
+            },
+          ],
+          () => cancelled,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('[dashboard] realtime subscribe failed:', error);
+        }
+      }
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      void removeChannelByName(supabase, channelName);
     };
-  }, [partner, loadData]);
+  }, [partner?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -129,20 +175,40 @@ export default function PartnerDashboardScreen() {
   };
 
   const statCards = useMemo(
-    () => [
-      { label: 'Bags listed', value: String(stats.bagsListed) },
-      { label: 'Reserved', value: String(stats.reserved) },
-      { label: 'Picked up', value: String(stats.pickedUp) },
-      { label: 'Revenue', value: formatNprPaisa(stats.revenue) },
-    ],
-    [stats],
+    () => buildDashboardStats({ ...todayStats, yesterday: yesterdayStats ?? undefined }),
+    [todayStats, yesterdayStats],
   );
+
+  const activeOrders = orders.filter((o) => isReservedOrderStatus(o.status)).length;
+
+  const handleOrderPickedUp = useCallback((orderId: string) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId
+          ? { ...order, status: 'picked_up', picked_up_at: new Date().toISOString() }
+          : order,
+      ),
+    );
+    void loadDataRef.current();
+  }, []);
+  const categoryMeta = partner ? getCategoryById(partner.category) : null;
+
+  const subscriptionStatus =
+    (partner as (Partner & PartnerSubscriptionFields) | null)?.subscription_status ?? 'trial';
+  const trialDaysLeft = getTrialDaysRemaining(
+    (partner as (Partner & PartnerSubscriptionFields) | null)?.trial_ends_at,
+  );
+  const showOverlapBanner =
+    partner &&
+    (subscriptionStatus === 'past_due' ||
+      subscriptionStatus === 'paused' ||
+      (subscriptionStatus === 'trial' && trialDaysLeft <= 7));
 
   if (!loading && !partner) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Partner dashboard</Text>
-        <Text style={styles.emptyText}>Complete partner onboarding to access this screen.</Text>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.fallback}>
+        <StatusBar style="dark" />
+        <Text style={styles.fallbackTitle}>Complete onboarding to access your dashboard.</Text>
       </ScrollView>
     );
   }
@@ -154,62 +220,128 @@ export default function PartnerDashboardScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
       }>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Today</Text>
-          <Text style={styles.subtitle}>{partner?.name ?? 'Loading…'}</Text>
-        </View>
-        <Pressable
-          onPress={() => router.push('/(tabs)/partner/scan')}
-          style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.9 }]}>
-          <SymbolView
-            name={{ ios: 'qrcode.viewfinder', android: 'qr_code_scanner', web: 'qr_code_scanner' }}
-            size={20}
-            tintColor={Palette.white}
+      <StatusBar style="light" />
+
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerCopy}>
+            {categoryMeta ? (
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryBadgeText}>
+                  {categoryMeta.icon} {locale === 'np' ? categoryMeta.labelNp : categoryMeta.label}
+                </Text>
+              </View>
+            ) : null}
+            <Text style={styles.greeting}>
+              {getGreeting()}, {truncateName(partner?.name ?? 'there')} 👋
+            </Text>
+            <Text style={styles.dateEn}>{dates.en}</Text>
+          </View>
+
+          <NotificationBellBadge
+            onPress={() => {
+              void hapticButtonPress();
+              router.push('/notifications');
+            }}
           />
-          <Text style={styles.scanBtnText}>Scan</Text>
-        </Pressable>
+        </View>
+
+        {partner ? <SubscriptionBanner partner={partner} placement="inHeader" /> : null}
       </View>
+
+      {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
       {loading ? (
-        <StatsSkeleton />
+        <View style={[styles.statsSkeleton, showOverlapBanner && styles.statsSkeletonOverlap]}>
+          <StatsSkeleton />
+        </View>
       ) : (
-      <View style={styles.statsGrid}>
-        {statCards.map((card) => (
-          <View key={card.label} style={styles.statCard}>
-            <Text style={styles.statValue}>{card.value}</Text>
-            <Text style={styles.statLabel}>{card.label}</Text>
-          </View>
-        ))}
-      </View>
+        <View style={showOverlapBanner ? styles.statsOverlapOffset : undefined}>
+          <DashboardStatsRow stats={statCards} />
+        </View>
       )}
 
-      {fetchError ? <RetryState message={fetchError} onRetry={loadData} /> : null}
-
-      {!loading && partner && stats.bagsListed === 0 ? (
-        <EmptyState
-          title="Add your first rescue bag for today"
-          actionLabel="Add bag"
-          onAction={() => router.push('/partner/add-bag')}
-        />
+      {fetchError ? (
+        <View style={styles.retryWrap}>
+          <RetryState message={fetchError} onRetry={loadData} />
+        </View>
       ) : null}
 
-      <Pressable
-        onPress={() => router.push('/partner/add-bag')}
-        style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.9 }]}>
-        <SymbolView
-          name={{ ios: 'plus.circle.fill', android: 'add_circle', web: 'add_circle' }}
-          size={20}
-          tintColor={Palette.primary}
+      {partner ? (
+        <DashboardCtaCard
+          category={partner.category}
+          onPress={() => router.push('/partner/add-bag')}
         />
-        <Text style={styles.addBtnText}>Add rescue bag for today</Text>
-      </Pressable>
+      ) : loading ? (
+        <View style={styles.ctaSkeleton} />
+      ) : null}
 
-      <Text style={styles.sectionTitle}>Today&apos;s orders</Text>
-      {orders.length === 0 ? (
-        <Text style={styles.emptyText}>{loading ? 'Loading…' : 'No orders yet today'}</Text>
+      <PartnerSectionHeader
+        title="Active today"
+        count={bags.length}
+        actionLabel={bags.length > 0 ? 'Manage' : undefined}
+        onAction={bags.length > 0 ? () => router.push('/(tabs)/partner/my-bags') : undefined}
+      />
+
+      {loading ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
+          <View style={styles.miniSkeleton} />
+          <View style={styles.miniSkeleton} />
+        </ScrollView>
+      ) : bags.length === 0 ? (
+        <PartnerEmptyState
+          emoji="🛍"
+          title="No bags listed today"
+          subtitle="Tap the card above to list your first bag"
+          dashed
+          compact
+        />
       ) : (
-        orders.map((item) => <PartnerCard key={item.id} order={item} />)
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
+          {bags.map((bag) => (
+            <ActiveBagMiniCard key={bag.id} bag={bag} />
+          ))}
+          <Pressable
+            onPress={() => {
+              void hapticButtonPress();
+              router.push('/partner/add-bag');
+            }}
+            style={styles.addAnother}>
+            <Text style={styles.addAnotherPlus}>+</Text>
+            <Text style={styles.addAnotherText}>Add another bag</Text>
+          </Pressable>
+        </ScrollView>
+      )}
+
+      <PartnerSectionHeader
+        title="Orders"
+        count={activeOrders > 0 ? activeOrders : undefined}
+        countSuffix={activeOrders === 1 ? 'active' : 'active'}
+      />
+
+      {loading ? (
+        <View style={styles.ordersSkeleton}>
+          <OrderCardSkeleton />
+          <OrderCardSkeleton />
+        </View>
+      ) : orders.length === 0 ? (
+        <PartnerEmptyState
+          emoji="🍽"
+          emojiInCircle
+          title="No orders yet today"
+          subtitle={'List a bag and customers\nnearby can start reserving'}
+        />
+      ) : (
+        orders.map((order) => (
+          <PartnerOrderRow
+            key={order.id}
+            order={order}
+            partnerName={partner?.name}
+            onPickupComplete={loadData}
+            onOrderPickedUp={handleOrderPickedUp}
+            onScan={() => router.push('/(tabs)/partner/scan')}
+          />
+        ))
       )}
     </ScrollView>
   );
@@ -221,137 +353,136 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.background,
   },
   container: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 16,
+  fallback: {
+    padding: Spacing.xl,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: Palette.textPrimary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Palette.textMuted,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  scanBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  header: {
     backgroundColor: Palette.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
   },
-  scanBtnText: {
-    color: Palette.white,
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  statsGrid: {
+  headerTopRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: Palette.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    padding: 14,
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Palette.textPrimary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Palette.textMuted,
-    fontWeight: '700',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Palette.lightGreenBg,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-  },
-  addBtnText: {
-    color: Palette.primary,
-    fontWeight: '800',
-    fontSize: 15,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: Palette.textPrimary,
-    marginBottom: 12,
-  },
-  orderCard: {
-    backgroundColor: Palette.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    padding: 14,
-    marginBottom: 10,
-    gap: 6,
-  },
-  orderTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 12,
   },
-  customerName: {
+  headerCopy: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '800',
-    color: Palette.textPrimary,
   },
-  qrStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 6,
   },
-  qrStatusPending: {
-    backgroundColor: '#FEF3C7',
+  categoryBadgeText: {
+    fontSize: 12,
+    color: Palette.white,
+    fontWeight: '600',
   },
-  qrStatusDone: {
-    backgroundColor: Palette.lightGreenBg,
+  greeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Palette.white,
+    lineHeight: 26,
   },
-  qrStatusText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  qrStatusTextPending: {
-    color: Palette.amber,
-  },
-  qrStatusTextDone: {
-    color: Palette.primary,
-  },
-  orderMeta: {
+  dateEn: {
     fontSize: 13,
-    color: Palette.textMuted,
-    fontWeight: '600',
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 8,
+    fontWeight: '500',
   },
-  emptyText: {
-    color: Palette.textMuted,
-    fontWeight: '600',
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: Palette.primary,
+  },
+  statsOverlapOffset: {
+    marginTop: 12,
+  },
+  statsSkeleton: {
+    marginHorizontal: 16,
+    marginTop: -20,
+  },
+  statsSkeletonOverlap: {
+    marginTop: 12,
+  },
+  retryWrap: {
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  ctaSkeleton: {
+    height: 88,
+    borderRadius: 20,
+    backgroundColor: Palette.imagePlaceholder,
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  hScroll: {
+    paddingLeft: 16,
+    paddingRight: 6,
+  },
+  miniSkeleton: {
+    width: 168,
+    height: 150,
+    borderRadius: 16,
+    backgroundColor: Palette.imagePlaceholder,
+    marginRight: 10,
+  },
+  addAnother: {
+    width: 120,
+    minHeight: 150,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F0EDE8',
+    backgroundColor: Palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginRight: 16,
+  },
+  addAnotherPlus: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Palette.primary,
+    lineHeight: 28,
+  },
+  addAnotherText: {
+    fontSize: 12,
+    color: Palette.primary,
+    fontWeight: '700',
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingHorizontal: 8,
+  },
+  ordersSkeleton: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  fallbackTitle: {
+    fontSize: 15,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.xxxl,
   },
 });

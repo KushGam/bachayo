@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { callSendNotification } from '@/lib/notifications';
+import { partnerBagExpiring } from '@/lib/notification-messages';
+import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
 function verifyCronRequest(request: NextRequest) {
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const { data: bags, error } = await supabase
       .from('rescue_bags')
-      .select('id, partner_id, pickup_end, quantity_available, quantity_reserved')
+      .select('id, partner_id, title, pickup_end, quantity_available, quantity_reserved')
       .eq('status', 'active')
       .eq('available_date', today);
 
@@ -81,11 +82,14 @@ export async function GET(request: NextRequest) {
       if (!partner?.user_id) continue;
 
       try {
-        const result = await callSendNotification(
-          partner.user_id,
-          'Bags expiring soon',
-          `Your bag expires in 1 hour — ${remaining} still available`,
-        );
+        const payload = partnerBagExpiring({
+          bagId: bag.id,
+          partnerId: bag.partner_id,
+          bagTitle: bag.title,
+          remaining,
+          pickupEnd: bag.pickup_end,
+        });
+        const result = await sendNotificationPayload(partner.user_id, payload);
         if (result.success) {
           notified += 1;
         } else if (result.error) {

@@ -1,8 +1,8 @@
-import { SymbolView } from 'expo-symbols';
+import { AppSymbol } from '@/components/ui/AppSymbol';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -10,15 +10,23 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 
+import { AppImage } from '@/components/ui/AppImage';
+import { Button } from '@/components/ui/Button';
 import { BagCardSkeleton } from '@/components/ui/Skeleton';
 import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
+import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { track } from '@/lib/analytics';
-import { formatNprPaisa, parsePickupDateTimeLocal } from '@/lib/helpers';
+import { getRescueBagImageUrl } from '@/lib/images';
+import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
+import { findActiveReservationForBag } from '@/lib/reservations';
 import { supabase } from '@/lib/supabase';
 import type { RescueBagWithPartner } from '@/types/app';
+
+type ExistingReservation = {
+  id: string;
+};
 
 function maybeGetCategoryBundle(category: string) {
   switch (category) {
@@ -30,10 +38,8 @@ function maybeGetCategoryBundle(category: string) {
       return 'Sandwiches, coffee, baked goods';
     case 'hotel':
       return 'Buffet items, curries, rice, desserts';
-    case 'dhaba':
-      return 'Momo, chowmein, thukpa, snacks';
-    case 'supermarket':
-      return 'Ready-to-eat, salads, bakery items';
+    case 'mart':
+      return 'Ready-to-eat, snacks, groceries';
     default:
       return 'A tasty surprise mix';
   }
@@ -48,12 +54,17 @@ export default function RescueBagDetailScreen() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [existingOrder, setExistingOrder] = useState<ExistingReservation | null>(null);
+
+  const remaining = useMemo(() => {
+    if (!bag) return 0;
+    return Math.max(0, bag.quantity_available - bag.quantity_reserved);
+  }, [bag]);
 
   const maxQty = useMemo(() => {
     if (!bag) return 1;
-    const left = Math.max(0, bag.quantity_available - bag.quantity_reserved);
-    return Math.max(1, Math.min(3, left));
-  }, [bag]);
+    return Math.max(1, Math.min(3, remaining));
+  }, [bag, remaining]);
 
   useEffect(() => {
     setQuantity((q) => Math.min(q, maxQty));
@@ -71,10 +82,20 @@ export default function RescueBagDetailScreen() {
         .eq('id', id)
         .maybeSingle();
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+
       if (!error && data) {
         const bagData = data as unknown as RescueBagWithPartner;
         setBag(bagData);
         track('bag_viewed', { bag_id: id, partner_id: bagData.partner_id });
+
+        if (userId) {
+          const active = await findActiveReservationForBag(userId, id);
+          setExistingOrder(active ? { id: active.id } : null);
+        } else {
+          setExistingOrder(null);
+        }
       } else if (error) {
         setFetchError(error.message);
       }
@@ -89,14 +110,10 @@ export default function RescueBagDetailScreen() {
     return { save, pct };
   }, [bag]);
 
-  const totalRescuePrice = useMemo(() => {
-    if (!bag) return 0;
-    return bag.rescue_price * quantity;
-  }, [bag, quantity]);
-
   if (loading && !bag) {
     return (
       <View style={styles.loadingWrap}>
+        <StatusBar style="dark" />
         <BagCardSkeleton />
       </View>
     );
@@ -105,6 +122,7 @@ export default function RescueBagDetailScreen() {
   if (fetchError) {
     return (
       <View style={styles.loadingWrap}>
+        <StatusBar style="dark" />
         <RetryState message={fetchError} onRetry={() => setReloadKey((k) => k + 1)} />
       </View>
     );
@@ -113,67 +131,59 @@ export default function RescueBagDetailScreen() {
   if (!bag) {
     return (
       <View style={styles.loadingWrap}>
+        <StatusBar style="dark" />
         <Text style={styles.loadingText}>Bag not found</Text>
-        <Pressable onPress={() => router.back()} style={styles.backFallback}>
-          <Text style={styles.backFallbackText}>Go back</Text>
-        </Pressable>
+        <Button label="Go back" onPress={() => router.back()} fullWidth={false} />
       </View>
     );
   }
 
   const pickupStart = bag.pickup_start.slice(0, 5);
   const pickupEnd = bag.pickup_end.slice(0, 5);
+  const pickupLabel = `Pickup ${formatTime12h(bag.pickup_start)}–${formatTime12h(bag.pickup_end)} today`;
+  const soldOut = remaining <= 0;
 
   return (
     <View style={styles.screen}>
+      <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 1) Hero image */}
         <View style={styles.heroWrap}>
-          <Image
-            source={{
-              uri:
-                bag.partner.cover_image_url ||
-                'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=60',
-            }}
+          <AppImage
+            source={{ uri: getRescueBagImageUrl(bag) }}
             style={styles.heroImage}
+            aspectRatio={16 / 9}
           />
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [styles.heroBack, pressed && { opacity: 0.85 }]}>
-            <SymbolView
-              name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-              size={20}
-              tintColor={Palette.textPrimary}
-            />
+            <AppSymbol ios="chevron.left" android="arrow-back" size={20} color={Palette.textPrimary} />
           </Pressable>
         </View>
 
-        {/* 2) Partner info row */}
         <View style={styles.partnerRow}>
-          <View style={styles.partnerLogo}>
-            <Text style={styles.partnerLogoText}>
-              {(bag.partner.name?.[0] || 'B').toUpperCase()}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.partnerName}>{bag.partner.name}</Text>
-            <View style={styles.partnerMetaRow}>
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>{bag.partner.category}</Text>
-              </View>
-              <View style={styles.ratingRow}>
-                <SymbolView
-                  name={{ ios: 'star.fill', android: 'star', web: 'star' }}
-                  size={14}
-                  tintColor={Palette.amber}
-                />
-                <Text style={styles.ratingText}>{bag.partner.rating.toFixed(1)}</Text>
+          <Pressable
+            onPress={() => router.push(`/partner/${bag.partner_id}`)}
+            style={({ pressed }) => [styles.partnerRowInner, pressed && { opacity: 0.92 }]}>
+            <View style={styles.partnerLogo}>
+              <Text style={styles.partnerLogoText}>
+                {(bag.partner.name?.[0] || 'B').toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.partnerName}>{bag.partner.name}</Text>
+              <View style={styles.partnerMetaRow}>
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>{bag.partner.category}</Text>
+                </View>
+                <View style={styles.ratingRow}>
+                  <AppSymbol ios="star.fill" android="star" size={14} color={Palette.amber} />
+                  <Text style={styles.ratingText}>{bag.partner.rating.toFixed(1)}</Text>
+                </View>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
 
-        {/* 3) Bag info */}
         <View style={styles.section}>
           <Text style={styles.title}>{bag.title}</Text>
           {bag.description ? <Text style={styles.description}>{bag.description}</Text> : null}
@@ -184,44 +194,20 @@ export default function RescueBagDetailScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <SymbolView
-              name={{ ios: 'clock', android: 'schedule', web: 'schedule' }}
-              size={18}
-              tintColor={Palette.primary}
-            />
+            <AppSymbol ios="clock" android="schedule" size={18} color={Palette.primary} />
             <Text style={styles.infoRowText}>
               Pickup: {pickupStart} – {pickupEnd}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
-            <SymbolView
-              name={{ ios: 'mappin.and.ellipse', android: 'place', web: 'place' }}
-              size={18}
-              tintColor={Palette.primary}
-            />
+            <AppSymbol ios="mappin.and.ellipse" android="place" size={18} color={Palette.primary} />
             <Text style={styles.infoRowText}>{bag.partner.address || 'Address not set'}</Text>
           </View>
 
-          {/* Map thumbnail */}
           {Platform.OS !== 'web' ? (
-            <View style={styles.mapThumbWrap}>
-              <MapView
-                style={styles.mapThumb}
-                pointerEvents="none"
-                region={{
-                  latitude: bag.partner.latitude,
-                  longitude: bag.partner.longitude,
-                  latitudeDelta: 0.02,
-                  longitudeDelta: 0.02,
-                }}>
-                <Marker
-                  coordinate={{
-                    latitude: bag.partner.latitude,
-                    longitude: bag.partner.longitude,
-                  }}
-                />
-              </MapView>
+            <View style={styles.mapFallback}>
+              <Text style={styles.mapFallbackText}>Map preview needs a development build</Text>
             </View>
           ) : (
             <View style={styles.mapFallback}>
@@ -230,7 +216,6 @@ export default function RescueBagDetailScreen() {
           )}
         </View>
 
-        {/* 4) Price block */}
         <View style={styles.priceBlock}>
           <View style={styles.priceTop}>
             <Text style={styles.originalPrice}>{formatNprPaisa(bag.original_price)}</Text>
@@ -245,7 +230,6 @@ export default function RescueBagDetailScreen() {
           <Text style={styles.rescuePrice}>{formatNprPaisa(bag.rescue_price)}</Text>
         </View>
 
-        {/* 5) Quantity selector */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quantity</Text>
           <View style={styles.qtyRow}>
@@ -269,21 +253,53 @@ export default function RescueBagDetailScreen() {
               );
             })}
             <Text style={styles.qtyHint}>
-              {Math.max(0, bag.quantity_available - bag.quantity_reserved)} left today
+              {remaining} left today
             </Text>
           </View>
+          {soldOut ? (
+            <View style={styles.soldOutBadge}>
+              <Text style={styles.soldOutBadgeText}>Sold out</Text>
+            </View>
+          ) : remaining === 1 ? (
+            <View style={styles.lowStockBadge}>
+              <Text style={styles.lowStockBadgeText}>Only 1 left!</Text>
+            </View>
+          ) : remaining <= 3 ? (
+            <View style={styles.lowStockBadge}>
+              <Text style={styles.lowStockBadgeText}>Only {remaining} left!</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* 6) Sticky bottom bar */}
       <View style={styles.stickyBar}>
-        <Pressable
-          onPress={() => router.push(`/checkout/new?bagId=${bag.id}&qty=${quantity}`)}
-          style={({ pressed }) => [styles.reserveBtn, pressed && { opacity: 0.9 }]}>
-          <Text style={styles.reserveBtnText}>Reserve for {formatNprPaisa(totalRescuePrice)}</Text>
-        </Pressable>
+        <Text style={styles.stickyPrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+        {existingOrder ? (
+          <Pressable
+            onPress={() => router.push(`/order/${existingOrder.id}`)}
+            style={({ pressed }) => [styles.reservedCard, pressed && { opacity: 0.92 }]}>
+            <View style={styles.reservedCheck}>
+              <Text style={styles.reservedCheckText}>✓</Text>
+            </View>
+            <View style={styles.reservedCopy}>
+              <Text style={styles.reservedTitle}>You already reserved this bag!</Text>
+              <Text style={styles.reservedSubtitle}>{pickupLabel}</Text>
+            </View>
+            <Text style={styles.reservedLink}>View →</Text>
+          </Pressable>
+        ) : soldOut ? (
+          <View style={styles.soldOutBtn}>
+            <Text style={styles.soldOutBtnText}>Sold out</Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => router.push(`/reserve/${bag.id}`)}
+            style={({ pressed }) => [styles.reserveBtn, pressed && { opacity: 0.92 }]}>
+            <Text style={styles.reserveBtnText}>Reserve this bag →</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -295,35 +311,24 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.background,
   },
   content: {
-    paddingBottom: 16,
+    paddingBottom: Spacing.lg,
   },
   loadingWrap: {
     flex: 1,
     backgroundColor: Palette.background,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    gap: 12,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   loadingText: {
-    color: Palette.textMuted,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  backFallback: {
-    backgroundColor: Palette.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  backFallbackText: {
-    color: Palette.white,
-    fontWeight: '700',
+    ...Type.bodyMedium,
+    color: Palette.textSecondary,
   },
   heroWrap: {
     width: '100%',
     aspectRatio: 16 / 9,
-    backgroundColor: Palette.lightGreenBg,
+    backgroundColor: Palette.imagePlaceholder,
   },
   heroImage: {
     width: '100%',
@@ -331,244 +336,325 @@ const styles = StyleSheet.create({
   },
   heroBack: {
     position: 'absolute',
-    top: 14,
-    left: 14,
+    top: Spacing.md,
+    left: Spacing.md,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: Radius.pill,
     backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
+    borderWidth: Border.width,
+    borderColor: Palette.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   partnerRow: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  partnerRowInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    gap: Spacing.md,
   },
   partnerLogo: {
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: Radius.pill,
     backgroundColor: Palette.lightGreenBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   partnerLogoText: {
     color: Palette.primary,
-    fontWeight: '900',
-    fontSize: 18,
+    ...Type.h2,
   },
   partnerName: {
     color: Palette.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
+    ...Type.h2,
   },
   partnerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 6,
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   categoryBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.pill,
     backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
+    borderWidth: Border.width,
+    borderColor: Palette.border,
   },
   categoryBadgeText: {
-    color: Palette.primary,
-    fontSize: 12,
+    color: Palette.primaryDark,
+    ...Type.label,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.xs,
   },
   ratingText: {
-    color: Palette.textMuted,
+    color: Palette.textSecondary,
+    ...Type.caption,
     fontWeight: '700',
-    fontSize: 13,
   },
   section: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
+    ...Type.h1,
     color: Palette.textPrimary,
-    marginBottom: 6,
+    marginBottom: Spacing.xs,
   },
   description: {
-    color: Palette.textMuted,
-    fontSize: 14.5,
-    lineHeight: 22,
-    marginBottom: 12,
+    ...Type.body,
+    color: Palette.textSecondary,
+    marginBottom: Spacing.md,
   },
   infoCard: {
     backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    gap: 6,
+    borderRadius: 20,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+    ...FloatingShadow,
   },
   infoLabel: {
-    color: Palette.textMuted,
-    fontSize: 12.5,
-    fontWeight: '700',
+    ...Type.label,
+    color: Palette.textSecondary,
   },
   infoValue: {
-    color: Palette.textPrimary,
-    fontSize: 14.5,
+    ...Type.bodyMedium,
     fontWeight: '700',
+    color: Palette.textPrimary,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   infoRowText: {
+    ...Type.bodyMedium,
     color: Palette.textPrimary,
-    fontSize: 14.5,
-    fontWeight: '600',
     flex: 1,
   },
   mapThumbWrap: {
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    marginTop: 10,
+    borderWidth: Border.width,
+    borderColor: Palette.border,
+    marginTop: Spacing.sm,
   },
   mapThumb: {
     height: 140,
     width: '100%',
   },
   mapFallback: {
-    marginTop: 10,
+    marginTop: Spacing.sm,
     height: 120,
-    borderRadius: 16,
-    backgroundColor: Palette.lightGreenBg,
+    borderRadius: Radius.lg,
+    backgroundColor: Palette.imagePlaceholder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mapFallbackText: {
-    color: Palette.textMuted,
-    fontWeight: '600',
+    ...Type.bodyMedium,
+    color: Palette.textSecondary,
   },
   priceBlock: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    padding: 14,
-    borderRadius: 16,
+    marginTop: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: 20,
     backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    gap: 10,
+    gap: Spacing.sm,
+    ...FloatingShadow,
   },
   priceTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: Spacing.sm,
   },
   originalPrice: {
-    color: Palette.textMuted,
-    fontSize: 14,
-    fontWeight: '700',
+    ...Type.bodyMedium,
+    color: Palette.textSecondary,
     textDecorationLine: 'line-through',
   },
   rescuePrice: {
+    ...Type.display,
     color: Palette.primary,
-    fontSize: 28,
-    fontWeight: '900',
   },
   saveBadge: {
     backgroundColor: Palette.lightGreenBg,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   saveBadgeText: {
-    color: Palette.primary,
-    fontSize: 12,
+    color: Palette.primaryDark,
+    ...Type.label,
     fontWeight: '800',
   },
   sectionTitle: {
-    color: Palette.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: Spacing.sm,
   },
   qtyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   qtyPill: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 22,
     backgroundColor: Palette.white,
-    borderWidth: 1.5,
-    borderColor: Palette.lightGreenBg,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtyPillActive: {
-    backgroundColor: Palette.lightGreenBg,
+    backgroundColor: Palette.primary,
     borderColor: Palette.primary,
   },
   qtyPillDisabled: {
     opacity: 0.35,
   },
   qtyText: {
-    color: Palette.textMuted,
-    fontWeight: '900',
-    fontSize: 16,
+    ...Type.h2,
+    color: Palette.textSecondary,
   },
   qtyTextActive: {
-    color: Palette.primary,
+    color: Palette.white,
   },
   qtyHint: {
-    marginLeft: 8,
-    color: Palette.textMuted,
+    marginLeft: Spacing.sm,
+    ...Type.caption,
+    color: Palette.textSecondary,
     fontWeight: '600',
-    fontSize: 13,
     flex: 1,
+  },
+  soldOutBadge: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    backgroundColor: '#F3F4F6',
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  soldOutBadgeText: {
+    ...Type.label,
+    color: '#6B7280',
+    fontWeight: '700',
+  },
+  lowStockBadge: {
+    alignSelf: 'flex-start',
+    marginTop: Spacing.sm,
+    backgroundColor: '#FEF3C7',
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  lowStockBadgeText: {
+    ...Type.label,
+    color: '#92400E',
+    fontWeight: '700',
   },
   stickyBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 16,
+    padding: Spacing.lg,
     backgroundColor: Palette.background,
-    borderTopWidth: 1,
-    borderTopColor: Palette.lightGreenBg,
+    borderTopWidth: Border.width,
+    borderTopColor: Palette.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    ...FloatingShadow,
   },
-  reserveBtn: {
-    backgroundColor: Palette.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
+  reservedCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+  },
+  reservedCheck: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reserveBtnText: {
+  reservedCheckText: {
     color: Palette.white,
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  reservedCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  reservedTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  reservedSubtitle: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+  },
+  reservedLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Palette.primary,
+  },
+  soldOutBtn: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    borderRadius: Radius.pill,
+  },
+  soldOutBtnText: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  stickyPrice: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Palette.primary,
+    letterSpacing: -0.4,
+  },
+  reserveBtn: {
+    backgroundColor: Palette.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 14,
+    borderRadius: Radius.pill,
+  },
+  reserveBtnText: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.white,
   },
 });
-

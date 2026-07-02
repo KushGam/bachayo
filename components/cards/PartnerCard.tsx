@@ -2,15 +2,33 @@ import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { formatNprPaisa } from '@/lib/helpers';
 import type { PartnerOrderWithCustomer } from '@/types/app';
+import type { OrderStatus } from '@/types/database';
 
 type PartnerCardProps = {
   order: PartnerOrderWithCustomer;
 };
 
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: 'Pending',
+  paid: 'Paid',
+  picked_up: 'Picked up',
+  cancelled: 'Cancelled',
+  refunded: 'Refunded',
+};
+
+const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
+  pending: { bg: '#FEF3C7', text: Palette.amber },
+  paid: { bg: Palette.lightGreenBg, text: Palette.primaryDark },
+  picked_up: { bg: '#D1FAE5', text: '#047857' },
+  cancelled: { bg: '#FEE2E2', text: '#B91C1C' },
+  refunded: { bg: '#E5E7EB', text: '#4B5563' },
+};
+
 export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps) {
-  const isPickedUp = order.status === 'picked_up';
+  const statusStyle = STATUS_STYLES[order.status];
 
   return (
     <View style={styles.orderCard}>
@@ -18,13 +36,9 @@ export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps
         <Text style={styles.customerName}>
           {order.customer.full_name || order.customer.phone || 'Customer'}
         </Text>
-        <View style={[styles.qrStatus, isPickedUp ? styles.qrStatusDone : styles.qrStatusPending]}>
-          <Text
-            style={[
-              styles.qrStatusText,
-              isPickedUp ? styles.qrStatusTextDone : styles.qrStatusTextPending,
-            ]}>
-            {isPickedUp ? 'Scanned' : 'Awaiting scan'}
+        <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+          <Text style={[styles.statusText, { color: statusStyle.text }]}>
+            {STATUS_LABELS[order.status]}
           </Text>
         </View>
       </View>
@@ -38,48 +52,36 @@ export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps
 const styles = StyleSheet.create({
   orderCard: {
     backgroundColor: Palette.white,
-    borderRadius: 14,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Palette.lightGreenBg,
-    padding: 14,
-    marginBottom: 10,
-    gap: 6,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   orderTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: Spacing.md,
   },
   customerName: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '800',
+    ...Type.bodyMedium,
+    fontWeight: '700',
     color: Palette.textPrimary,
   },
-  qrStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+  statusBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.pill,
   },
-  qrStatusPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  qrStatusDone: {
-    backgroundColor: Palette.lightGreenBg,
-  },
-  qrStatusText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  qrStatusTextPending: {
-    color: Palette.amber,
-  },
-  qrStatusTextDone: {
-    color: Palette.primary,
+  statusText: {
+    ...Type.label,
+    fontWeight: '700',
   },
   orderMeta: {
-    fontSize: 13,
+    ...Type.caption,
     color: Palette.textMuted,
     fontWeight: '600',
   },

@@ -1,6 +1,15 @@
+import { useEffect } from 'react';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { Palette } from '@/constants/Colors';
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Radius, Spacing } from '@/constants/theme';
 
 type SkeletonProps = {
   width?: number | `${number}%`;
@@ -9,27 +18,29 @@ type SkeletonProps = {
   style?: ViewStyle;
 };
 
-export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style }: SkeletonProps) {
-  const opacity = useRef(new Animated.Value(0.45)).current;
+export function Skeleton({
+  width = '100%',
+  height = 16,
+  borderRadius = Radius.sm,
+  style,
+}: SkeletonProps) {
+  const shimmer = useSharedValue(0.35);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 700, useNativeDriver: true }),
-      ]),
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
     );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
+  }, [shimmer]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: shimmer.value,
+  }));
 
   return (
     <Animated.View
-      style={[
-        styles.base,
-        { width, height, borderRadius, opacity },
-        style,
-      ]}
+      style={[styles.base, { width, height, borderRadius }, animatedStyle, style]}
     />
   );
 }
@@ -40,9 +51,9 @@ export function BagCardSkeleton() {
       <Skeleton height={180} borderRadius={0} style={styles.image} />
       <View style={styles.body}>
         <Skeleton width="60%" height={18} />
-        <Skeleton width="90%" height={14} style={{ marginTop: 10 }} />
-        <Skeleton width="40%" height={20} style={{ marginTop: 12 }} />
-        <Skeleton width="70%" height={12} style={{ marginTop: 10 }} />
+        <Skeleton width="90%" height={14} style={{ marginTop: Spacing.md }} />
+        <Skeleton width="40%" height={20} style={{ marginTop: Spacing.md }} />
+        <Skeleton width="70%" height={12} style={{ marginTop: Spacing.md }} />
       </View>
     </View>
   );
@@ -61,11 +72,11 @@ export function ListSkeleton({ count = 3 }: { count?: number }) {
 export function OrderCardSkeleton() {
   return (
     <View style={styles.orderCard}>
-      <Skeleton width={52} height={52} borderRadius={10} />
-      <View style={{ flex: 1, gap: 8 }}>
+      <Skeleton width={52} height={52} borderRadius={Radius.md} />
+      <View style={{ flex: 1, gap: Spacing.sm }}>
         <Skeleton width="55%" height={16} />
         <Skeleton width="40%" height={13} />
-        <Skeleton width="30%" height={20} borderRadius={999} />
+        <Skeleton width="30%" height={20} borderRadius={Radius.pill} />
       </View>
     </View>
   );
@@ -77,7 +88,7 @@ export function StatsSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <View key={i} style={styles.statCard}>
           <Skeleton width="50%" height={22} />
-          <Skeleton width="70%" height={12} style={{ marginTop: 8 }} />
+          <Skeleton width="70%" height={12} style={{ marginTop: Spacing.sm }} />
         </View>
       ))}
     </View>
@@ -86,48 +97,48 @@ export function StatsSkeleton() {
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: Palette.lightGreenBg,
+    backgroundColor: Palette.imagePlaceholder,
   },
   card: {
-    backgroundColor: Palette.white,
-    borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    marginBottom: 14,
+    borderColor: Palette.borderSubtle,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
   },
   image: {
     width: '100%',
   },
   body: {
-    padding: 14,
+    padding: Spacing.md,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
   orderCard: {
     flexDirection: 'row',
-    gap: 12,
-    backgroundColor: Palette.white,
-    borderRadius: 16,
+    gap: Spacing.md,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    padding: 14,
-    marginBottom: 12,
+    borderColor: Palette.borderSubtle,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   statCard: {
     width: '48%',
-    backgroundColor: Palette.white,
-    borderRadius: 14,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
-    padding: 14,
+    borderColor: Palette.borderSubtle,
+    padding: Spacing.md,
   },
 });

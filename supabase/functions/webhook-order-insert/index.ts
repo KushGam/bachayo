@@ -44,19 +44,27 @@ Deno.serve(async (req) => {
       supabase.from('profiles').select('full_name').eq('id', customerId).single(),
       supabase
         .from('rescue_bags')
-        .select('pickup_start, available_date, title')
+        .select('pickup_start, pickup_end, available_date, title')
         .eq('id', bagId)
         .single(),
     ]);
 
-    const customerName = customer?.full_name ?? 'A customer';
+    const customerName = String(order.customer_name ?? customer?.full_name ?? 'A customer');
+    const quantity = Number(order.quantity ?? 1);
+    const totalPrice = Number(order.total_price ?? 0);
+    const totalRs = Math.round(totalPrice / 100);
+    const bagTitle = bag?.title ?? 'rescue bag';
+    const pickupStart = bag?.pickup_start?.slice(0, 5) ?? '';
+    const pickupEnd = bag?.pickup_end?.slice(0, 5) ?? '';
+    const pickupWindow = pickupStart && pickupEnd ? `${pickupStart}–${pickupEnd}` : 'today';
+    const bagLabel = quantity === 1 ? bagTitle : `${quantity} bag(s) of ${bagTitle}`;
 
     if (partner?.user_id) {
       await sendToUser(
         supabase,
         partner.user_id,
-        'New reservation',
-        `New reservation from ${customerName}`,
+        'New reservation! 🛍',
+        `${customerName} reserved ${bagLabel} · ₨${totalRs} cash · Pickup ${pickupWindow}`,
         { type: 'partner_dashboard' },
       );
     }

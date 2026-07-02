@@ -1,26 +1,52 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import type { Locale } from '@/store/useAuthStore';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { useAuthStore, type Locale } from '@/store/useAuthStore';
 
 type LanguageToggleProps = {
-  locale: Locale;
-  onChange: (locale: Locale) => void;
+  locale?: Locale;
+  onChange?: (locale: Locale) => void;
+  variant?: 'light' | 'dark';
 };
 
-export function LanguageToggle({ locale, onChange }: LanguageToggleProps) {
+export function LanguageToggle({
+  locale: localeProp,
+  onChange: onChangeProp,
+  variant = 'light',
+}: LanguageToggleProps) {
+  const storeLocale = useAuthStore((s) => s.locale);
+  const setStoreLocale = useAuthStore((s) => s.setLocale);
+  const locale = localeProp ?? storeLocale;
+  const onChange = onChangeProp ?? setStoreLocale ?? (() => {});
+  const isDark = variant === 'dark';
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark ? styles.containerDark : styles.containerLight]}>
       <Pressable
         onPress={() => onChange('en')}
-        style={[styles.option, locale === 'en' && styles.active]}>
-        <Text style={[styles.text, locale === 'en' && styles.activeText]}>EN</Text>
+        style={[styles.option, locale === 'en' && (isDark ? styles.activeDark : styles.activeLight)]}>
+        <Text
+          style={[
+            styles.text,
+            isDark && styles.textDark,
+            locale === 'en' && (isDark ? styles.activeTextDark : styles.activeTextLight),
+          ]}>
+          EN
+        </Text>
       </Pressable>
-      <Text style={styles.divider}>|</Text>
+      <Text style={[styles.divider, isDark && styles.dividerDark]}>|</Text>
       <Pressable
         onPress={() => onChange('np')}
-        style={[styles.option, locale === 'np' && styles.active]}>
-        <Text style={[styles.text, locale === 'np' && styles.activeText]}>नेपाली</Text>
+        style={[styles.option, locale === 'np' && (isDark ? styles.activeDark : styles.activeLight)]}>
+        <Text
+          style={[
+            styles.text,
+            isDark && styles.textDark,
+            locale === 'np' && (isDark ? styles.activeTextDark : styles.activeTextLight),
+          ]}>
+          नेपाली
+        </Text>
       </Pressable>
     </View>
   );
@@ -31,31 +57,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: Palette.white,
-    borderRadius: 999,
-    padding: 4,
+    borderRadius: Radius.pill,
+    padding: Spacing.xs,
     borderWidth: 1,
-    borderColor: Palette.lightGreenBg,
+  },
+  containerLight: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.borderSubtle,
+  },
+  containerDark: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.16)',
   },
   option: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
   },
-  active: {
-    backgroundColor: Palette.lightGreenBg,
+  activeLight: {
+    backgroundColor: Palette.primary,
+  },
+  activeDark: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   text: {
-    fontSize: 14,
-    color: Palette.textMuted,
-    fontWeight: '500',
-  },
-  activeText: {
-    color: Palette.primary,
+    ...Type.caption,
+    color: Palette.textSecondary,
     fontWeight: '600',
   },
+  textDark: {
+    color: 'rgba(255,255,255,0.72)',
+  },
+  activeTextLight: {
+    color: Palette.white,
+    fontWeight: '700',
+  },
+  activeTextDark: {
+    color: Palette.white,
+    fontWeight: '700',
+  },
   divider: {
-    color: Palette.textMuted,
-    marginHorizontal: 2,
+    color: Palette.textTertiary,
+    marginHorizontal: Spacing.xs,
+  },
+  dividerDark: {
+    color: 'rgba(255,255,255,0.35)',
   },
 });

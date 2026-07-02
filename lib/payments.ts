@@ -1,3 +1,7 @@
+// Payment processing removed for v1 launch.
+// Cash on pickup model. Re-enable for v2.
+
+/*
 import * as WebBrowser from 'expo-web-browser';
 
 import { paymentConfig, type PaymentGateway, type PaymentVerifyParams, type PaymentVerifyResponse } from '@/constants/payments';
@@ -107,3 +111,6 @@ export function parsePaymentCallbackUrl(url: string): PaymentVerifyParams | null
     return null;
   }
 }
+*/
+
+export {};

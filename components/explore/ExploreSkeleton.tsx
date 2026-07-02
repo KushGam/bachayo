@@ -2,18 +2,22 @@ import { StyleSheet, View } from 'react-native';
 
 import { ListSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
+import { Spacing } from '@/constants/theme';
 
 export function ExploreSkeleton() {
   return (
     <View style={styles.container}>
-      <View style={styles.mapPlaceholder} />
-      <View style={styles.overlay}>
-        <Skeleton height={48} borderRadius={12} />
+      <View style={styles.header}>
+        <Skeleton height={36} borderRadius={999} width="55%" />
+        <Skeleton height={48} borderRadius={14} />
       </View>
+      <View style={styles.mapArea} />
       <View style={styles.sheet}>
-        <Skeleton width={44} height={5} borderRadius={999} style={styles.handle} />
-        <Skeleton width="40%" height={16} style={{ marginBottom: 12 }} />
-        <ListSkeleton count={4} />
+        <Skeleton width={36} height={4} borderRadius={2} style={styles.handle} />
+        <Skeleton width="50%" height={16} style={{ marginBottom: Spacing.md, marginHorizontal: 16 }} />
+        <View style={styles.sheetContent}>
+          <ListSkeleton count={4} />
+        </View>
       </View>
     </View>
   );
@@ -24,32 +28,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.background,
   },
-  mapPlaceholder: {
-    flex: 1,
-    backgroundColor: Palette.lightGreenBg,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    backgroundColor: Palette.white,
+    gap: 10,
   },
-  overlay: {
-    position: 'absolute',
-    top: 56,
-    left: 16,
-    right: 16,
+  mapArea: {
+    flex: 1,
+    backgroundColor: '#E8E4DC',
   },
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    minHeight: 280,
     height: '50%',
-    backgroundColor: Palette.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: Palette.lightGreenBg,
+    backgroundColor: Palette.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
   },
   handle: {
     alignSelf: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
+  },
+  sheetContent: {
+    paddingHorizontal: 16,
   },
 });

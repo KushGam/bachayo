@@ -36,29 +36,43 @@ export async function sendToUser(
   userId: string,
   title: string,
   body: string,
-  data?: Record<string, unknown>,
+  options?: { type?: string; data?: Record<string, unknown> },
 ) {
+  const notificationType = options?.type ?? (options?.data?.type as string) ?? 'system';
+  const notificationData = options?.data ?? null;
+  const pushData = notificationData ?? { type: notificationType };
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('push_token')
     .eq('id', userId)
     .maybeSingle();
 
-  if (!profile?.push_token) {
-    return { sent: false, reason: 'no_push_token' };
+  if (profile?.push_token) {
+    await sendExpoPush([
+      {
+        to: profile.push_token,
+        title,
+        body,
+        data: pushData,
+        sound: 'default',
+      },
+    ]);
   }
 
-  await sendExpoPush([
-    {
-      to: profile.push_token,
-      title,
-      body,
-      data,
-      sound: 'default',
-    },
-  ]);
+  const { error: insertError } = await supabase.from('notifications').insert({
+    user_id: userId,
+    title,
+    body,
+    type: notificationType,
+    data: notificationData,
+  });
 
-  return { sent: true };
+  if (insertError) {
+    console.warn('[sendToUser] inbox insert failed:', insertError.message);
+  }
+
+  return { sent: Boolean(profile?.push_token) };
 }
 
 export async function sendToCustomers(

@@ -35,13 +35,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    const { user_id, title, body, data } = await req.json();
+    const { user_id, title, body, type, data } = await req.json();
 
     if (!user_id || !title || !body) {
       return jsonResponse({ error: 'user_id, title, and body are required' }, 400);
     }
 
-    const result = await sendToUser(supabase, user_id, title, body, data);
+    const result = await sendToUser(supabase, user_id, title, body, {
+      type: type || 'system',
+      data: data ?? undefined,
+    });
     return jsonResponse(result);
   } catch (error) {
     return jsonResponse(

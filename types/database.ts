@@ -10,15 +10,14 @@ export type UserRole = 'customer' | 'partner' | 'admin';
 
 export type PartnerCategory =
   | 'restaurant'
-  | 'bakery'
-  | 'hotel'
-  | 'dhaba'
   | 'cafe'
-  | 'supermarket';
+  | 'bakery'
+  | 'mart'
+  | 'hotel';
 
 export type RescueBagStatus = 'active' | 'sold_out' | 'expired' | 'cancelled';
 
-export type OrderStatus = 'pending' | 'paid' | 'picked_up' | 'cancelled' | 'refunded';
+export type OrderStatus = 'pending' | 'confirmed' | 'picked_up' | 'cancelled';
 
 export type PaymentMethod = 'esewa' | 'khalti' | 'cash';
 
@@ -189,8 +188,9 @@ export type Database = {
           total_price: number;
           status: OrderStatus;
           qr_code: string;
-          payment_method: PaymentMethod | null;
-          payment_ref: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_note: string | null;
           picked_up_at: string | null;
           created_at: string;
         };
@@ -203,8 +203,9 @@ export type Database = {
           total_price: number;
           status?: OrderStatus;
           qr_code?: string;
-          payment_method?: PaymentMethod | null;
-          payment_ref?: string | null;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          customer_note?: string | null;
           picked_up_at?: string | null;
           created_at?: string;
         };
@@ -217,8 +218,9 @@ export type Database = {
           total_price?: number;
           status?: OrderStatus;
           qr_code?: string;
-          payment_method?: PaymentMethod | null;
-          payment_ref?: string | null;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          customer_note?: string | null;
           picked_up_at?: string | null;
           created_at?: string;
         };

@@ -6,13 +6,15 @@ type SendNotificationBody = {
   user_id?: string;
   title?: string;
   body?: string;
+  type?: string;
+  data?: Record<string, unknown>;
 };
 
 export async function POST(request: NextRequest) {
   try {
     verifyInternalSecret(request.headers.get('x-internal-secret'));
 
-    const { user_id, title, body } = (await request.json()) as SendNotificationBody;
+    const { user_id, title, body, type, data } = (await request.json()) as SendNotificationBody;
 
     if (!user_id || !title || !body) {
       return NextResponse.json(
@@ -21,7 +23,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await deliverNotification(user_id, title, body);
+    const result = await deliverNotification(user_id, title, body, {
+      type: type || 'system',
+      data: data ?? null,
+    });
 
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 404 });

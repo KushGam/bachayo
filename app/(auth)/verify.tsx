@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,18 +10,61 @@ import { OtpInput } from '@/components/auth/OtpInput';
 import { Screen } from '@/components/Screen';
 import { t } from '@/constants/i18n';
 import { Palette } from '@/constants/Colors';
-import { hasPartnerProfile, sendPhoneOtp, upsertProfile, verifyPhoneOtp } from '@/lib/auth';
+import { Spacing, Type } from '@/constants/theme';
+import {
+  fetchProfileByUserId,
+  sendPhoneOtp,
+  setAuthPassword,
+  verifyPhoneOtp,
+} from '@/lib/auth';
+import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { useSafeBack } from '@/hooks/useSafeBack';
 import { otpSchema, type OtpFormValues } from '@/lib/validation/auth';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore, type AuthMode } from '@/store/useAuthStore';
+import { useSignupStore } from '@/store/useSignupStore';
+import type { UserRole } from '@/types/database';
 
 const RESEND_SECONDS = 60;
 
 export default function VerifyScreen() {
   const router = useRouter();
-  const { locale, pendingPhone, pendingRole } = useAuthStore();
+  const params = useLocalSearchParams<{ mode?: string; role?: string; name?: string }>();
+  const {
+    locale,
+    pendingPhone,
+    pendingRole,
+    pendingMode,
+    pendingName,
+    setPendingMode,
+    setPendingRole,
+    setPendingName,
+    setAuthRole,
+  } = useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
+
+  const mode: AuthMode =
+    params.mode === 'signup' || pendingMode === 'signup' ? 'signup' : 'login';
+  const role: UserRole =
+    params.role === 'partner' || pendingRole === 'partner' ? 'partner' : 'customer';
+
+  const signupBasicsPath =
+    role === 'partner' ? '/(auth)/signup-partner/basics' : '/(auth)/signup-customer/basics';
+
+  const goBack = useSafeBack(mode === 'signup' ? signupBasicsPath : '/(auth)/login');
+
+  useEffect(() => {
+    if (params.mode === 'login' || params.mode === 'signup') {
+      setPendingMode(params.mode);
+    }
+    if (params.role === 'partner' || params.role === 'customer') {
+      setPendingRole(params.role);
+    }
+    if (params.name) {
+      setPendingName(params.name);
+    }
+  }, [params.mode, params.name, params.role, setPendingMode, setPendingName, setPendingRole]);
 
   const {
     control,
@@ -33,9 +77,9 @@ export default function VerifyScreen() {
 
   useEffect(() => {
     if (!pendingPhone) {
-      router.replace('/(auth)/phone');
+      router.replace(mode === 'signup' ? signupBasicsPath : '/(auth)/login');
     }
-  }, [pendingPhone, router]);
+  }, [mode, pendingPhone, router, signupBasicsPath]);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -43,17 +87,43 @@ export default function VerifyScreen() {
     return () => clearTimeout(timer);
   }, [secondsLeft]);
 
-  const redirectAfterAuth = useCallback(
+  const redirectAfterLogin = useCallback(
     async (userId: string) => {
-      if (pendingRole === 'partner') {
-        const exists = await hasPartnerProfile(userId);
-        router.replace(exists ? '/(tabs)' : '/(auth)/onboarding-partner');
+      const profile = await fetchProfileByUserId(userId);
+
+      if (!profile) {
+        setSubmitError('No account found with this number');
         return;
       }
-      router.replace('/(tabs)');
+
+      const profileRole = profile.role ?? 'customer';
+      setAuthRole(profileRole);
+      router.replace(await resolveAuthenticatedRoute(userId, profileRole));
     },
-    [pendingRole, router],
+    [router, setAuthRole],
   );
+
+  const redirectAfterSignup = useCallback(async () => {
+    const { signupPassword, setPhoneOtpVerified } = useSignupStore.getState();
+
+    if (signupPassword) {
+      const { error: passwordError } = await setAuthPassword(signupPassword);
+      if (passwordError) {
+        setSubmitError(passwordError.message || t(locale, 'authError'));
+        return false;
+      }
+    }
+
+    setPhoneOtpVerified(true);
+
+    if (role === 'partner') {
+      router.replace('/(auth)/signup-partner/business');
+      return true;
+    }
+
+    router.replace('/(auth)/signup-customer/location');
+    return true;
+  }, [locale, role, router]);
 
   const onSubmit = async ({ otp }: OtpFormValues) => {
     if (!pendingPhone) return;
@@ -69,20 +139,14 @@ export default function VerifyScreen() {
       return;
     }
 
-    const { error: profileError } = await upsertProfile(
-      data.user.id,
-      pendingPhone,
-      pendingRole,
-    );
-
-    setLoading(false);
-
-    if (profileError) {
-      setSubmitError(profileError.message || t(locale, 'authError'));
+    if (mode === 'login') {
+      setLoading(false);
+      await redirectAfterLogin(data.user.id);
       return;
     }
 
-    await redirectAfterAuth(data.user.id);
+    setLoading(false);
+    await redirectAfterSignup();
   };
 
   const handleResend = async () => {
@@ -105,7 +169,8 @@ export default function VerifyScreen() {
 
   return (
     <Screen contentContainerStyle={styles.container}>
-      <Pressable onPress={() => router.back()} style={styles.back}>
+      <StatusBar style="dark" />
+      <Pressable onPress={goBack} style={styles.back}>
         <Text style={styles.backText}>←</Text>
       </Pressable>
 
@@ -154,45 +219,43 @@ export default function VerifyScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 32,
+    paddingBottom: Spacing.xxl,
   },
   back: {
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xl,
     width: 40,
   },
   backText: {
-    fontSize: 24,
+    ...Type.h1,
     color: Palette.textPrimary,
   },
   header: {
-    marginBottom: 32,
-    gap: 8,
+    marginBottom: Spacing.xxl,
+    gap: Spacing.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    ...Type.h1,
     color: Palette.textPrimary,
   },
   subtitle: {
-    fontSize: 15,
-    color: Palette.textMuted,
-    lineHeight: 22,
+    ...Type.body,
+    color: Palette.textSecondary,
   },
   verifyBtn: {
-    marginTop: 32,
+    marginTop: Spacing.xxl,
   },
   resend: {
-    marginTop: 20,
+    marginTop: Spacing.lg,
     alignItems: 'center',
   },
   resendText: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     color: Palette.primary,
     fontWeight: '600',
   },
   resendDisabled: {
-    color: Palette.textMuted,
+    color: Palette.textSecondary,
     fontWeight: '500',
   },
 });

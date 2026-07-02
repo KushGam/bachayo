@@ -1,3 +1,7 @@
+// Payment processing removed for v1 launch.
+// Cash on pickup model. Re-enable for v2.
+
+/*
 export const paymentConfig = {
   esewaMerchantCode: process.env.EXPO_PUBLIC_ESEWA_MERCHANT_CODE ?? 'EPAYTEST',
   khaltiPublicKey: process.env.EXPO_PUBLIC_KHALTI_PUBLIC_KEY ?? '',
@@ -28,3 +32,6 @@ export type PaymentVerifyResponse = {
   orderId: string;
   message?: string;
 };
+*/
+
+export {};

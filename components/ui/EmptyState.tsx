@@ -1,31 +1,42 @@
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { Leaf } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/ui/Button';
 import { Palette } from '@/constants/Colors';
+import { Spacing, Type } from '@/constants/theme';
 
 type EmptyStateProps = {
   title: string;
   subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
+  icon?: LucideIcon;
 };
 
-export function EmptyState({ title, subtitle, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+  icon: Icon = Leaf,
+}: EmptyStateProps) {
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
-        <SymbolView
-          name={{ ios: 'leaf.fill', android: 'eco', web: 'eco' }}
-          size={28}
-          tintColor={Palette.primary}
-        />
+        <Icon size={28} color={Palette.primary} strokeWidth={1.8} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable onPress={onAction} style={({ pressed }) => [styles.btn, pressed && { opacity: 0.9 }]}>
-          <Text style={styles.btnText}>{actionLabel}</Text>
-        </Pressable>
+        <Button
+          label={actionLabel}
+          onPress={onAction}
+          variant="primary"
+          size="md"
+          fullWidth={false}
+          style={styles.action}
+        />
       ) : null}
     </View>
   );
@@ -35,42 +46,32 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 24,
-    gap: 10,
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
   },
   iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Palette.lightGreenBg,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FAECE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Palette.textPrimary,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1A1A1A',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: Palette.textMuted,
-    fontWeight: '600',
+    ...Type.caption,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
   },
-  btn: {
-    marginTop: 8,
-    backgroundColor: Palette.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  btnText: {
-    color: Palette.white,
-    fontWeight: '800',
-    fontSize: 14,
+  action: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
   },
 });

@@ -16,6 +16,20 @@ export function formatNprPaisa(paisa: number): string {
   }).format(npr);
 }
 
+/** Display prices as "Rs 1,450" per product spec. */
+export function formatRsNpr(amountNpr: number): string {
+  return `Rs ${Math.round(amountNpr).toLocaleString('en-NP')}`;
+}
+
+export function formatRsPaisa(paisa: number): string {
+  return formatRsNpr(paisa / 100);
+}
+
+/** First 6 chars of order QR (UUID) for manual partner entry. */
+export function getOrderShortCode(qrCode: string): string {
+  return qrCode.replace(/-/g, '').slice(0, 6).toUpperCase();
+}
+
 export function haversineDistanceKm(
   a: { latitude: number; longitude: number },
   b: { latitude: number; longitude: number },
@@ -37,6 +51,64 @@ export function haversineDistanceKm(
 export function formatDistanceKm(distanceKm: number): string {
   if (distanceKm < 1) return `${Math.round(distanceKm * 10) / 10} km away`;
   return `${distanceKm.toFixed(1)} km away`;
+}
+
+export function formatTodayBilingual() {
+  const now = new Date();
+  const en = now.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const np = now.toLocaleDateString('ne-NP', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  return { en, np };
+}
+
+export function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+export function getInitials(name?: string | null) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+export function formatOrderTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-NP', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function formatRelativeTime(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
+}
+
+export function getYesterdayIsoDateLocal(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function getTodayIsoDateLocal(): string {
@@ -72,4 +144,29 @@ export function openMapsDirections(latitude: number, longitude: number, label?: 
     default: `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
   });
   if (url) Linking.openURL(url);
+}
+
+export function formatTime12h(time: string) {
+  const [h, m] = time.slice(0, 5).split(':').map(Number);
+  const period = h >= 12 ? 'pm' : 'am';
+  const hour12 = h % 12 || 12;
+  return m === 0 ? `${hour12}:00${period}` : `${hour12}:${String(m).padStart(2, '0')}${period}`;
+}
+
+export function formatTodayPickupWindow(pickupStart: string, pickupEnd: string) {
+  return `Today, ${formatTime12h(pickupStart)} – ${formatTime12h(pickupEnd)}`;
+}
+
+export function getPickupMinutesRemaining(availableDate: string, pickupEnd: string) {
+  const end = parsePickupDateTimeLocal(availableDate, pickupEnd);
+  return Math.max(0, Math.floor((end.getTime() - Date.now()) / 60000));
+}
+
+export function openPhoneDialer(phone: string) {
+  const normalized = phone.replace(/\s+/g, '');
+  if (normalized) Linking.openURL(`tel:${normalized}`);
+}
+
+export function openWhatsAppShare(message: string) {
+  Linking.openURL(`whatsapp://send?text=${encodeURIComponent(message)}`);
 }

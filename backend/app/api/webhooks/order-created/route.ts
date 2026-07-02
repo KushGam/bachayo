@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { callSendNotification } from '@/lib/notifications';
+import {
+  customerNewBagNearby,
+  customerReservationConfirmed,
+  partnerBagSoldOut,
+  partnerNewReservation,
+} from '@/lib/notification-messages';
+import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
 type WebhookPayload = {
   type: 'INSERT' | 'UPDATE' | 'DELETE';
   table: string;
   record: Record<string, unknown>;
-  old_record?: Record<string, unknown> | null;
 };
 
 function verifyWebhookSecret(request: NextRequest) {
@@ -20,12 +25,6 @@ function verifyWebhookSecret(request: NextRequest) {
   if (provided !== expected) {
     throw new Error('Unauthorized webhook');
   }
-}
-
-function formatPickupWindow(pickupStart: string, pickupEnd: string) {
-  const start = pickupStart.slice(0, 5);
-  const end = pickupEnd.slice(0, 5);
-  return `${start}–${end}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -42,6 +41,7 @@ export async function POST(request: NextRequest) {
     const customerId = String(order.customer_id);
     const partnerId = String(order.partner_id);
     const bagId = String(order.bag_id);
+    const quantity = Number(order.quantity ?? 1);
 
     const supabase = createSupabaseAdmin();
 
@@ -49,34 +49,55 @@ export async function POST(request: NextRequest) {
       supabase.from('partners').select('user_id, name').eq('id', partnerId).single(),
       supabase
         .from('rescue_bags')
-        .select('title, pickup_start, pickup_end')
+        .select('title, pickup_start, pickup_end, quantity_available, quantity_reserved, status')
         .eq('id', bagId)
         .single(),
     ]);
 
-    const bagTitle = bag?.title ?? 'rescue bag';
-    const pickupWindow = bag
-      ? formatPickupWindow(bag.pickup_start, bag.pickup_end)
-      : 'your scheduled time';
-
-    const results: {
-      partner?: { success: boolean; error?: string };
-      customer?: { success: boolean; error?: string };
-    } = {};
-
-    if (partner?.user_id) {
-      results.partner = await callSendNotification(
-        partner.user_id,
-        'New reservation!',
-        `Someone reserved your ${bagTitle} bag`,
-      );
+    if (!bag) {
+      return NextResponse.json({ ok: false, error: 'bag_not_found' }, { status: 404 });
     }
 
-    results.customer = await callSendNotification(
-      customerId,
-      'Booking confirmed!',
-      `Pick up at ${pickupWindow} tonight`,
-    );
+    const customerName = String(order.customer_name ?? 'A customer');
+    const results: Record<string, { success?: boolean; error?: string }> = {};
+
+    if (partner?.user_id) {
+      const partnerPayload = partnerNewReservation({
+        orderId,
+        bagId,
+        partnerId,
+        customerName,
+        quantity,
+        bagTitle: bag.title,
+        pickupStart: bag.pickup_start,
+        pickupEnd: bag.pickup_end,
+      });
+      results.partner = await sendNotificationPayload(partner.user_id, partnerPayload);
+    }
+
+    const customerPayload = customerReservationConfirmed({
+      orderId,
+      bagId,
+      partnerId,
+      bagTitle: bag.title,
+      partnerName: partner?.name ?? 'your partner',
+      pickupStart: bag.pickup_start,
+      pickupEnd: bag.pickup_end,
+    });
+    results.customer = await sendNotificationPayload(customerId, customerPayload);
+
+    if (
+      partner?.user_id &&
+      bag.quantity_reserved >= bag.quantity_available &&
+      bag.status === 'sold_out'
+    ) {
+      const soldOutPayload = partnerBagSoldOut({
+        bagId,
+        partnerId,
+        bagTitle: bag.title,
+      });
+      results.partnerSoldOut = await sendNotificationPayload(partner.user_id, soldOutPayload);
+    }
 
     return NextResponse.json({ ok: true, orderId, notifications: results });
   } catch (error) {

@@ -1,13 +1,16 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { PARTNER_CATEGORIES } from '@/constants/partnerCategories';
+import {
+  PARTNER_CATEGORIES,
+  type PartnerCategoryOption,
+} from '@/constants/partnerCategories';
 import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import type { Locale } from '@/store/useAuthStore';
-import type { PartnerCategory } from '@/types/database';
 
 type CategoryPickerProps = {
-  value: PartnerCategory | null;
-  onChange: (value: PartnerCategory) => void;
+  value: PartnerCategoryOption | null;
+  onChange: (value: PartnerCategoryOption) => void;
   locale: Locale;
   error?: string;
 };
@@ -17,14 +20,15 @@ export function CategoryPicker({ value, onChange, locale, error }: CategoryPicke
     <View style={styles.wrap}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {PARTNER_CATEGORIES.map((cat) => {
-          const selected = value === cat.value;
+          const selected = value === cat.id;
+          const label = locale === 'np' ? cat.labelNp : cat.label;
           return (
             <Pressable
-              key={cat.value}
-              onPress={() => onChange(cat.value)}
+              key={cat.id}
+              onPress={() => onChange(cat.id)}
               style={[styles.chip, selected && styles.chipSelected]}>
               <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                {locale === 'np' ? cat.labelNp : cat.labelEn}
+                {cat.icon} {label}
               </Text>
             </Pressable>
           );
@@ -37,36 +41,36 @@ export function CategoryPicker({ value, onChange, locale, error }: CategoryPicke
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   row: {
-    gap: 8,
-    paddingVertical: 4,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: Palette.white,
-    borderWidth: 1.5,
-    borderColor: Palette.lightGreenBg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.surface,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
   chipSelected: {
-    backgroundColor: Palette.lightGreenBg,
+    backgroundColor: Palette.primary,
     borderColor: Palette.primary,
   },
   chipText: {
-    fontSize: 14,
-    color: Palette.textMuted,
+    ...Type.caption,
+    color: Palette.textSecondary,
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: Palette.primary,
+    color: Palette.white,
     fontWeight: '600',
   },
   error: {
-    marginTop: 6,
-    color: '#DC2626',
-    fontSize: 13,
+    marginTop: Spacing.sm,
+    ...Type.caption,
+    color: Palette.dangerText,
   },
 });

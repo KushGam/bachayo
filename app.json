@@ -2,15 +2,16 @@
   "expo": {
     "name": "Bachayo",
     "slug": "bachayo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bachayo",
-    "userInterfaceStyle": "automatic",
-    "primaryColor": "#1D9E75",
+    "userInterfaceStyle": "light",
+    "primaryColor": "#D85A30",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.bachayo.app",
+      "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "बचायो ले पिकअपका लागि QR कोड स्क्यान गर्न क्यामेरा चाहिन्छ।",
         "NSLocationWhenInUseUsageDescription": "बचायो ले नजिकका रेस्क्यू ब्यागहरू देखाउन तपाईंको स्थान प्रयोग गर्छ।",
@@ -20,9 +21,9 @@
     "android": {
       "package": "com.bachayo.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1D9E75",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
+        "backgroundColor": "#D85A30",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -39,18 +40,19 @@
       "favicon": "./assets/images/favicon.png"
     },
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/splash-mark.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F9F9F7"
+      "backgroundColor": "#D85A30"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-mark.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F9F9F7"
+          "backgroundColor": "#D85A30",
+          "imageWidth": 180
         }
       ],
       [
@@ -69,7 +71,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#1D9E75"
+          "color": "#D85A30"
         }
       ],
       [
@@ -78,7 +80,9 @@
           "photosPermission": "बचायो ले कभर फोटो अपलोड गर्न तस्बिरहरूमा पहुँच चाहिन्छ।"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

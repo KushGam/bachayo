@@ -1,15 +1,10 @@
 import { create } from 'zustand';
 
-import type { PartnerCategory, RescueBagStatus } from '@/types/database';
+import type { HomeCategoryFilter } from '@/constants/partnerCategories';
+import type { RescueBagStatus } from '@/types/database';
 import type { RescueBagWithPartner } from '@/types/app';
 
-export type HomeCategoryFilter =
-  | 'all'
-  | 'restaurant'
-  | 'bakery'
-  | 'dhaba'
-  | 'hotel'
-  | 'cafe';
+export type { HomeCategoryFilter } from '@/constants/partnerCategories';
 
 export type HomeBag = RescueBagWithPartner & {
   distance_km: number | null;
@@ -31,4 +26,3 @@ export const useBagsStore = create<BagsState>((set) => ({
   setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
   clear: () => set({ bags: [], selectedCategory: 'all' }),
 }));
-

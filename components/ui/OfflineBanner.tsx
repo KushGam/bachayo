@@ -28,7 +28,7 @@ export function OfflineBanner() {
 
   return (
     <View style={[styles.banner, { paddingTop: insets.top + 6 }]}>
-      <Text style={styles.text}>No internet — showing cached bags</Text>
+      <Text style={styles.text}>You&apos;re offline — showing cached data</Text>
     </View>
   );
 }
@@ -40,13 +40,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    backgroundColor: Palette.amber,
+    backgroundColor: Palette.warningBg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(138, 106, 30, 0.15)',
     paddingBottom: 10,
     paddingHorizontal: 16,
   },
   text: {
-    color: Palette.textPrimary,
-    fontWeight: '800',
+    color: Palette.warning,
+    fontWeight: '700',
     fontSize: 13,
     textAlign: 'center',
   },
