@@ -36,10 +36,7 @@ export function LandingNavbar() {
 
     const observers: IntersectionObserver[] = [];
     HOME_SECTIONS.forEach((sectionId) => {
-      const element =
-        sectionId === 'about'
-          ? document.querySelector('footer')
-          : document.getElementById(sectionId);
+      const element = document.getElementById(sectionId);
       if (!element) return;
 
       const observer = new IntersectionObserver(

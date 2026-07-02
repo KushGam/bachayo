@@ -91,7 +91,7 @@ export function LandingFooter() {
           <div>
             <div className="text-white font-semibold mb-4">Company</div>
             <div className="space-y-2">
-              <Link className="text-white/50 hover:text-white transition text-sm" href="/legal/about">
+              <Link className="text-white/50 hover:text-white transition text-sm" href="/about">
                 About Bachayo
               </Link>
               <a className="text-white/50 hover:text-white transition text-sm" href="#">

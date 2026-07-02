@@ -26,28 +26,19 @@ function GooglePlayButton() {
   );
 }
 
-function SocialProofTicker() {
-  const items = [
-    ['🍛 Thakali Kitchen', 'Thamel'],
-    ['☕ Coffee Pasal', 'Lazimpat'],
-    ['🥐 Lalitpur Bakehouse', 'Patan'],
-    ['🏨 Hotel Himalaya', 'Kupondole'],
-    ['🛒 Fresh Mart', 'Baneshwor'],
-    ['🍛 Bhojan Griha', 'Durbarmarg'],
-  ] as const;
+function LaunchCitiesStrip() {
+  const cities = ['Kathmandu', 'Lalitpur', 'Pokhara', 'Bharatpur'];
 
   return (
     <section className="bg-white border-y border-[#F0EDE8] py-4 overflow-hidden">
       <div className="text-center text-xs uppercase tracking-widest text-[#9CA3AF] font-medium">
-        Restaurants joining Bachayo
+        Launching across Nepal
       </div>
       <div className="mt-3 whitespace-nowrap">
         <div className="marquee-track inline-flex min-w-[200%]">
-          {[...items, ...items].map(([name, location], idx) => (
-            <div key={`${name}-${idx}`} className="mx-6 inline-flex items-center text-sm font-medium text-[#6B7280]">
-              <span>{name}</span>
-              <span className="mx-2 text-[#D85A30]">·</span>
-              <span>{location}</span>
+          {[...cities, ...cities, ...cities, ...cities].map((city, idx) => (
+            <div key={`${city}-${idx}`} className="mx-8 inline-flex items-center text-sm font-medium text-[#6B7280]">
+              <span>📍 {city}</span>
             </div>
           ))}
         </div>
@@ -96,9 +87,9 @@ function BentoFeatures() {
           <h3 className="text-xl font-bold text-[#1A1A1A]">Live notifications</h3>
           <p className="text-[#6B7280] text-sm mt-2">Partners notified instantly when someone reserves their bag.</p>
           <div className="mt-6 space-y-3">
-            <div className="rounded-xl bg-white p-3 shadow-sm">🛍 New reservation! Kushal · Dal Bhat</div>
-            <div className="rounded-xl bg-white p-3 shadow-sm">⭐ New review! 5 stars from Priya</div>
-            <div className="rounded-xl bg-white p-3 shadow-sm">⏰ Pickup reminder sent to 3 customers</div>
+            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">🛍 New reservation received</div>
+            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">⭐ New review posted</div>
+            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">⏰ Pickup reminder sent</div>
           </div>
         </div>
 
@@ -134,51 +125,49 @@ function BentoFeatures() {
   );
 }
 
-function TestimonialsSection() {
-  const testimonials = [
-    {
-      quote:
-        'I used to throw away dal bhat every night. With Bachayo, I list it in 2 minutes and customers pick it up. Zero waste, extra income.',
-      initials: 'KG',
-      name: 'Thakali Kitchen, Thamel',
-      role: 'Restaurant partner',
-    },
-    {
-      quote:
-        'Got a full meal for Rs150 instead of Rs500. The bag was packed generously and the food was delicious. Will definitely use again!',
-      initials: 'PS',
-      name: 'Customer, Kathmandu',
-      role: 'Beta user',
-    },
-    {
-      quote:
-        'Simple to set up, easy for my staff to use. The QR scan takes 5 seconds. Best part - I keep everything I earn.',
-      initials: 'RB',
-      name: 'Himalayan Bakery, Lalitpur',
-      role: 'Restaurant owner',
-    },
-  ];
-
+function AboutPreviewSection() {
   return (
-    <section className="bg-[#F5F3EF] py-24">
-      <h2 className="text-4xl font-bold text-center">What people are saying</h2>
-      <p className="text-[#9CA3AF] text-sm text-center mt-2">Early feedback from our beta users</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 max-w-6xl mx-auto px-6">
-        {testimonials.map((item) => (
-          <div key={item.name} className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
-            <div className="text-[#D85A30] text-lg">★★★★★</div>
-            <p className="mt-4 text-base italic leading-relaxed text-[#1A1A1A]">{item.quote}</p>
-            <div className="mt-6 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-[#FAECE7] text-[#D85A30] font-bold text-sm flex items-center justify-center">
-                {item.initials}
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-[#1A1A1A]">{item.name}</div>
-                <div className="text-xs text-[#6B7280]">{item.role}</div>
-              </div>
+    <section id="about" className="bg-[#F5F3EF] py-24">
+      <div className="max-w-6xl mx-auto px-6">
+        <h2 className="text-4xl font-bold text-center text-[#1A1A1A]">Why Bachayo exists</h2>
+        <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto leading-relaxed">
+          Good food gets thrown away every day in Nepal. Bachayo connects that surplus with people
+          nearby who want to save money — without commissions eating into partner earnings.
+        </p>
+
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              icon: '🌱',
+              title: 'Less waste',
+              desc: 'Surplus meals, pastries, and groceries find a home instead of the bin.',
+            },
+            {
+              icon: '💰',
+              title: 'Real savings',
+              desc: 'Customers get great food at 50–70% off. Partners earn from food they would have discarded.',
+            },
+            {
+              icon: '🇳🇵',
+              title: 'Made for Nepal',
+              desc: 'Cash, eSewa, Khalti at pickup. Built for Kathmandu, Lalitpur, Pokhara, and Bharatpur.',
+            },
+          ].map((item) => (
+            <div key={item.title} className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+              <div className="text-3xl">{item.icon}</div>
+              <h3 className="mt-4 text-lg font-bold text-[#1A1A1A]">{item.title}</h3>
+              <p className="mt-2 text-sm text-[#6B7280] leading-relaxed">{item.desc}</p>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/about"
+            className="inline-flex items-center justify-center bg-[#D85A30] text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-[#993C1D] transition">
+            Learn more about Bachayo →
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -229,12 +218,32 @@ export default function HomeLanding() {
     {
       id: 'bag',
       q: 'What is a rescue bag?',
-      a: 'A rescue bag is a discounted bag of surplus food from a restaurant, cafe, bakery, or mart that would otherwise go to waste.',
+      a: 'A rescue bag is a discounted bag of surplus food from a restaurant, cafe, bakery, or mart that would otherwise go to waste. Contents vary — partners describe what to expect, and the surprise is part of the fun.',
+    },
+    {
+      id: 'save',
+      q: 'How much do I save?',
+      a: 'Typically 50–70% off the original price. A meal that costs ₨ 500 normally might be available as a rescue bag for ₨ 150–200.',
     },
     {
       id: 'pay',
       q: 'Do I pay in the app?',
-      a: 'No - you reserve in the app and pay at pickup using cash, eSewa, or Khalti based on partner preference.',
+      a: 'No — Bachayo is free to use. You reserve your bag for free and pay at the counter when you pick up. Cash, eSewa, or Khalti — whatever the restaurant accepts.',
+    },
+    {
+      id: 'cancel',
+      q: 'Can I cancel a reservation?',
+      a: 'Yes, you can cancel for free up to 1 hour before the pickup window starts.',
+    },
+    {
+      id: 'city',
+      q: 'Is Bachayo available in my city?',
+      a: 'We are launching in Kathmandu first, with Lalitpur, Pokhara, and Bharatpur following soon. Join the waitlist in the footer to get notified.',
+    },
+    {
+      id: 'partner',
+      q: 'I run a restaurant. How do I join?',
+      a: 'Visit our restaurant partner page and sign up for a free 30-day trial. No payment required to get started.',
     },
   ];
 
@@ -269,7 +278,7 @@ export default function HomeLanding() {
         </div>
       </section>
 
-      <SocialProofTicker />
+      <LaunchCitiesStrip />
 
       <section id="how-it-works" className="bg-[#F5F3EF] py-24">
         <div className="max-w-6xl mx-auto px-6">
@@ -297,7 +306,7 @@ export default function HomeLanding() {
       </section>
 
       <BentoFeatures />
-      <TestimonialsSection />
+      <AboutPreviewSection />
 
       <section id="impact" className="bg-[#D85A30] py-20">
         <div className="max-w-6xl mx-auto px-6">

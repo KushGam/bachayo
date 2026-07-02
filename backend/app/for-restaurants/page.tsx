@@ -61,7 +61,7 @@ export default function ForRestaurantsPage() {
                   Turn tonight&apos;s surplus into revenue
                 </h1>
                 <p className="mt-6 text-xl text-white/80">
-                  Join 0+ restaurants already on Bachayo
+                  List surplus food, reach nearby customers, and keep every rupee you earn.
                 </p>
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -227,24 +227,37 @@ export default function ForRestaurantsPage() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* WHY PARTNER */}
       <section className="bg-[#F5F3EF] py-24">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">What restaurants say</h2>
+          <h2 className="text-4xl font-bold text-center">Why partner with Bachayo</h2>
+          <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto">
+            A straightforward platform built for Nepal&apos;s restaurants — no per-order commissions,
+            no complicated setup.
+          </p>
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: 'Sarbottam Kitchen', rating: 5, text: '“We list daily and the reservations fill up fast. Less waste, more revenue!”' },
-              { name: 'Cafe Sunflower', rating: 5, text: '“Bachayo helped us reach customers in our area. The pickup flow is smooth.”' },
-              { name: 'Bakehouse 11', rating: 4, text: '“Simple pricing and clear notifications. Customers love the surprise bags.”' },
-            ].map((t) => (
-              <FadeIn key={t.name}>
+              {
+                icon: '💰',
+                title: 'Keep 100% of sales',
+                desc: 'You collect payment directly at pickup. Bachayo charges one flat monthly subscription — nothing per order.',
+              },
+              {
+                icon: '⚡',
+                title: 'List in minutes',
+                desc: 'Add your rescue bag, set quantity and pickup window, and go live. No lengthy onboarding process.',
+              },
+              {
+                icon: '📱',
+                title: 'Simple pickup flow',
+                desc: 'Customers reserve in the app. You confirm with a QR scan or manual mark. Staff-friendly and fast.',
+              },
+            ].map((item) => (
+              <FadeIn key={item.title}>
                 <div className="bg-white rounded-3xl p-8 border border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <div className="text-[#D85A30] text-xl">★★★★★</div>
-                    <div className="text-[#6B7280] text-sm font-semibold">{t.rating}/5</div>
-                  </div>
-                  <div className="mt-4 text-[#1A1A1A] font-semibold">{t.name}</div>
-                  <div className="mt-2 text-[#6B7280] text-sm leading-relaxed">{t.text}</div>
+                  <div className="text-4xl">{item.icon}</div>
+                  <h3 className="mt-4 text-lg font-bold text-[#1A1A1A]">{item.title}</h3>
+                  <p className="mt-2 text-sm text-[#6B7280] leading-relaxed">{item.desc}</p>
                 </div>
               </FadeIn>
             ))}
