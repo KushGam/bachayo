@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ADMIN_COOKIE, verifyAdminSession } from '@/lib/admin-auth';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname === '/admin/login') {
@@ -24,3 +24,4 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/admin', '/admin/:path*'],
 };
+
