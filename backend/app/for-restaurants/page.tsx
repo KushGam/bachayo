@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 
@@ -65,11 +66,9 @@ export default function ForRestaurantsPage() {
                 </p>
 
                 <div className="mt-10 flex flex-col sm:flex-row gap-4">
-                  <Link
-                    href="/for-restaurants#pricing"
-                    className="inline-flex items-center justify-center bg-[#D85A30] text-white px-8 py-4 rounded-full text-lg font-bold hover:bg-[#993C1D] transition">
+                  <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-[#D85A30] px-8 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
                     Start your free 30-day trial →
-                  </Link>
+                  </ContactTrialCta>
                   <Link
                     href="/for-restaurants#how-it-works"
                     className="inline-flex items-center justify-center border border-white/30 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/10 transition">
@@ -211,15 +210,14 @@ export default function ForRestaurantsPage() {
                     ))}
                   </ul>
 
-                  <Link
-                    href="/for-restaurants"
+                  <ContactTrialCta
                     className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-base font-bold transition ${
                       tier.active
                         ? 'bg-[#D85A30] text-white hover:bg-[#993C1D]'
                         : 'bg-[#1A1A1A] text-white hover:bg-[#374151]'
                     }`}>
                     Start free trial →
-                  </Link>
+                  </ContactTrialCta>
                 </div>
               </FadeIn>
             ))}
@@ -286,11 +284,9 @@ export default function ForRestaurantsPage() {
             Join Bachayo and turn surplus food into rescue bags customers reserve for free.
           </p>
           <div className="mt-10">
-            <Link
-              href="/for-restaurants#pricing"
-              className="inline-flex items-center justify-center bg-[#D85A30] text-white px-10 py-4 rounded-full text-lg font-bold transition hover:bg-[#993C1D]">
+            <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
               Start your free trial →
-            </Link>
+            </ContactTrialCta>
           </div>
         </div>
       </section>

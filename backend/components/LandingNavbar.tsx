@@ -6,14 +6,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 const HOME_SECTIONS = ['how-it-works', 'cities', 'about', 'download'] as const;
 
-function Logo() {
-  return (
-    <Link href="/" className="inline-flex items-center">
-      <span className="text-2xl font-extrabold tracking-tight text-[#D85A30]">Bachayo</span>
-    </Link>
-  );
-}
-
 export function LandingNavbar() {
   const pathname = usePathname();
   const shouldShow = useMemo(() => !pathname.startsWith('/admin'), [pathname]);
@@ -55,44 +47,55 @@ export function LandingNavbar() {
   if (!shouldShow) return null;
 
   const isHome = pathname === '/';
-  const navBg = scrolled || pathname !== '/'
-    ? 'bg-white/95 border-b border-gray-100 shadow-sm'
-    : 'bg-white/70 border-b border-gray-100';
+  const onHero = isHome && !scrolled;
+  const navBg = onHero
+    ? 'bg-transparent border-b border-white/10'
+    : scrolled || pathname !== '/'
+      ? 'bg-white/95 border-b border-gray-100 shadow-sm'
+      : 'bg-white/70 border-b border-gray-100';
+
+  const linkClass = (active: boolean) =>
+    `transition text-sm font-medium ${
+      active
+        ? onHero
+          ? 'text-white'
+          : 'text-[#D85A30]'
+        : onHero
+          ? 'text-white/75 hover:text-white'
+          : 'text-gray-600 hover:text-[#D85A30]'
+    }`;
 
   return (
     <header className={`fixed top-0 w-full z-50 backdrop-blur-md transition-all duration-300 ${navBg}`}>
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-        <Logo />
+        <Link href="/" className="inline-flex items-center">
+          <span
+            className={`text-2xl font-extrabold tracking-tight ${
+              onHero ? 'text-white' : 'text-[#D85A30]'
+            }`}>
+            Bachayo
+          </span>
+        </Link>
 
         {/* Desktop center links */}
         <nav className="hidden lg:flex items-center gap-6">
           <a
-            className={`transition text-sm font-medium ${
-              isHome && activeSection === 'how-it-works' ? 'text-[#D85A30]' : 'text-gray-600 hover:text-[#D85A30]'
-            }`}
+            className={linkClass(isHome && activeSection === 'how-it-works')}
             href={isHome ? '#how-it-works' : '/#how-it-works'}>
             How it works
           </a>
           <Link
-            className={`transition text-sm font-medium ${
-              pathname === '/for-restaurants' ? 'text-[#D85A30]' : 'text-gray-600 hover:text-[#D85A30]'
-            }`}
+            className={linkClass(pathname === '/for-restaurants')}
             href="/for-restaurants">
             For restaurants
           </Link>
           <a
-            className={`transition text-sm font-medium ${
-              isHome && activeSection === 'cities' ? 'text-[#D85A30]' : 'text-gray-600 hover:text-[#D85A30]'
-            }`}
+            className={linkClass(isHome && activeSection === 'cities')}
             href={isHome ? '#cities' : '/#cities'}>
             Cities
           </a>
           <Link
-            className={`transition text-sm font-medium ${
-              pathname === '/about' || (isHome && activeSection === 'about')
-                ? 'text-[#D85A30]'
-                : 'text-gray-600 hover:text-[#D85A30]'
-            }`}
+            className={linkClass(pathname === '/about' || (isHome && activeSection === 'about'))}
             href="/about">
             About
           </Link>
@@ -101,16 +104,26 @@ export function LandingNavbar() {
         <div className="flex items-center gap-3">
           <Link
             href="/for-restaurants"
-            className="hidden md:inline-flex bg-[#D85A30] text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-[#993C1D] transition">
+            className={`hidden md:inline-flex px-4 py-2 rounded-full text-sm font-semibold transition ${
+              onHero
+                ? 'bg-white text-[#D85A30] hover:bg-[#FFF5F2]'
+                : 'bg-[#D85A30] text-white hover:bg-[#993C1D]'
+            }`}>
             For restaurants →
           </Link>
 
           <button
             type="button"
-            className="lg:hidden w-10 h-10 rounded-full border border-gray-200 bg-white/70 flex items-center justify-center"
+            className={`lg:hidden w-10 h-10 rounded-full border flex items-center justify-center ${
+              onHero
+                ? 'border-white/30 bg-white/10 text-white'
+                : 'border-gray-200 bg-white/70 text-[#D85A30]'
+            }`}
             aria-label="Open menu"
             onClick={() => setOpen((v) => !v)}>
-            <span className="text-[#D85A30] font-bold text-lg">{open ? '×' : '≡'}</span>
+            <span className={`font-bold text-lg ${onHero ? 'text-white' : 'text-[#D85A30]'}`}>
+              {open ? '×' : '≡'}
+            </span>
           </button>
         </div>
       </div>
@@ -118,7 +131,7 @@ export function LandingNavbar() {
       {/* Mobile menu */}
       <div
         className={`lg:hidden overflow-hidden transition-all duration-300 ${
-          open ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
+          open ? 'max-h-screen border-b border-gray-100 bg-white opacity-100' : 'max-h-0 opacity-0'
         }`}>
         <div className="max-w-6xl mx-auto px-6 pb-6 pt-2">
           <nav className="flex flex-col gap-3 pt-2">

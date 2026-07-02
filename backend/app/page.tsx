@@ -1,7 +1,9 @@
 import Link from 'next/link';
 
+import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
+import { HeroPhoneMockup } from '@/components/HeroPhoneMockup';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
 
 function AppStoreButton() {
@@ -178,7 +180,7 @@ function ComparisonSection() {
     ['Revenue from surplus', '❌', '⚠️ (after commission)', '✅ Full price'],
     ['Commission per sale', '-', '15-30%', '✅ Zero'],
     ['Setup time', '-', 'Days', '✅ 5 minutes'],
-    ['Works without internet', '-', '❌', '✅ QR works offline'],
+    ['Simple pickup process', '-', '❌ Complex', '✅ QR code scan'],
     ['Nepal payment methods', '-', '❌', '✅ Cash, eSewa, Khalti'],
     ['Customer notifications', '-', '❌', '✅ Instant push'],
     ['Free trial', '-', '❌', '✅ 30 days'],
@@ -249,30 +251,60 @@ export default function HomeLanding() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      <section className="relative min-h-screen bg-gradient-to-br from-[#D85A30] via-[#993C1D] to-[#712B13] pt-32 pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.18),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(250,236,215,0.16),transparent_40%)]" />
-        <div className="relative max-w-6xl mx-auto px-6 text-center">
+      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#D85A30] via-[#993C1D] to-[#712B13] pt-28 pb-24 md:pt-32 md:pb-32">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,rgba(255,255,255,0.2),transparent_42%),radial-gradient(circle_at_85%_15%,rgba(250,236,215,0.18),transparent_38%)]" />
+        <div className="absolute -right-32 top-20 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute -left-24 bottom-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 lg:grid-cols-2 lg:gap-12">
           <FadeIn delay={0}>
-            <h1 className="mt-4 text-5xl md:text-6xl font-bold text-white leading-tight">
-              Rescue great food.
-              <br />
-              Save up to 70%.
-            </h1>
-            <p className="mt-6 text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
-              Find surplus rescue bags from your favourite restaurants, cafes, and bakeries at a
-              fraction of the price.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="#download"
-                className="inline-flex items-center justify-center bg-white text-[#D85A30] px-8 py-4 rounded-full text-base font-bold hover:bg-[#FAECE7] transition shadow-lg">
-                Download the app
-              </a>
-              <Link
-                href="/for-restaurants"
-                className="inline-flex items-center justify-center border-2 border-white/40 text-white px-8 py-4 rounded-full text-base font-semibold hover:bg-white/10 transition">
-                I run a restaurant
-              </Link>
+            <div className="text-center lg:text-left">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
+                🇳🇵 First food rescue app in Nepal
+              </span>
+
+              <h1 className="mt-5 text-5xl font-black leading-[1.05] tracking-tight text-white sm:text-6xl">
+                Rescue great food.
+                <br />
+                Save up to 70%.
+              </h1>
+
+              <p className="mx-auto mt-6 max-w-md text-xl leading-relaxed text-white/75 lg:mx-0">
+                Find surplus rescue bags from restaurants, cafes and bakeries near you — at a
+                fraction of the price.
+              </p>
+
+              <div className="mt-10 flex flex-wrap justify-center gap-4 lg:justify-start">
+                <a
+                  href="#download"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-8 py-4 text-base font-bold text-[#D85A30] shadow-xl shadow-black/20 transition hover:bg-[#FFF5F2]">
+                  Download the app →
+                </a>
+                <ContactTrialCta className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                  I run a restaurant →
+                </ContactTrialCta>
+              </div>
+
+              <div className="mt-14 flex flex-wrap justify-center gap-8 lg:justify-start">
+                {[
+                  { value: '4', label: 'Cities' },
+                  { value: '70%', label: 'Max savings' },
+                  { value: 'Free', label: 'To reserve' },
+                ].map((stat, index) => (
+                  <div
+                    key={stat.label}
+                    className={index < 2 ? 'border-r border-white/15 pr-8' : ''}>
+                    <div className="text-3xl font-black text-white">{stat.value}</div>
+                    <div className="mt-1 text-sm text-white/60">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={120}>
+            <div className="flex justify-center lg:justify-end">
+              <HeroPhoneMockup />
             </div>
           </FadeIn>
         </div>
@@ -343,11 +375,9 @@ export default function HomeLanding() {
           <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
             Join Bachayo as a restaurant partner with a 30-day free trial.
           </p>
-          <Link
-            href="/for-restaurants"
-            className="inline-block bg-[#D85A30] text-white px-10 py-4 rounded-full text-lg font-bold mt-10 transition hover:bg-[#993C1D]">
-            Start free trial
-          </Link>
+          <ContactTrialCta className="mt-10 inline-block rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
+            Start free trial →
+          </ContactTrialCta>
         </div>
       </section>
 
