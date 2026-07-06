@@ -255,7 +255,7 @@ export default function LeaveReviewScreen() {
     void load();
   }, [load]);
 
-  const category = order ? getCategoryById(order.partner.category) : null;
+  const category = order ? getCategoryById(order.partner?.category ?? 'restaurant') : null;
   const ratingLabel = rating > 0 ? RATING_LABELS[rating] : null;
 
   const appendTag = (tag: string) => {
@@ -387,7 +387,7 @@ export default function LeaveReviewScreen() {
   if (success && order) {
     return (
       <ReviewSuccess
-        partnerName={order.partner.name}
+        partnerName={order.partner?.name ?? 'Restaurant'}
         rating={rating}
         onDone={() => router.replace('/(tabs)/customer/my-bags')}
       />
@@ -438,7 +438,7 @@ export default function LeaveReviewScreen() {
         contentContainerStyle={styles.scrollContent}
         footer={stickyFooter}>
         <View style={styles.summaryCard}>
-          {order.partner.cover_image_url ? (
+          {order.partner?.cover_image_url ? (
             <Image source={{ uri: order.partner.cover_image_url }} style={styles.summaryImage} />
           ) : (
             <View style={[styles.summaryImage, styles.summaryImagePlaceholder]}>
@@ -446,8 +446,8 @@ export default function LeaveReviewScreen() {
             </View>
           )}
           <View style={styles.summaryCenter}>
-            <Text style={styles.summaryPartner}>{order.partner.name}</Text>
-            <Text style={styles.summaryBag}>{order.bag.title}</Text>
+            <Text style={styles.summaryPartner}>{order.partner?.name ?? 'Restaurant'}</Text>
+            <Text style={styles.summaryBag}>{order.bag?.title ?? 'Rescue bag'}</Text>
             <Text style={styles.summaryPickup}>{formatPickedUpLabel(order.picked_up_at)}</Text>
           </View>
           <View style={styles.summaryRight}>

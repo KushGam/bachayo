@@ -126,6 +126,7 @@ function RootLayoutNav() {
           options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }}
         />
         <Stack.Screen name="partner/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="partners/index" options={{ headerShown: false }} />
         <Stack.Screen name="partner/edit-bag/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="partner/reactivate" options={{ headerShown: false }} />
         <Stack.Screen name="partner/edit-business" options={{ headerShown: false }} />

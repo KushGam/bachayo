@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppSymbol } from '@/components/ui/AppSymbol';
 import { Palette } from '@/constants/Colors';
-import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { formatNprPaisa, getPickupCountdownLabel } from '@/lib/helpers';
 import type { CustomerOrderWithDetails } from '@/types/app';
 
@@ -14,16 +14,27 @@ type HomeActiveOrderCardProps = {
 };
 
 export function HomeActiveOrderCard({ order, locale, onPress }: HomeActiveOrderCardProps) {
-  const countdown = getPickupCountdownLabel(order.bag.available_date, order.bag.pickup_end);
-  const pickupWindow = `${order.bag.pickup_start.slice(0, 5)} – ${order.bag.pickup_end.slice(0, 5)}`;
+  const bag = order.bag;
+  const partnerName = order.partner?.name ?? 'Restaurant';
+  const bagTitle =
+    locale === 'np' && bag?.title_np ? bag.title_np : bag?.title ?? 'Rescue bag';
+  const countdown = bag
+    ? getPickupCountdownLabel(bag.available_date, bag.pickup_end)
+    : locale === 'np'
+      ? 'पिकअप छिट्टै'
+      : 'Pickup soon';
+  const pickupWindow =
+    bag?.pickup_start && bag?.pickup_end
+      ? `${bag.pickup_start.slice(0, 5)} – ${bag.pickup_end.slice(0, 5)}`
+      : '—';
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
+    <Pressable onPress={onPress}       style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
       <LinearGradient
-        colors={[Palette.primaryDark, Palette.primary]}
+        colors={['#8F3A1F', Palette.primaryDark, Palette.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.card, FloatingShadow]}>
+        style={styles.card}>
         <View style={styles.badge}>
           <AppSymbol ios="clock.fill" android="schedule" size={13} color={Palette.primaryDark} />
           <Text style={styles.badgeText}>
@@ -32,10 +43,10 @@ export function HomeActiveOrderCard({ order, locale, onPress }: HomeActiveOrderC
         </View>
 
         <Text numberOfLines={1} style={styles.partner}>
-          {order.partner.name}
+          {partnerName}
         </Text>
         <Text numberOfLines={1} style={styles.bagTitle}>
-          {locale === 'np' && order.bag.title_np ? order.bag.title_np : order.bag.title}
+          {bagTitle}
         </Text>
 
         <View style={styles.metaRow}>
@@ -67,6 +78,8 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.sm,
     borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   pressed: {
     opacity: 0.94,

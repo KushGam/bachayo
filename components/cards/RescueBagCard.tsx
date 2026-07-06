@@ -5,9 +5,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppImage } from '@/components/ui/AppImage';
 import { AppSymbol } from '@/components/ui/AppSymbol';
 import { Palette } from '@/constants/Colors';
-import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { getRescueBagImageUrl } from '@/lib/images';
-import { formatDistanceKm, formatNprPaisa, formatRsPaisa, getInitials } from '@/lib/helpers';
+import { formatBagPickupLabel, formatDistanceKm, formatNprPaisa, formatRsPaisa, getInitials } from '@/lib/helpers';
 import { getCategoryPillLabel } from '@/constants/partnerCategories';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { HomeBag } from '@/store/useBagsStore';
@@ -35,12 +35,12 @@ export const RescueBagCard = memo(function RescueBagCard({
       ? Math.round((savingsPaisa / bag.original_price) * 100)
       : 0;
   const rating = bag.partner.rating ?? 0;
-  const pickupLabel = `${bag.pickup_start.slice(0, 5)} – ${bag.pickup_end.slice(0, 5)}`;
+  const pickupLabel = formatBagPickupLabel(bag.available_date, bag.pickup_start, bag.pickup_end);
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, FloatingShadow, pressed && styles.pressed]}>
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.imageCol}>
         <AppImage
           source={{ uri: getRescueBagImageUrl(bag) }}
@@ -129,12 +129,9 @@ export const RescueBagCard = memo(function RescueBagCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: Palette.surface,
-    borderRadius: Radius.lg,
+    ...CardChrome,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-    minHeight: 132,
+    minHeight: 128,
   },
   pressed: {
     opacity: 0.94,
@@ -165,16 +162,16 @@ const styles = StyleSheet.create({
   },
   reservedBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#10B981',
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    bottom: Spacing.sm,
+    left: Spacing.sm,
+    backgroundColor: Palette.success,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
   },
   reservedBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
+    ...Type.label,
+    fontWeight: '700',
     color: Palette.white,
   },
   body: {

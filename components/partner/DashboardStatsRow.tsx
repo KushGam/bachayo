@@ -1,5 +1,13 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  CheckCircle2,
+  Package,
+  ShoppingBag,
+  TrendingUp,
+} from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatNprFromPaisa } from '@/lib/partnerBags';
 
 export type DashboardStat = {
@@ -12,38 +20,51 @@ type DashboardStatsRowProps = {
   stats: DashboardStat[];
 };
 
-const STAT_LABELS = ['Bags', 'Reserved', 'Picked', 'Est. Revenue'] as const;
+const STAT_CONFIG = [
+  { label: 'Bags', Icon: Package },
+  { label: 'Reserved', Icon: ShoppingBag },
+  { label: 'Picked', Icon: CheckCircle2 },
+  { label: 'Est. Revenue', Icon: TrendingUp },
+] as const;
 
 export function DashboardStatsRow({ stats }: DashboardStatsRowProps) {
-  const ordered = STAT_LABELS.map(
-    (label) => stats.find((stat) => stat.label === label) ?? { label, value: '0' },
-  );
-
   return (
     <View style={styles.card}>
-      {ordered.map((stat, index) => (
-        <View key={stat.label} style={styles.cellWrap}>
-          <StatCell stat={stat} isRevenue={stat.label === 'Est. Revenue'} />
-          {index < ordered.length - 1 ? <View style={styles.verticalDivider} /> : null}
-        </View>
-      ))}
-    </View>
-  );
-}
+      {STAT_CONFIG.map((config, index) => {
+        const stat = stats.find((row) => row.label === config.label) ?? {
+          label: config.label,
+          value: '0',
+        };
+        const isRevenue = config.label === 'Est. Revenue';
+        const Icon = config.Icon;
 
-function StatCell({ stat, isRevenue }: { stat: DashboardStat; isRevenue: boolean }) {
-  const revenueColor = stat.valueColor ?? (isRevenue ? '#D85A30' : undefined);
-
-  return (
-    <View style={styles.cell}>
-      <Text
-        style={[
-          styles.value,
-          isRevenue && revenueColor ? { color: revenueColor } : null,
-        ]}>
-        {stat.value}
-      </Text>
-      <Text style={styles.label}>{stat.label}</Text>
+        return (
+          <View key={config.label} style={styles.cellWrap}>
+            <View style={styles.cell}>
+              <View style={[styles.iconWrap, isRevenue && styles.iconWrapRevenue]}>
+                <Icon
+                  size={14}
+                  color={isRevenue ? Palette.primary : Palette.textSecondary}
+                  strokeWidth={2.2}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.value,
+                  isRevenue && stat.valueColor ? { color: stat.valueColor } : null,
+                  isRevenue && styles.valueRevenue,
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}>
+                {stat.value}
+              </Text>
+              <Text style={styles.label}>{stat.label}</Text>
+            </View>
+            {index < STAT_CONFIG.length - 1 ? <View style={styles.divider} /> : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -64,32 +85,19 @@ export function buildDashboardStats(input: {
     {
       label: 'Est. Revenue',
       value: revenueNpr > 0 ? formatNprFromPaisa(input.revenue) : '₨ 0',
-      valueColor: revenueNpr > 0 ? '#D85A30' : '#9CA3AF',
+      valueColor: revenueNpr > 0 ? Palette.primary : Palette.textTertiary,
     },
   ];
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: -1,
-    marginHorizontal: 0,
-    backgroundColor: '#242424',
-    paddingVertical: 20,
-    paddingHorizontal: 12,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
     flexDirection: 'row',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 4 },
-      default: {},
-    }),
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xs,
+    ...FloatingShadow,
   },
   cellWrap: {
     flex: 1,
@@ -99,23 +107,39 @@ const styles = StyleSheet.create({
   cell: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
+    gap: 4,
+  },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Palette.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapRevenue: {
+    backgroundColor: Palette.primaryLight,
   },
   value: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Palette.textPrimary,
     textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  valueRevenue: {
+    fontSize: 15,
   },
   label: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    ...Type.label,
+    color: Palette.textTertiary,
     textAlign: 'center',
-    marginTop: 3,
+    fontWeight: '500',
   },
-  verticalDivider: {
+  divider: {
     width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    height: 44,
+    backgroundColor: Palette.borderSubtle,
   },
 });

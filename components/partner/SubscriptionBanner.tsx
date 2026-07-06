@@ -12,7 +12,7 @@ const DISMISS_KEY = 'subscription_banner_dismissed_until';
 
 type SubscriptionBannerProps = {
   partner: PartnerSubscriptionFields & { trial_ends_at?: string | null };
-  placement?: 'inHeader' | 'overlap';
+  placement?: 'inHeader' | 'overlap' | 'content';
 };
 
 export function SubscriptionBanner({ partner, placement = 'overlap' }: SubscriptionBannerProps) {
@@ -41,19 +41,34 @@ export function SubscriptionBanner({ partner, placement = 'overlap' }: Subscript
   if (status === 'active') return null;
 
   if (status === 'trial' && daysLeft > 7 && !dismissed) {
-    if (placement !== 'inHeader') return null;
+    if (placement === 'inHeader') {
+      return (
+        <View style={styles.headerBanner}>
+          <Text style={styles.headerBannerEmoji}>✨</Text>
+          <Text style={styles.headerBannerText}>
+            {daysLeft} days free trial remaining
+          </Text>
+          <Pressable onPress={dismissForToday} hitSlop={8}>
+            <Text style={styles.headerDismiss}>✕</Text>
+          </Pressable>
+        </View>
+      );
+    }
 
-    return (
-      <View style={styles.headerBanner}>
-        <Text style={styles.headerBannerEmoji}>✨</Text>
-        <Text style={styles.headerBannerText}>
-          {daysLeft} days free trial remaining
-        </Text>
-        <Pressable onPress={dismissForToday} hitSlop={8}>
-          <Text style={styles.headerDismiss}>✕</Text>
-        </Pressable>
-      </View>
-    );
+    if (placement === 'content') {
+      return (
+        <View style={styles.contentBanner}>
+          <Text style={styles.contentBannerText}>
+            {daysLeft} days left on your free trial
+          </Text>
+          <Pressable onPress={dismissForToday} hitSlop={8}>
+            <Text style={styles.contentDismiss}>Dismiss</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return null;
   }
 
   if (placement !== 'overlap') return null;
@@ -123,6 +138,31 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontWeight: '400',
   },
+  contentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Palette.primaryLight,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Palette.overlay.border,
+    marginHorizontal: 16,
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  contentBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: Palette.primaryDark,
+    fontWeight: '600',
+  },
+  contentDismiss: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+    fontWeight: '500',
+    marginLeft: 12,
+  },
   urgentBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -130,7 +170,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     borderRadius: 12,
     marginHorizontal: 16,
-    marginTop: -16,
+    marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     ...Platform.select({

@@ -1,14 +1,16 @@
+import { Map } from 'lucide-react-native';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 
 const GRID_SPACING = 60;
-const GRID_COLOR = '#D4CFC6';
+const GRID_COLOR = Palette.border;
 
 const FAKE_PINS = [
-  { top: '18%', left: '22%' },
-  { top: '38%', right: '18%' },
-  { bottom: '28%', left: '42%' },
+  { top: '18%', left: '22%', price: '₨199' },
+  { top: '38%', right: '18%', price: '₨149' },
+  { bottom: '28%', left: '42%', price: '₨249' },
 ] as const;
 
 function MapGrid() {
@@ -28,6 +30,7 @@ function MapGrid() {
             top: index * GRID_SPACING,
             height: 1,
             backgroundColor: GRID_COLOR,
+            opacity: 0.55,
           }}
         />
       ))}
@@ -41,6 +44,7 @@ function MapGrid() {
             left: index * GRID_SPACING,
             width: 1,
             backgroundColor: GRID_COLOR,
+            opacity: 0.55,
           }}
         />
       ))}
@@ -53,18 +57,19 @@ export function ExploreMapPlaceholder() {
     <View style={styles.container}>
       <MapGrid />
 
-      {FAKE_PINS.map((position, index) => (
-        <View key={index} style={[styles.fakePin, position]}>
-          <Text style={styles.fakePinText}>₨</Text>
+      {FAKE_PINS.map((pin, index) => (
+        <View key={index} style={[styles.fakePin, pin]}>
+          <Text style={styles.fakePinText}>{pin.price}</Text>
         </View>
       ))}
 
       <View style={styles.centerCard}>
-        <Text style={styles.centerEmoji}>🗺</Text>
-        <Text style={styles.centerTitle}>Map coming soon</Text>
+        <View style={styles.iconWrap}>
+          <Map size={24} color={Palette.primary} strokeWidth={2} />
+        </View>
+        <Text style={styles.centerTitle}>Map preview</Text>
         <Text style={styles.centerSubtitle}>
-          Full map view available in the{'\n'}
-          LastBag app on the App Store
+          Full interactive map is available in the production LastBag app build.
         </Text>
       </View>
     </View>
@@ -74,25 +79,28 @@ export function ExploreMapPlaceholder() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8E4DC',
+    backgroundColor: Palette.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   fakePin: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    minWidth: 52,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderWidth: 2,
+    borderColor: Palette.white,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.18,
+        shadowOpacity: 0.16,
         shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOffset: { width: 0, height: 2 },
       },
       android: { elevation: 4 },
       default: {},
@@ -100,40 +108,37 @@ const styles = StyleSheet.create({
   },
   fakePinText: {
     color: Palette.white,
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '800',
   },
   centerCard: {
-    backgroundColor: Palette.white,
-    borderRadius: 16,
-    padding: 20,
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
     alignItems: 'center',
-    marginHorizontal: 40,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 5 },
-      default: {},
-    }),
+    marginHorizontal: Spacing.xxl,
+    backgroundColor: Palette.surface,
+    ...FloatingShadow,
   },
-  centerEmoji: {
-    fontSize: 28,
-    marginBottom: 8,
+  iconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
   centerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   centerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...Type.caption,
+    color: Palette.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },

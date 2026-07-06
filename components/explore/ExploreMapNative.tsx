@@ -1,25 +1,36 @@
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { View, Text } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Region } from 'react-native-maps';
 
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
-import { formatDistanceKm, getTodayIsoDateLocal, haversineDistanceKm } from '@/lib/helpers';
+import { enrichBagsWithLiveStock } from '@/lib/bagStock';
+import { getTodayIsoDateLocal } from '@/lib/helpers';
+import {
+  attachNearbyBagDistances,
+  bagPassesNearbyDistanceFilter,
+  fetchNearbyRescueBags,
+  filterVisibleNearbyBags,
+  resolveNearbyOrigin,
+} from '@/lib/nearbyBags';
+import { Spacing } from '@/constants/theme';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
-import { isPartnerVisibleToCustomers } from '@/lib/subscriptions';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBagsStore, type HomeBag } from '@/store/useBagsStore';
 import { useLocationStore } from '@/store/useLocationStore';
 
+import { ExploreBagListCard } from './ExploreBagListCard';
 import { ExploreBottomSheet } from './ExploreBottomSheet';
 import { ExploreFilterPanel, MAX_DISTANCE_OPTIONS } from './ExploreFilterPanel';
 import { ExploreHeader } from './ExploreHeader';
+import { ExploreSelectedBagCard } from './ExploreSelectedBagCard';
 import { ExploreSheetEmpty } from './ExploreSheetEmpty';
+import { ExploreSheetTitle } from './ExploreSheetTitle';
 import { exploreStyles as styles } from './exploreStyles';
 
 const KATHMANDU_REGION: Region = {
@@ -38,7 +49,7 @@ export default function ExploreMapNative() {
   const insets = useSafeAreaInsets();
   const locale = useAuthStore((s) => s.locale);
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
-  const { areaId, setLocation } = useLocationStore();
+  const { cityId, areaId, setLocation } = useLocationStore();
 
   const [region, setRegion] = useState<Region>(KATHMANDU_REGION);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -54,13 +65,18 @@ export default function ExploreMapNative() {
     [bags, selectedBagId],
   );
 
+  const origin = useMemo(
+    () => resolveNearbyOrigin(areaId, cityId, userCoords),
+    [areaId, cityId, userCoords],
+  );
+
   const filteredBags = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return bags.filter((bag) => {
       const title = locale === 'np' && bag.title_np ? bag.title_np : bag.title;
       const categoryPass =
         selectedCategory === 'all' ? true : bag.partner.category === selectedCategory;
-      const distancePass = bag.distance_km == null ? true : bag.distance_km <= maxDistanceKm;
+      const distancePass = bagPassesNearbyDistanceFilter(bag, maxDistanceKm);
       const searchPass =
         search.length === 0
           ? true
@@ -74,12 +90,7 @@ export default function ExploreMapNative() {
     setLoading(true);
     setErrorText(null);
 
-    const { data, error } = await supabase
-      .from('rescue_bags')
-      .select('*, partner:partners!inner(*)')
-      .eq('status', 'active')
-      .eq('available_date', today)
-      .eq('partner.approval_status', 'approved');
+    const { data, error } = await fetchNearbyRescueBags(today);
 
     if (error) {
       setErrorText(error.message);
@@ -87,39 +98,13 @@ export default function ExploreMapNative() {
       return;
     }
 
-    const visibleBags = (data ?? []).filter((row) => {
-      const partner = (row as {
-        partner?: {
-          city_id?: string | null;
-          is_active?: boolean | null;
-          subscription_status?: string | null;
-        };
-      }).partner;
-      return isPartnerVisibleToCustomers(partner);
-    });
-
-    const nextBags = visibleBags
-      .map((row) => {
-        const bag = row as unknown as HomeBag;
-        const distanceKm =
-          userCoords == null
-            ? null
-            : haversineDistanceKm(userCoords, {
-                latitude: bag.partner.latitude,
-                longitude: bag.partner.longitude,
-              });
-        return { ...bag, distance_km: distanceKm };
-      })
-      .sort((a, b) => {
-        if (a.distance_km == null && b.distance_km == null) return 0;
-        if (a.distance_km == null) return 1;
-        if (b.distance_km == null) return -1;
-        return a.distance_km - b.distance_km;
-      });
+    const visible = filterVisibleNearbyBags(data, cityId);
+    const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
+    const nextBags = attachNearbyBagDistances(withStock, origin);
 
     setBags(nextBags);
     setLoading(false);
-  }, [setBags, userCoords]);
+  }, [cityId, origin, setBags]);
 
   const fetchBagsRef = useRef(fetchBags);
   fetchBagsRef.current = fetchBags;
@@ -201,39 +186,25 @@ export default function ExploreMapNative() {
     ({ item }: { item: HomeBag }) => {
       const title = locale === 'np' && item.title_np ? item.title_np : item.title;
       return (
-        <Pressable style={styles.listCard} onPress={() => onSelectMarker(item)}>
-          <View style={{ flex: 1 }}>
-            <Pressable onPress={() => router.push(`/partner/${item.partner_id}`)} hitSlop={4}>
-              <Text numberOfLines={1} style={styles.listPartner}>
-                {item.partner.name}
-              </Text>
-            </Pressable>
-            <Text numberOfLines={1} style={styles.listBagTitle}>
-              {title}
-            </Text>
-            <Text style={styles.listMeta}>
-              {item.distance_km == null ? 'Distance unknown' : formatDistanceKm(item.distance_km)} •{' '}
-              {Math.max(0, item.quantity_available - item.quantity_reserved)} left
-            </Text>
-          </View>
-          <Text style={styles.listPrice}>{markerPriceLabel(item.rescue_price)}</Text>
-        </Pressable>
+        <ExploreBagListCard
+          bag={item}
+          title={title}
+          priceLabel={markerPriceLabel(item.rescue_price)}
+          selected={selectedBagId === item.id}
+          onPress={() => onSelectMarker(item)}
+          onPartnerPress={() => router.push(`/partner/${item.partner_id}`)}
+        />
       );
     },
-    [locale, router],
+    [locale, router, selectedBagId],
   );
+
+  const filtersActive = selectedCategory !== 'all' || maxDistanceKm !== 10;
+  const searchPlaceholder =
+    locale === 'np' ? 'रेस्टुरेन्ट, बेकरी खोज्नुहोस्…' : 'Search restaurants, bakeries…';
 
   return (
     <View style={styles.container}>
-      <ExploreHeader
-        areaId={areaId}
-        onLocationChange={(cityId, nextAreaId) => setLocation(cityId, nextAreaId)}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onFilterPress={() => setIsFilterOpen((value) => !value)}
-        paddingTop={insets.top + 8}
-      />
-
       <View style={styles.mapArea}>
         <MapView style={styles.map} region={region} onRegionChangeComplete={setRegion}>
           {filteredBags.map((bag) => (
@@ -251,53 +222,33 @@ export default function ExploreMapNative() {
           ))}
         </MapView>
 
-        <ExploreFilterPanel
-          visible={isFilterOpen}
-          locale={locale}
-          selectedCategory={selectedCategory}
-          maxDistanceKm={maxDistanceKm}
-          onSelectCategory={setSelectedCategory}
-          onSelectDistance={setMaxDistanceKm}
-          onApply={() => setIsFilterOpen(false)}
-        />
+        <View style={[styles.floatingChrome, { paddingTop: insets.top + Spacing.sm }]}>
+          <ExploreHeader
+            areaId={areaId}
+            onLocationChange={(cityId, nextAreaId) => setLocation(cityId, nextAreaId)}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onFilterPress={() => setIsFilterOpen((value) => !value)}
+            filtersActive={filtersActive}
+            placeholder={searchPlaceholder}
+          />
+          <ExploreFilterPanel
+            visible={isFilterOpen}
+            locale={locale}
+            selectedCategory={selectedCategory}
+            maxDistanceKm={maxDistanceKm}
+            onSelectCategory={setSelectedCategory}
+            onSelectDistance={setMaxDistanceKm}
+            onApply={() => setIsFilterOpen(false)}
+          />
+        </View>
       </View>
 
       <ExploreBottomSheet
         expandForSelection={Boolean(selectedBag)}
-        titleRow={
-          <View style={styles.sheetTitleRow}>
-            <Text style={styles.sheetTitle}>Nearby rescue bags</Text>
-            {filteredBags.length > 0 ? (
-              <View style={styles.bagCountBadge}>
-                <Text style={styles.bagCountText}>
-                  {filteredBags.length} {filteredBags.length === 1 ? 'bag' : 'bags'}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        }
+        titleRow={<ExploreSheetTitle count={filteredBags.length} locale={locale} />}
         selectedCard={
-          selectedBag ? (
-            <View style={styles.selectedCard}>
-              <View style={styles.selectedTop}>
-              <Pressable onPress={() => router.push(`/partner/${selectedBag.partner_id}`)}>
-                <Text style={styles.selectedName}>{selectedBag.partner.name}</Text>
-              </Pressable>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryBadgeText}>{selectedBag.partner.category}</Text>
-                </View>
-              </View>
-              <Text style={styles.selectedMeta}>
-                Today: {Math.max(0, selectedBag.quantity_available - selectedBag.quantity_reserved)} bags
-                available
-              </Text>
-              <Pressable
-                style={({ pressed }) => [styles.reserveButton, pressed && { opacity: 0.88 }]}
-                onPress={() => router.push(`/bag/${selectedBag.id}`)}>
-                <Text style={styles.reserveButtonText}>Reserve now</Text>
-              </Pressable>
-            </View>
-          ) : null
+          selectedBag ? <ExploreSelectedBagCard bag={selectedBag} locale={locale} /> : null
         }>
         <View style={styles.sheetContent}>
           {errorText ? <RetryState message={errorText} onRetry={fetchBags} /> : null}
@@ -311,8 +262,8 @@ export default function ExploreMapNative() {
               data={filteredBags}
               keyExtractor={(item) => item.id}
               renderItem={renderListItem}
-              ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-              contentContainerStyle={{ paddingBottom: 100 }}
+              ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+              contentContainerStyle={{ paddingBottom: 120 }}
               showsVerticalScrollIndicator={false}
             />
           )}

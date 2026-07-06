@@ -1,5 +1,6 @@
 import { Palette } from '@/constants/Colors';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { StyleSheet, Text, View } from 'react-native';
 
 type DigestStat = {
   value: string;
@@ -8,23 +9,32 @@ type DigestStat = {
 
 type HomeMarketDigestProps = {
   stats: DigestStat[];
+  title?: string;
 };
 
-function StatCell({ value, label }: DigestStat) {
+function StatCell({ value, label, showDivider }: DigestStat & { showDivider?: boolean }) {
   return (
-    <View style={styles.cell}>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
-    </View>
+    <>
+      {showDivider ? <View style={styles.divider} /> : null}
+      <View style={styles.cell}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={styles.value}>
+          {value}
+        </Text>
+        <Text numberOfLines={2} style={styles.label}>
+          {label}
+        </Text>
+      </View>
+    </>
   );
 }
 
-export function HomeMarketDigest({ stats }: HomeMarketDigestProps) {
+export function HomeMarketDigest({ stats, title }: HomeMarketDigestProps) {
   return (
     <View style={styles.card}>
-      <View style={styles.grid}>
-        {stats.map((stat) => (
-          <StatCell key={stat.label} {...stat} />
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      <View style={styles.row}>
+        {stats.map((stat, index) => (
+          <StatCell key={stat.label} {...stat} showDivider={index > 0} />
         ))}
       </View>
     </View>
@@ -33,40 +43,52 @@ export function HomeMarketDigest({ stats }: HomeMarketDigestProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Palette.white,
-    borderRadius: 20,
-    marginHorizontal: 16,
-    marginTop: -20,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 4 },
-      },
-      android: { elevation: 4 },
-      default: {},
-    }),
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    gap: Spacing.md,
   },
-  grid: {
+  title: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    alignItems: 'stretch',
   },
   cell: {
-    width: '47%',
-    gap: 2,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 2,
+  },
+  divider: {
+    width: 1,
+    backgroundColor: Palette.borderSubtle,
+    marginVertical: 4,
   },
   value: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: Palette.primary,
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontWeight: '700',
+    color: Palette.primaryDark,
+    letterSpacing: -0.4,
+    textAlign: 'center',
   },
   label: {
-    fontSize: 11,
+    ...Type.label,
     color: Palette.textSecondary,
     fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });

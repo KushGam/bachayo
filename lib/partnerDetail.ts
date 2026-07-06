@@ -1,3 +1,4 @@
+import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import { supabase } from '@/lib/supabase';
 import type { Partner, RescueBag } from '@/types/database';
@@ -93,9 +94,11 @@ export async function fetchPartnerDetail(
       ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
       : partner.rating ?? 0;
 
+  const liveBags = await enrichBagsWithLiveStock(bags ?? []);
+
   return {
     partner: partner as PartnerDetailPartner,
-    bags: bags ?? [],
+    bags: liveBags,
     reviews: (reviews ?? []) as unknown as PartnerReviewRow[],
     stats: {
       totalPickups: pickupCount ?? 0,

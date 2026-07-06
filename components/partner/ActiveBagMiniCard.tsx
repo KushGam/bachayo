@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { memo, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -12,6 +13,8 @@ import {
   formatBagReservedProgressLabel,
   formatCollapsedOrdersSummary,
 } from '@/components/partner/BagOrdersExpandedPanel';
+import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatTime12h } from '@/lib/helpers';
 import { formatNprFromPaisa, getSavingsPct, type PartnerBagOrder } from '@/lib/partnerBags';
 import type { RescueBag } from '@/types/database';
@@ -83,7 +86,7 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
   return (
     <View style={styles.card}>
       <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.96 }]}>
-        <View style={[styles.topStrip, { backgroundColor: isActive ? '#D85A30' : '#9CA3AF' }]} />
+        <View style={[styles.topStrip, { backgroundColor: isActive ? Palette.primary : Palette.textTertiary }]} />
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
@@ -120,7 +123,7 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
                   styles.progressFill,
                   {
                     width: `${Math.min(100, progress * 100)}%`,
-                    backgroundColor: soldOut ? '#10B981' : '#D85A30',
+                    backgroundColor: soldOut ? Palette.success : Palette.primary,
                   },
                 ]}
               />
@@ -132,9 +135,15 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
         </View>
       </Pressable>
 
-      <Pressable onPress={onToggleOrders} style={styles.ordersRow}>
+      <Pressable
+        onPress={onToggleOrders}
+        style={({ pressed }) => [styles.ordersRow, pressed && styles.ordersRowPressed]}>
         <Text style={styles.ordersRowText}>{collapsedSummary}</Text>
-        <Text style={styles.ordersChevron}>{isOrdersExpanded ? '▴' : '▾'}</Text>
+        {isOrdersExpanded ? (
+          <ChevronUp size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+        ) : (
+          <ChevronDown size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+        )}
       </Pressable>
 
       {isOrdersExpanded ? (
@@ -151,99 +160,97 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 10,
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm + 2,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#EBEBEB',
+    ...FloatingShadow,
   },
   topStrip: {
     width: '100%',
     height: 3,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md + 2,
+    paddingBottom: Spacing.md + 2,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   title: {
     flex: 1,
-    fontSize: 16,
+    ...Type.bodyMedium,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
     lineHeight: 20,
   },
   titleRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   headerPrice: {
-    fontSize: 16,
+    ...Type.bodyMedium,
     fontWeight: '700',
-    color: '#D85A30',
+    color: Palette.primary,
   },
   statusBadgeActive: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 999,
+    backgroundColor: Palette.successBg,
+    borderRadius: Radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   statusDot: {
     fontSize: 8,
-    color: '#10B981',
+    color: Palette.success,
     lineHeight: 10,
   },
   statusBadgeActiveText: {
-    fontSize: 11,
+    ...Type.label,
     fontWeight: '600',
-    color: '#10B981',
+    color: Palette.success,
   },
   statusBadgeExpired: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 999,
+    backgroundColor: Palette.surfaceMuted,
+    borderRadius: Radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   statusBadgeExpiredText: {
-    fontSize: 11,
+    ...Type.label,
     fontWeight: '600',
-    color: '#6B7280',
+    color: Palette.textSecondary,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
   pickupTime: {
     flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
+    ...Type.caption,
+    color: Palette.textSecondary,
   },
   savingsBadge: {
-    backgroundColor: '#FAEEDA',
-    borderRadius: 999,
+    backgroundColor: Palette.warningBg,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   savingsText: {
-    fontSize: 12,
+    ...Type.label,
     fontWeight: '700',
-    color: '#92400E',
+    color: Palette.warning,
   },
   progressRow: {
     flexDirection: 'row',
@@ -251,7 +258,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   progressLabel: {
-    fontSize: 12,
+    ...Type.label,
     fontWeight: '500',
     flexShrink: 0,
   },
@@ -259,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F0EDE8',
+    backgroundColor: Palette.borderSubtle,
     overflow: 'hidden',
   },
   progressFill: {
@@ -270,22 +277,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAFAF9',
+    backgroundColor: Palette.background,
     borderTopWidth: 1,
-    borderTopColor: '#F0EDE8',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderTopColor: Palette.borderSubtle,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  ordersRowPressed: {
+    backgroundColor: Palette.surfaceMuted,
   },
   ordersRowText: {
     flex: 1,
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: '600',
-    color: '#374151',
-  },
-  ordersChevron: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '600',
-    marginLeft: 8,
+    color: Palette.textPrimary,
   },
 });

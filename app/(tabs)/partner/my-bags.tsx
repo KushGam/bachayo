@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { Plus, ShoppingBag } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,11 +13,8 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import Animated, {
-  Easing,
-  Layout,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
   withTiming,
@@ -29,15 +27,20 @@ import {
   RelistCard,
   formatUpcomingDateLabel,
 } from '@/components/partner/my-bags/PartnerBagCards';
+import { MyBagsHeader, type MyBagsTabKey } from '@/components/partner/my-bags/MyBagsHeader';
+import { TodaySummaryCard } from '@/components/partner/my-bags/TodaySummaryCard';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { RetryState } from '@/components/ui/RetryState';
+import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import { hapticButtonPress, hapticMedium } from '@/lib/haptics';
 import {
+  applyBagStockPatch,
+  applyReservationToPartnerBag,
   bagToPrefill,
   computePastSummary,
-  computeTodaySummary,
   fetchPartnerBagsForDate,
   fetchPartnerPastBags,
   fetchPartnerUpcomingBags,
@@ -46,20 +49,16 @@ import {
   groupPastBags,
   type PartnerBagWithStats,
 } from '@/lib/partnerBags';
-import { isPickupFetchBlocked } from '@/lib/pendingPickups';
+import { isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import { useBagPrefillStore, type BagPrefillData } from '@/store/useBagPrefillStore';
 
-type TabKey = 'today' | 'upcoming' | 'past';
-
-const TERRACOTTA = '#D85A30';
-const BG = '#F5F3EF';
-const TEXT_SECONDARY = '#6B7280';
+type TabKey = MyBagsTabKey;
 
 const QUICK_START_PRESETS: { label: string; prefill: BagPrefillData }[] = [
   {
-    label: '🍛 Dal Bhat bag',
+    label: 'Dal Bhat bag',
     prefill: {
       title: 'Dal Bhat set',
       description: 'Full dal bhat with seasonal sides',
@@ -71,7 +70,7 @@ const QUICK_START_PRESETS: { label: string; prefill: BagPrefillData }[] = [
     },
   },
   {
-    label: '🍽 Dinner set',
+    label: 'Dinner set',
     prefill: {
       title: 'Dinner rescue bag',
       description: 'Rice, curry, vegetables, dessert',
@@ -83,7 +82,7 @@ const QUICK_START_PRESETS: { label: string; prefill: BagPrefillData }[] = [
     },
   },
   {
-    label: '☕ Snack bag',
+    label: 'Snack bag',
     prefill: {
       title: 'Morning snack bag',
       description: 'Pastry, sandwich, fruit',
@@ -95,7 +94,7 @@ const QUICK_START_PRESETS: { label: string; prefill: BagPrefillData }[] = [
     },
   },
   {
-    label: '🥐 Bakery mix',
+    label: 'Bakery mix',
     prefill: {
       title: 'Morning bakes bag',
       description: 'Fresh bread, rolls, croissants',
@@ -108,36 +107,6 @@ const QUICK_START_PRESETS: { label: string; prefill: BagPrefillData }[] = [
   },
 ];
 
-const TAB_LABELS: Record<TabKey, string> = {
-  today: 'Today',
-  upcoming: 'Upcoming',
-  past: 'Past',
-};
-
-function TodaySummaryPills({ bags }: { bags: PartnerBagWithStats[] }) {
-  const summary = computeTodaySummary(bags);
-  const pills = [
-    { emoji: '🛍', value: String(summary.listed), label: 'Listed' },
-    { emoji: '✓', value: String(summary.reserved), label: 'Reserved' },
-    { emoji: '₨', value: formatNprFromPaisa(summary.potentialRevenue).replace('₨ ', ''), label: 'Potential' },
-  ];
-
-  return (
-    <View style={styles.summaryRow}>
-      {pills.map((pill) => (
-        <View key={pill.label} style={styles.summaryPill}>
-          <Text style={styles.summaryValue}>
-            {pill.emoji === '₨' ? `₨ ${pill.value}` : pill.value}
-          </Text>
-          <Text style={styles.summaryLabel}>
-            {pill.emoji === '₨' ? 'Potential' : `${pill.emoji} ${pill.label}`}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function TodayEmptyState({
   onAddBag,
   onQuickStart,
@@ -145,31 +114,14 @@ function TodayEmptyState({
   onAddBag: () => void;
   onQuickStart: (prefill: BagPrefillData) => void;
 }) {
-  const floatY = useSharedValue(0);
-
-  useEffect(() => {
-    floatY.value = withRepeat(
-      withSequence(
-        withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
-  }, [floatY]);
-
-  const floatStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: floatY.value }],
-  }));
-
   return (
     <View style={styles.emptyState}>
-      <View style={styles.emptyCircle}>
-        <Animated.Text style={[styles.emptyEmoji, floatStyle]}>🛍</Animated.Text>
+      <View style={styles.emptyIconWrap}>
+        <ShoppingBag size={32} color={Palette.primary} strokeWidth={1.8} />
       </View>
       <Text style={styles.emptyTitle}>Ready to rescue food today?</Text>
       <Text style={styles.emptySubtitle}>
-        List your surplus and customers{'\n'}nearby can start reserving in minutes
+        List your surplus and customers nearby can start reserving in minutes
       </Text>
       <ScrollView
         horizontal
@@ -179,13 +131,13 @@ function TodayEmptyState({
           <Pressable
             key={preset.label}
             onPress={() => onQuickStart(preset.prefill)}
-            style={styles.quickStartPill}>
+            style={({ pressed }) => [styles.quickStartPill, pressed && styles.quickStartPillPressed]}>
             <Text style={styles.quickStartPillText}>{preset.label}</Text>
           </Pressable>
         ))}
       </ScrollView>
       <Pressable onPress={onAddBag} hitSlop={8}>
-        <Text style={styles.emptyLink}>Or add a custom bag →</Text>
+        <Text style={styles.emptyLink}>Or create a custom bag</Text>
       </Pressable>
     </View>
   );
@@ -235,6 +187,7 @@ export default function PartnerMyBagsScreen() {
   const [showFabHint, setShowFabHint] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const lastPickupTime = useRef(0);
+  const pendingPickupIds = useRef(new Set<string>());
 
   const isFirstLoad = useRef(true);
   const bagsCacheRef = useRef<{
@@ -303,12 +256,27 @@ export default function PartnerMyBagsScreen() {
     setUpcomingBags((current) => current.filter((bag) => bag.id !== bagId));
   }, []);
 
-  const loadBags = useCallback(async () => {
-    if (isPickupFetchBlocked(lastPickupTime.current)) {
-      console.log('[loadBags] blocked — pickup just confirmed');
-      return;
-    }
+  const handlePickupConfirmed = useCallback((bagId: string, order: { quantity?: number; total_price: number }) => {
+    const patchBag = (bag: PartnerBagWithStats) => {
+      if (bag.id !== bagId) return bag;
+      const qty = order.quantity ?? 1;
+      return {
+        ...bag,
+        quantity_reserved: Math.max(0, bag.quantity_reserved - qty),
+        reserved_orders: Math.max(0, bag.reserved_orders - 1),
+        confirmed_orders: Math.max(0, bag.confirmed_orders - 1),
+        picked_up_orders: bag.picked_up_orders + 1,
+        picked_up_bags: bag.picked_up_bags + qty,
+        potential_revenue: Math.max(0, bag.potential_revenue - order.total_price),
+        revenue_earned: bag.revenue_earned + order.total_price,
+      };
+    };
 
+    setTodayBags((current) => current.map(patchBag));
+    setUpcomingBags((current) => current.map(patchBag));
+  }, []);
+
+  const loadBags = useCallback(async () => {
     setErrorText(null);
 
     if (bagsCacheRef.current) {
@@ -373,6 +341,14 @@ export default function PartnerMyBagsScreen() {
     void loadBags();
   }, [loadBags]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!isFirstLoad.current) {
+        void loadBags();
+      }
+    }, [loadBags]),
+  );
+
   const loadBagsRef = useRef(loadBags);
   const todayBagsRef = useRef(todayBags);
   const upcomingBagsRef = useRef(upcomingBags);
@@ -410,6 +386,45 @@ export default function PartnerMyBagsScreen() {
               },
             },
             {
+              event: 'INSERT',
+              table: 'orders',
+              filter: `partner_id=eq.${partnerId}`,
+              callback: (payload) => {
+                if (isPickupFetchBlocked(lastPickupTime.current)) {
+                  console.log('[realtime] blocked stale update');
+                  return;
+                }
+
+                const inserted = (payload as {
+                  new?: { bag_id?: string; quantity?: number; status?: string; total_price?: number };
+                }).new;
+
+                if (inserted?.bag_id) {
+                  const bagId = inserted.bag_id;
+                  const qty = inserted.quantity ?? 1;
+                  const status = inserted.status ?? 'confirmed';
+                  const total = inserted.total_price ?? 0;
+
+                  const patchBag = (bag: PartnerBagWithStats) =>
+                    bag.id === bagId ? applyReservationToPartnerBag(bag, qty, status, total) : bag;
+
+                  setTodayBags((prev) => prev.map(patchBag));
+                  setUpcomingBags((prev) => prev.map(patchBag));
+
+                  if (bagsCacheRef.current) {
+                    bagsCacheRef.current = {
+                      ...bagsCacheRef.current,
+                      today: bagsCacheRef.current.today.map(patchBag),
+                      upcoming: bagsCacheRef.current.upcoming.map(patchBag),
+                    };
+                  }
+                }
+
+                void loadBagsRef.current();
+              },
+            },
+            {
+              event: 'UPDATE',
               table: 'orders',
               filter: `partner_id=eq.${partnerId}`,
               callback: () => {
@@ -418,6 +433,43 @@ export default function PartnerMyBagsScreen() {
                   return;
                 }
                 void loadBagsRef.current();
+              },
+            },
+            {
+              event: 'UPDATE',
+              table: 'rescue_bags',
+              filter: `partner_id=eq.${partnerId}`,
+              callback: (payload) => {
+                const updated = (payload as {
+                  new?: {
+                    id?: string;
+                    quantity_reserved?: number;
+                    quantity_available?: number;
+                    status?: PartnerBagWithStats['status'];
+                  };
+                }).new;
+
+                if (!updated?.id) return;
+
+                const patch = (bag: PartnerBagWithStats) =>
+                  bag.id === updated.id
+                    ? applyBagStockPatch(bag, {
+                        quantity_reserved: updated.quantity_reserved,
+                        quantity_available: updated.quantity_available,
+                        status: updated.status,
+                      })
+                    : bag;
+
+                setTodayBags((prev) => prev.map(patch));
+                setUpcomingBags((prev) => prev.map(patch));
+
+                if (bagsCacheRef.current) {
+                  bagsCacheRef.current = {
+                    ...bagsCacheRef.current,
+                    today: bagsCacheRef.current.today.map(patch),
+                    upcoming: bagsCacheRef.current.upcoming.map(patch),
+                  };
+                }
               },
             },
           ],
@@ -506,7 +558,7 @@ export default function PartnerMyBagsScreen() {
 
       return (
         <>
-          <TodaySummaryPills bags={todayBags} />
+          <TodaySummaryCard bags={todayBags} />
           {todayBags.map((bag) => (
             <PartnerTodayBagCard
               key={bag.id}
@@ -514,6 +566,8 @@ export default function PartnerMyBagsScreen() {
               isOrdersExpanded={expandedOrderId === bag.id}
               onToggleOrders={handleToggleOrders}
               lastPickupTimeRef={lastPickupTime}
+              pendingPickupIdsRef={pendingPickupIds}
+              onPickupConfirmed={(order) => handlePickupConfirmed(bag.id, order)}
               onRefresh={loadBags}
               onRelist={() => handleRelist(bag)}
               onSoldOut={() => setSoldOutToast(true)}
@@ -558,6 +612,8 @@ export default function PartnerMyBagsScreen() {
                   isOrdersExpanded={expandedOrderId === bag.id}
                   onToggleOrders={handleToggleOrders}
                   lastPickupTimeRef={lastPickupTime}
+                  pendingPickupIdsRef={pendingPickupIds}
+                  onPickupConfirmed={(order) => handlePickupConfirmed(bag.id, order)}
                   onRefresh={loadBags}
                   onRelist={() => handleRelist(bag)}
                   onSoldOut={() => setSoldOutToast(true)}
@@ -600,51 +656,12 @@ export default function PartnerMyBagsScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 12,
-          },
-        ]}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>My Bags</Text>
-          <Pressable
-            onPress={() => {
-              void hapticButtonPress();
-              router.push('/partner/add-bag');
-            }}
-            style={styles.headerAddBtn}
-            hitSlop={8}>
-            <Text style={styles.headerAddText}>+</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.tabBar}>
-          {(['today', 'upcoming', 'past'] as TabKey[]).map((key) => {
-            const active = tab === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => {
-                  void hapticButtonPress();
-                  setTab(key);
-                }}
-                style={styles.tabSlot}>
-                {active ? (
-                  <Animated.View layout={Layout.duration(200)} style={styles.tabActive}>
-                    <Text style={styles.tabTextActive}>{TAB_LABELS[key]}</Text>
-                  </Animated.View>
-                ) : (
-                  <View style={styles.tabInactive}>
-                    <Text style={styles.tabTextInactive}>{TAB_LABELS[key]}</Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <MyBagsHeader
+        tab={tab}
+        paddingTop={insets.top + Spacing.md}
+        onTabChange={setTab}
+        onAddBag={() => router.push('/partner/add-bag')}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -653,8 +670,8 @@ export default function PartnerMyBagsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={TERRACOTTA}
-            colors={[TERRACOTTA]}
+            tintColor={Palette.primary}
+            colors={[Palette.primary]}
           />
         }
         onScroll={handleScroll}
@@ -676,7 +693,9 @@ export default function PartnerMyBagsScreen() {
           </View>
         ) : null}
         <Pressable onPress={handleFabPress} style={styles.fabBtn}>
-          <Animated.Text style={[styles.fabText, fabIconStyle]}>+</Animated.Text>
+          <Animated.View style={fabIconStyle}>
+            <Plus size={26} color={Palette.white} strokeWidth={2.5} />
+          </Animated.View>
         </Pressable>
       </Animated.View>
 
@@ -695,212 +714,158 @@ export default function PartnerMyBagsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: BG },
-  header: {
-    backgroundColor: TERRACOTTA,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
-  headerAddBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerAddText: { fontSize: 22, color: '#FFFFFF', lineHeight: 24, marginTop: -1 },
-  tabBar: {
-    marginTop: 14,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    borderRadius: 999,
-    padding: 3,
-    flexDirection: 'row',
-  },
-  tabSlot: { flex: 1 },
-  tabActive: {
-    flex: 1,
-    height: 36,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
-  tabInactive: {
-    flex: 1,
-    height: 36,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabTextActive: { fontSize: 13, fontWeight: '600', color: TERRACOTTA },
-  tabTextInactive: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.7)' },
-  scroll: { flex: 1, backgroundColor: BG },
-  skeletonWrap: { paddingTop: 16 },
-  errorWrap: { padding: 16 },
-  summaryRow: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  summaryPill: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  summaryValue: { fontSize: 18, fontWeight: '600', color: TERRACOTTA },
-  summaryLabel: { fontSize: 12, color: TEXT_SECONDARY, textAlign: 'center' },
-  relistSection: { marginTop: 16 },
+  screen: { flex: 1, backgroundColor: Palette.background },
+  scroll: { flex: 1, backgroundColor: Palette.background },
+  skeletonWrap: { paddingTop: Spacing.lg },
+  errorWrap: { padding: Spacing.lg },
+  relistSection: { marginTop: Spacing.lg },
   relistSectionTitle: {
+    ...Type.h2,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginHorizontal: 16,
-    marginBottom: 10,
+    color: Palette.textPrimary,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm + 2,
   },
-  relistScroll: { paddingHorizontal: 16, paddingBottom: 4 },
-  upcomingEmpty: { paddingVertical: 40, paddingHorizontal: 24 },
+  relistScroll: { paddingHorizontal: Spacing.lg, paddingBottom: 4 },
+  upcomingEmpty: {
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
+    alignItems: 'center',
+  },
   upcomingEmptyTitle: {
-    fontSize: 16,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   upcomingEmptySubtitle: {
-    fontSize: 14,
-    color: TEXT_SECONDARY,
+    ...Type.caption,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
+    maxWidth: 280,
   },
   pastSummaryCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 16,
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    ...FloatingShadow,
   },
-  pastSummaryTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A1A', marginBottom: 12 },
+  pastSummaryTitle: {
+    ...Type.bodyMedium,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+    marginBottom: Spacing.md,
+  },
   pastSummaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   pastSummaryStat: { flex: 1, alignItems: 'center' },
-  pastSummaryValue: { fontSize: 20, fontWeight: '600', color: TERRACOTTA },
-  pastSummaryLabel: { fontSize: 11, color: TEXT_SECONDARY, textAlign: 'center', marginTop: 4 },
-  pastGroupHeader: {
-    fontSize: 12,
+  pastSummaryValue: {
+    fontSize: 20,
     fontWeight: '700',
-    color: TEXT_SECONDARY,
+    color: Palette.primary,
+    letterSpacing: -0.3,
+  },
+  pastSummaryLabel: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  pastGroupHeader: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginLeft: 16,
-    marginTop: 20,
-    marginBottom: 8,
+    marginLeft: Spacing.lg,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
   },
-  emptyCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FAECE7',
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyEmoji: { fontSize: 56 },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
-    marginTop: 20,
+    color: Palette.textPrimary,
+    marginTop: Spacing.lg,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: TEXT_SECONDARY,
+    ...Type.caption,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 22,
+    marginTop: Spacing.sm,
+    lineHeight: 20,
+    maxWidth: 300,
   },
   quickStartRow: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    gap: Spacing.sm,
   },
   quickStartPill: {
-    backgroundColor: '#FAECE7',
-    borderRadius: 999,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 8,
+    marginRight: Spacing.sm,
+  },
+  quickStartPillPressed: {
+    backgroundColor: Palette.primaryLight,
+    borderColor: Palette.overlay.border,
   },
   quickStartPillText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#993C1D',
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.primaryDark,
   },
   emptyLink: {
-    fontSize: 14,
+    ...Type.caption,
     fontWeight: '600',
-    color: TERRACOTTA,
-    marginTop: 12,
+    color: Palette.primary,
+    marginTop: Spacing.md,
   },
   fab: {
     position: 'absolute',
-    right: 20,
+    right: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.sm + 2,
   },
   fabHint: {
-    backgroundColor: 'rgba(26,26,26,0.8)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(28,25,23,0.88)',
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 6,
   },
   fabHintText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: Palette.white,
+    ...Type.caption,
     fontWeight: '600',
   },
   fabBtn: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: TERRACOTTA,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    ...FloatingShadow,
   },
-  fabText: { color: '#FFFFFF', fontSize: 28, lineHeight: 30, marginTop: -2 },
 });

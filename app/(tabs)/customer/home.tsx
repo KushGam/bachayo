@@ -1,26 +1,38 @@
 import { ClosingSoonCard } from '@/components/customer/ClosingSoonCard';
+import { BrowsePartnersLink } from '@/components/customer/BrowsePartnersLink';
 import { CustomerSectionHeader } from '@/components/customer/CustomerSectionHeader';
 import { HomeActiveOrderCard } from '@/components/customer/HomeActiveOrderCard';
+import { HomeFilters } from '@/components/customer/HomeFilters';
 import { HomeHeroBand } from '@/components/customer/HomeHeroBand';
+import { HomeSearchStrip } from '@/components/customer/HomeSearchStrip';
 import { HomeMarketDigest } from '@/components/customer/HomeMarketDigest';
 import { HomeNearbyEmpty } from '@/components/customer/HomeNearbyEmpty';
 import { HomeRecentSearches } from '@/components/customer/HomeRecentSearches';
 import { HomeSearchResultRow, HomeSearchResultSkeleton } from '@/components/customer/HomeSearchResultRow';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
 import { RescueBagCard } from '@/components/cards/RescueBagCard';
 import { RetryState } from '@/components/ui/RetryState';
 import { BagCardSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
-import { HOME_CATEGORY_FILTERS, type HomeCategoryFilter } from '@/constants/partnerCategories';
-import { hapticButtonPress } from '@/lib/haptics';
+import { Spacing } from '@/constants/theme';
+import { HOME_CATEGORY_FILTERS } from '@/constants/partnerCategories';
+import { fetchCustomerImpactStats, type CustomerImpactStats } from '@/lib/customerStats';
+import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import {
+  attachNearbyBagDistances,
+  bagPassesNearbyDistanceFilter,
+  fetchNearbyRescueBags,
+  filterVisibleNearbyBags,
+  resolveNearbyOrigin,
+} from '@/lib/nearbyBags';
+import {
+  formatRsPaisa,
   getTodayIsoDateLocal,
-  haversineDistanceKm,
   parsePickupDateTimeLocal,
 } from '@/lib/helpers';
 import { fetchCustomerOrders } from '@/lib/orders';
@@ -41,15 +53,6 @@ type HeaderUser = {
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed'];
 const DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
-
-const CATEGORY_EMOJI: Record<HomeCategoryFilter, string> = {
-  all: '🍽',
-  restaurant: '🍛',
-  cafe: '☕',
-  bakery: '🥐',
-  mart: '🛒',
-  hotel: '🏨',
-};
 
 function getTimeLeftLabel(availableDate: string, pickupEnd: string) {
   const end = parsePickupDateTimeLocal(availableDate, pickupEnd);
@@ -78,8 +81,13 @@ function averageSavingsPercent(bags: HomeBag[]) {
   return Math.round(total / bags.length);
 }
 
-function escapeIlike(value: string) {
-  return value.replace(/[%_\\]/g, '\\$&');
+
+function bagMatchesSearch(bag: HomeBag, query: string) {
+  const lowerQ = query.toLowerCase();
+  const title = (bag.title ?? '').toLowerCase();
+  const titleNp = (bag.title_np ?? '').toLowerCase();
+  const partnerName = (bag.partner?.name ?? '').toLowerCase();
+  return title.includes(lowerQ) || titleNp.includes(lowerQ) || partnerName.includes(lowerQ);
 }
 
 export default function HomeScreen() {
@@ -101,8 +109,16 @@ export default function HomeScreen() {
   const [searchResults, setSearchResults] = useState<HomeBag[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [reservedBagIds, setReservedBagIds] = useState<Set<string>>(new Set());
+  const [impactStats, setImpactStats] = useState<CustomerImpactStats | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   const today = getTodayIsoDateLocal();
+  const fetchBagsRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
+  const origin = useMemo(
+    () => resolveNearbyOrigin(areaId, cityId, coords),
+    [areaId, cityId, coords],
+  );
 
   useEffect(() => {
     const timer = setInterval(() => forceTick((t) => t + 1), 60_000);
@@ -112,7 +128,10 @@ export default function HomeScreen() {
   const loadProfile = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     const sessionUser = data.session?.user;
-    if (!sessionUser) return;
+    if (!sessionUser) {
+      setIsSignedIn(false);
+      return;
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -123,6 +142,25 @@ export default function HomeScreen() {
     setUser({
       name: profile?.full_name || profile?.phone || sessionUser.email?.split('@')[0] || 'Guest',
     });
+    setIsSignedIn(true);
+  }, []);
+
+  const loadImpactStats = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (!userId) {
+      setImpactStats(null);
+      setIsSignedIn(false);
+      return;
+    }
+
+    setIsSignedIn(true);
+    try {
+      setImpactStats(await fetchCustomerImpactStats(userId));
+    } catch (error) {
+      console.error('[home] impact stats load failed:', error);
+      setImpactStats(null);
+    }
   }, []);
 
   const loadReservedBagIds = useCallback(async () => {
@@ -149,7 +187,7 @@ export default function HomeScreen() {
       const todayOrder = orders.find(
         (order) =>
           ACTIVE_ORDER_STATUSES.includes(order.status) &&
-          order.bag.available_date === today,
+          order.bag?.available_date === today,
       );
       setActiveOrder(todayOrder ?? null);
     } catch (error) {
@@ -162,15 +200,8 @@ export default function HomeScreen() {
     void loadProfile();
     void loadActiveOrder();
     void loadReservedBagIds();
-  }, [loadActiveOrder, loadProfile, loadReservedBagIds]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadProfile();
-      void loadActiveOrder();
-      void loadReservedBagIds();
-    }, [loadActiveOrder, loadProfile, loadReservedBagIds]),
-  );
+    void loadImpactStats();
+  }, [loadActiveOrder, loadImpactStats, loadProfile, loadReservedBagIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,19 +228,53 @@ export default function HomeScreen() {
 
                 if (updated.status === 'picked_up') {
                   setActiveOrder(null);
+                  void loadImpactStats();
                 } else if (ACTIVE_ORDER_STATUSES.includes(updated.status as OrderStatus)) {
                   void loadActiveOrder();
                 }
                 void loadReservedBagIds();
+                void loadImpactStats();
+                void fetchBagsRef.current({ silent: true });
               },
             },
             {
               event: 'INSERT',
               table: 'orders',
               filter: `customer_id=eq.${userId}`,
-              callback: () => {
+              callback: (payload) => {
+                const inserted = (payload as {
+                  new?: { bag_id?: string; quantity?: number };
+                }).new;
+                if (inserted?.bag_id) {
+                  useBagsStore
+                    .getState()
+                    .incrementBagReserved(inserted.bag_id, inserted.quantity ?? 1);
+                }
                 void loadActiveOrder();
                 void loadReservedBagIds();
+                void loadImpactStats();
+                void fetchBagsRef.current({ silent: true });
+              },
+            },
+            {
+              event: 'UPDATE',
+              table: 'rescue_bags',
+              callback: (payload) => {
+                const updated = (payload as {
+                  new?: {
+                    id?: string;
+                    quantity_reserved?: number;
+                    quantity_available?: number;
+                    status?: HomeBag['status'];
+                  };
+                }).new;
+                if (!updated?.id) return;
+                useBagsStore.getState().applyBagStock(updated.id, {
+                  quantity_reserved: updated.quantity_reserved,
+                  quantity_available: updated.quantity_available,
+                  status: updated.status,
+                });
+                void fetchBagsRef.current({ silent: true });
               },
             },
           ],
@@ -232,7 +297,7 @@ export default function HomeScreen() {
         }
       })();
     };
-  }, [loadActiveOrder, loadReservedBagIds]);
+  }, [loadActiveOrder, loadImpactStats, loadReservedBagIds]);
 
   useEffect(() => {
     void (async () => {
@@ -250,16 +315,13 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  const fetchBags = useCallback(async () => {
+  const fetchBags = useCallback(async (options?: { silent?: boolean }) => {
     setErrorText(null);
-    setLoading(true);
+    if (!options?.silent) {
+      setLoading(true);
+    }
 
-    const { data, error } = await supabase
-      .from('rescue_bags')
-      .select('*, partner:partners!inner(*)')
-      .eq('status', 'active')
-      .eq('available_date', today)
-      .eq('partner.approval_status', 'approved');
+    const { data, error } = await fetchNearbyRescueBags(today);
 
     if (error) {
       setLoading(false);
@@ -267,39 +329,26 @@ export default function HomeScreen() {
       return;
     }
 
-    const cityFiltered = (data ?? []).filter((row) => {
-      const partner = (row as {
-        partner?: {
-          city_id?: string | null;
-          is_active?: boolean | null;
-          subscription_status?: string | null;
-        };
-      }).partner;
-      if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
-      if (!partner?.city_id) return cityId === 'kathmandu';
-      return partner.city_id === cityId;
-    });
-
-    const withDistance: HomeBag[] = cityFiltered.map((b) => {
-      const partner = (b as unknown as { partner: { latitude: number; longitude: number } }).partner;
-      const distance =
-        coords && partner
-          ? haversineDistanceKm(coords, { latitude: partner.latitude, longitude: partner.longitude })
-          : null;
-      return { ...(b as unknown as HomeBag), distance_km: distance };
-    });
-
-    withDistance.sort((a, b) => {
-      if (a.distance_km == null && b.distance_km == null) return 0;
-      if (a.distance_km == null) return 1;
-      if (b.distance_km == null) return -1;
-      return a.distance_km - b.distance_km;
-    });
+    const visible = filterVisibleNearbyBags(data, cityId);
+    const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
+    const withDistance = attachNearbyBagDistances(withStock, origin);
 
     setBags(withDistance);
     await loadReservedBagIds();
     setLoading(false);
-  }, [cityId, coords, loadReservedBagIds, setBags, today]);
+  }, [cityId, loadReservedBagIds, origin, setBags, today]);
+
+  fetchBagsRef.current = fetchBags;
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+      void loadActiveOrder();
+      void loadReservedBagIds();
+      void loadImpactStats();
+      void fetchBags({ silent: true });
+    }, [fetchBags, loadActiveOrder, loadImpactStats, loadProfile, loadReservedBagIds]),
+  );
 
   useEffect(() => {
     void fetchBags();
@@ -320,15 +369,13 @@ export default function HomeScreen() {
     const q = searchQuery.trim();
     const timer = setTimeout(() => {
       void (async () => {
-        const pattern = `%${escapeIlike(q)}%`;
         const { data, error } = await supabase
           .from('rescue_bags')
           .select('*, partner:partners!inner(*)')
           .eq('status', 'active')
           .eq('available_date', today)
           .eq('partner.is_active', true)
-          .eq('partner.approval_status', 'approved')
-          .or(`title.ilike.${pattern},partner.name.ilike.${pattern}`);
+          .eq('partner.approval_status', 'approved');
 
         if (error) {
           console.error('[home] search failed:', error);
@@ -338,13 +385,13 @@ export default function HomeScreen() {
         }
 
         const filtered = (data ?? []).filter((row) => {
-          const partner = (row as {
-            partner?: {
-              city_id?: string | null;
-              is_active?: boolean | null;
-              subscription_status?: string | null;
-            };
-          }).partner;
+          const bag = row as HomeBag;
+          if (!bagMatchesSearch(bag, q)) return false;
+          const partner = bag.partner as {
+            city_id?: string | null;
+            is_active?: boolean | null;
+            subscription_status?: string | null;
+          } | undefined;
           if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
           if (!partner?.city_id) return cityId === 'kathmandu';
           return partner.city_id === cityId;
@@ -393,7 +440,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchBags(), loadActiveOrder(), loadReservedBagIds()]);
+    await Promise.all([fetchBags(), loadActiveOrder(), loadReservedBagIds(), loadImpactStats()]);
     setRefreshing(false);
   };
 
@@ -403,10 +450,7 @@ export default function HomeScreen() {
         ? bags
         : bags.filter((b) => b.partner.category === selectedCategory);
 
-    return byCategory.filter((bag) => {
-      if (bag.distance_km == null) return true;
-      return bag.distance_km <= maxDistanceKm;
-    });
+    return byCategory.filter((bag) => bagPassesNearbyDistanceFilter(bag, maxDistanceKm));
   }, [bags, maxDistanceKm, selectedCategory]);
 
   const closingSoon = useMemo(
@@ -421,11 +465,37 @@ export default function HomeScreen() {
 
   const avgSavings = useMemo(() => averageSavingsPercent(bags), [bags]);
 
-  const digestStats = useMemo(
-    () => [
+  const digestStats = useMemo(() => {
+    if (isSignedIn && impactStats) {
+      const savedLabel =
+        impactStats.moneySavedPaisa > 0
+          ? formatRsPaisa(impactStats.moneySavedPaisa).replace('Rs ', '₨')
+          : '₨ 0';
+
+      return [
+        {
+          value: String(impactStats.bagsRescued),
+          label: locale === 'np' ? 'बचाएको ब्याग' : 'Bags rescued',
+        },
+        {
+          value: savedLabel,
+          label: locale === 'np' ? 'बचत' : 'Money saved',
+        },
+        {
+          value: String(impactStats.reviewsGiven),
+          label: locale === 'np' ? 'समीक्षा' : 'Reviews',
+        },
+        {
+          value: String(impactStats.activeReservations),
+          label: locale === 'np' ? 'सक्रिय' : 'Active',
+        },
+      ];
+    }
+
+    return [
       {
         value: String(bags.length),
-        label: locale === 'np' ? 'ब्याग' : 'Bags',
+        label: locale === 'np' ? 'ब्याग आज' : 'Bags today',
       },
       {
         value: String(partnerCount),
@@ -433,14 +503,38 @@ export default function HomeScreen() {
       },
       {
         value: avgSavings > 0 ? `${avgSavings}%` : '—',
-        label: locale === 'np' ? 'बचत' : 'Savings',
+        label: locale === 'np' ? 'औसत बचत' : 'Avg savings',
       },
       {
         value: String(closingSoon.length),
-        label: locale === 'np' ? 'छिटो' : 'Coming Soon',
+        label: locale === 'np' ? 'छिटो बन्द' : 'Closing soon',
       },
-    ],
-    [avgSavings, bags.length, closingSoon.length, locale, partnerCount],
+    ];
+  }, [
+    avgSavings,
+    bags.length,
+    closingSoon.length,
+    impactStats,
+    isSignedIn,
+    locale,
+    partnerCount,
+  ]);
+
+  const digestTitle = isSignedIn && impactStats
+    ? locale === 'np'
+      ? 'तपाईंको प्रभाव'
+      : 'Your impact'
+    : locale === 'np'
+      ? 'आज नजिकै'
+      : 'Near you today';
+
+  const categoryOptions = useMemo(
+    () =>
+      HOME_CATEGORY_FILTERS.map((pill) => ({
+        key: pill.key,
+        label: locale === 'np' ? pill.labelNp : pill.label,
+      })),
+    [locale],
   );
 
   const renderItem = useCallback(
@@ -461,19 +555,23 @@ export default function HomeScreen() {
     <HomeHeroBand
       userName={user.name}
       locale={locale}
-      cityId={cityId}
       areaId={areaId}
       onLocationChange={setLocation}
-      searchPlaceholder={
+    />
+  );
+
+  const searchStrip = (
+    <HomeSearchStrip
+      placeholder={
         locale === 'np' ? 'रेस्टुरेन्ट, बेकरी, क्याफे खोज्नुहोस्…' : 'Search restaurants, bakeries, cafes…'
       }
       mapLabel={locale === 'np' ? 'नक्सा' : 'Map'}
-      searchQuery={searchQuery}
+      value={searchQuery}
       isSearching={isSearching}
       cancelLabel={locale === 'np' ? 'रद्द' : 'Cancel'}
-      onSearchChange={setSearchQuery}
-      onSearchFocus={handleSearchFocus}
-      onSearchCancel={handleSearchCancel}
+      onChangeText={setSearchQuery}
+      onFocus={handleSearchFocus}
+      onCancel={handleSearchCancel}
       onMapPress={() => router.push('/(tabs)/customer/explore')}
     />
   );
@@ -521,8 +619,15 @@ export default function HomeScreen() {
   const listHeader = (
     <View style={styles.headerWrap}>
       {heroBand}
+      {searchStrip}
 
-      {!isSearching ? <HomeMarketDigest stats={digestStats} /> : null}
+      {!isSearching ? (
+        <HomeMarketDigest stats={digestStats} title={digestTitle} />
+      ) : null}
+
+      {!isSearching ? (
+        <BrowsePartnersLink locale={locale} onPress={() => router.push('/partners')} />
+      ) : null}
 
       {!isSearching ? (
       <View style={styles.contentSheet}>
@@ -540,6 +645,11 @@ export default function HomeScreen() {
           <>
             <CustomerSectionHeader
               title={locale === 'np' ? 'छिटो बन्द हुने' : 'Closing soon'}
+              subtitle={
+                locale === 'np'
+                  ? 'छिटो पिकअप गर्नुहोस्'
+                  : 'Pick up before the window ends'
+              }
               actionLabel={locale === 'np' ? 'नक्सा' : 'Map'}
               onAction={() => router.push('/(tabs)/customer/explore')}
             />
@@ -559,62 +669,24 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        <CustomerSectionHeader
-          title={locale === 'np' ? 'श्रेणी अनुसार' : 'Browse by category'}
+        <HomeFilters
+          locale={locale}
+          categories={categoryOptions}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          distances={DISTANCE_OPTIONS}
+          maxDistanceKm={maxDistanceKm}
+          onDistanceChange={setMaxDistanceKm}
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsRow}>
-          {HOME_CATEGORY_FILTERS.map((pill) => {
-            const active = pill.key === selectedCategory;
-            const label = locale === 'np' ? pill.labelNp : pill.label;
-            return (
-              <Pressable
-                key={pill.key}
-                onPress={() => {
-                  void hapticButtonPress();
-                  setSelectedCategory(pill.key);
-                }}
-                style={[styles.categoryPill, active && styles.categoryPillActive]}>
-                <Text style={styles.categoryEmoji}>{CATEGORY_EMOJI[pill.key]}</Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <CustomerSectionHeader
-          title={locale === 'np' ? 'दूरी' : 'Distance'}
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsRow}>
-          {DISTANCE_OPTIONS.map((km) => {
-            const active = maxDistanceKm === km;
-            return (
-              <Pressable
-                key={km}
-                onPress={() => {
-                  void hapticButtonPress();
-                  setMaxDistanceKm(km);
-                }}
-                style={[styles.categoryPill, active && styles.categoryPillActive]}>
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                  {km} km
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
 
         <CustomerSectionHeader
           title={locale === 'np' ? 'नजिकका रेस्क्यू ब्यागहरू' : 'Nearby rescue bags'}
+          subtitle={
+            locale === 'np'
+              ? `${maxDistanceKm} किमी भित्र उपलब्ध`
+              : `Available within ${maxDistanceKm} km`
+          }
+          count={filteredBags.length}
           actionLabel={filteredBags.length > 0 ? (locale === 'np' ? 'नक्सा' : 'Map') : undefined}
           onAction={filteredBags.length > 0 ? () => router.push('/(tabs)/customer/explore') : undefined}
         />
@@ -669,7 +741,7 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={listHeader}
         renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
@@ -688,73 +760,47 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.background,
   },
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   headerWrap: {
     marginBottom: 4,
   },
   contentSheet: {
-    paddingTop: 8,
+    paddingTop: Spacing.lg,
   },
   sectionInset: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   listItem: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.lg,
+  },
+  listSeparator: {
+    height: Spacing.md,
   },
   hScroll: {
-    paddingHorizontal: 16,
-    paddingRight: 24,
-    gap: 12,
-  },
-  pillsRow: {
-    paddingHorizontal: 16,
-    paddingRight: 24,
-    gap: 0,
-  },
-  categoryPill: {
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    marginRight: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  categoryPillActive: {
-    backgroundColor: Palette.primary,
-    borderWidth: 0,
-  },
-  categoryEmoji: {
-    fontSize: 16,
-  },
-  categoryLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  categoryLabelActive: {
-    color: Palette.white,
+    paddingHorizontal: Spacing.lg,
+    paddingRight: Spacing.xl,
+    gap: Spacing.md,
   },
   searchPanel: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
     paddingBottom: 100,
+    backgroundColor: Palette.surface,
+    borderTopWidth: 1,
+    borderTopColor: Palette.borderSubtle,
   },
   searchEmpty: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 32,
-    backgroundColor: Palette.white,
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
   },
   searchEmptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   searchEmptySubtitle: {
     fontSize: 14,

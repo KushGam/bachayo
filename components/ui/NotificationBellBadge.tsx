@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Bell } from 'lucide-react-native';
 
+import { Palette } from '@/constants/Colors';
 import { useAppStore } from '@/store/useAppStore';
 
 type NotificationBellBadgeProps = {
@@ -8,6 +9,7 @@ type NotificationBellBadgeProps = {
   color?: string;
   size?: number;
   variant?: 'default' | 'dark';
+  compact?: boolean;
 };
 
 export function NotificationBellBadge({
@@ -15,6 +17,7 @@ export function NotificationBellBadge({
   color = '#FFFFFF',
   size = 18,
   variant = 'default',
+  compact = false,
 }: NotificationBellBadgeProps) {
   const unread = useAppStore((s) => s.unreadNotifications);
   const showCount = unread > 0;
@@ -23,7 +26,7 @@ export function NotificationBellBadge({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.btn, isDark && styles.btnDark]}
+      style={[styles.btn, compact && styles.btnCompact, isDark && styles.btnDark]}
       hitSlop={8}>
       <Bell size={size} color={color} strokeWidth={2} />
       {showCount ? (
@@ -48,19 +51,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  btnCompact: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+  },
   btnDark: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   dotDark: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: 2,
+    right: 2,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#D85A30',
+    backgroundColor: Palette.primary,
     borderWidth: 2,
-    borderColor: '#1A1A1A',
+    borderColor: Palette.white,
   },
   badge: {
     position: 'absolute',

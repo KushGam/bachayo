@@ -1,5 +1,5 @@
 import { formatRsPaisa, getTodayIsoDateLocal, parsePickupDateTimeLocal } from '@/lib/helpers';
-import { isReservedOrderStatus, isConfirmedOrderStatus } from '@/lib/orderStatus';
+import { isConfirmedOrderStatus, isReservedOrderStatus } from '@/lib/orderStatus';
 import { supabase } from '@/lib/supabase';
 import type { Order, Profile } from '@/types/database';
 
@@ -13,6 +13,8 @@ export type PartnerBagWithStats = RescueBag & {
   confirmed_orders: number;
   reserved_orders: number;
   picked_up_orders: number;
+  picked_up_bags: number;
+  potential_revenue: number;
   revenue_earned: number;
   avg_rating: number | null;
 };
@@ -31,6 +33,7 @@ function orderStatsForBag(
     bag_id: string;
     status: string;
     total_price: number;
+    quantity?: number;
     order_id?: string;
     rating?: number | null;
   }>,
@@ -38,10 +41,12 @@ function orderStatsForBag(
   const bagOrders = orders.filter((order) => order.bag_id === bagId);
   const confirmed = bagOrders.filter((order) => isConfirmedOrderStatus(order.status)).length;
   const reserved = bagOrders.filter((order) => isReservedOrderStatus(order.status)).length;
-  const pickedUp = bagOrders.filter((order) => order.status === 'picked_up').length;
-  const revenue = bagOrders
-    .filter((order) => order.status === 'picked_up')
-    .reduce((sum, order) => sum + order.total_price, 0);
+  const pickedUpOrders = bagOrders.filter((order) => order.status === 'picked_up');
+  const pickedUp = pickedUpOrders.length;
+  const pickedUpBags = pickedUpOrders.reduce((sum, order) => sum + (order.quantity ?? 1), 0);
+  const activeOrders = bagOrders.filter((order) => isReservedOrderStatus(order.status));
+  const potentialRevenue = activeOrders.reduce((sum, order) => sum + order.total_price, 0);
+  const revenue = pickedUpOrders.reduce((sum, order) => sum + order.total_price, 0);
   const ratings = bagOrders.map((order) => order.rating).filter((r): r is number => typeof r === 'number');
   const avgRating = ratings.length
     ? Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10
@@ -52,6 +57,8 @@ function orderStatsForBag(
     confirmed_orders: confirmed,
     reserved_orders: reserved,
     picked_up_orders: pickedUp,
+    picked_up_bags: pickedUpBags,
+    potential_revenue: potentialRevenue,
     revenue_earned: revenue,
     avg_rating: avgRating,
   };
@@ -62,7 +69,7 @@ async function fetchOrdersForBags(partnerId: string, bagIds: string[]) {
 
   const { data: orders, error } = await supabase
     .from('orders')
-    .select('id, bag_id, status, total_price')
+    .select('id, bag_id, status, total_price, quantity')
     .eq('partner_id', partnerId)
     .in('bag_id', bagIds);
 
@@ -85,9 +92,19 @@ async function fetchOrdersForBags(partnerId: string, bagIds: string[]) {
     bag_id: order.bag_id,
     status: order.status,
     total_price: order.total_price,
+    quantity: order.quantity,
     order_id: order.id,
     rating: reviewMap.get(order.id) ?? null,
   }));
+}
+
+function reservedQuantityForBag(
+  bagId: string,
+  orderRows: Array<{ bag_id: string; status: string; quantity?: number }>,
+) {
+  return orderRows
+    .filter((order) => order.bag_id === bagId && isReservedOrderStatus(order.status))
+    .reduce((sum, order) => sum + (order.quantity ?? 1), 0);
 }
 
 function enrichBags(
@@ -96,14 +113,19 @@ function enrichBags(
     bag_id: string;
     status: string;
     total_price: number;
+    quantity?: number;
     order_id?: string;
     rating?: number | null;
   }>,
 ): PartnerBagWithStats[] {
-  return bags.map((bag) => ({
-    ...bag,
-    ...orderStatsForBag(bag.id, orderRows),
-  }));
+  return bags.map((bag) => {
+    const reservedQty = reservedQuantityForBag(bag.id, orderRows);
+    return {
+      ...bag,
+      ...orderStatsForBag(bag.id, orderRows),
+      quantity_reserved: Math.max(bag.quantity_reserved ?? 0, reservedQty),
+    };
+  });
 }
 
 export async function fetchPartnerBagsForDate(partnerId: string, date: string) {
@@ -164,7 +186,7 @@ export async function fetchPartnerBagOrders(bagId: string) {
     .from('orders')
     .select(`
       *,
-      customer:profiles(id, full_name, phone, email)
+      customer:profiles(id, full_name, phone)
     `)
     .eq('bag_id', bagId)
     .in('status', ['confirmed', 'picked_up', 'pending'])
@@ -323,17 +345,58 @@ export function bagToPrefill(
 
 export function computeTodaySummary(bags: PartnerBagWithStats[]) {
   const listed = bags.length;
-  const reserved = bags.reduce((sum, bag) => sum + bag.reserved_orders, 0);
-  const potentialRevenue = bags.reduce(
-    (sum, bag) => sum + bag.rescue_price * Math.max(0, bag.quantity_reserved),
-    0,
-  );
-  return { listed, reserved, potentialRevenue };
+  const reserved = bags.reduce((sum, bag) => sum + Math.max(0, bag.quantity_reserved), 0);
+  const potentialRevenue = bags.reduce((sum, bag) => sum + bag.potential_revenue, 0);
+  const earned = bags.reduce((sum, bag) => sum + bag.revenue_earned, 0);
+  return { listed, reserved, potentialRevenue, earned };
+}
+
+export function getBagPotentialRevenuePaisa(
+  bag: PartnerBagWithStats,
+  orders?: PartnerBagOrder[] | null,
+) {
+  if (orders) {
+    return orders
+      .filter((order) => isReservedOrderStatus(order.status))
+      .reduce((sum, order) => sum + (order.total_price || 0), 0);
+  }
+  return bag.potential_revenue;
+}
+
+export function applyReservationToPartnerBag(
+  bag: PartnerBagWithStats,
+  quantity: number,
+  status: string,
+  totalPricePaisa = 0,
+): PartnerBagWithStats {
+  const qty = Math.max(1, quantity);
+  const reserved = isReservedOrderStatus(status);
+  const confirmed = isConfirmedOrderStatus(status);
+
+  return {
+    ...bag,
+    quantity_reserved: bag.quantity_reserved + qty,
+    total_orders: bag.total_orders + 1,
+    reserved_orders: reserved ? bag.reserved_orders + 1 : bag.reserved_orders,
+    confirmed_orders: confirmed ? bag.confirmed_orders + 1 : bag.confirmed_orders,
+    potential_revenue: reserved ? bag.potential_revenue + totalPricePaisa : bag.potential_revenue,
+  };
+}
+
+export function applyBagStockPatch(
+  bag: PartnerBagWithStats,
+  patch: Partial<Pick<PartnerBagWithStats, 'quantity_reserved' | 'quantity_available' | 'status'>>,
+): PartnerBagWithStats {
+  return { ...bag, ...patch };
+}
+
+export function shouldShowBagEarnedRevenue(bag: PartnerBagWithStats) {
+  return bag.quantity_reserved === 0 && bag.revenue_earned > 0;
 }
 
 export function computePastSummary(bags: PartnerBagWithStats[]) {
   const listed = bags.length;
-  const sold = bags.reduce((sum, bag) => sum + bag.picked_up_orders, 0);
+  const sold = bags.reduce((sum, bag) => sum + bag.picked_up_bags, 0);
   const earned = bags.reduce((sum, bag) => sum + bag.revenue_earned, 0);
   return { listed, sold, earned };
 }

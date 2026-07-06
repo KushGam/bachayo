@@ -4,7 +4,6 @@ import {
   ChevronDown,
   MapPin,
   Navigation,
-  Search,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -15,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -26,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SearchField } from '@/components/ui/SearchField';
 import { CITIES } from '@/constants/locations';
 import { Palette } from '@/constants/Colors';
 import { FloatingShadow, Motion, Radius, Spacing, Type } from '@/constants/theme';
@@ -228,18 +227,14 @@ export function LocationPicker({
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Choose your location</Text>
 
-            <View style={styles.searchWrap}>
-              <Search size={18} color={Palette.textTertiary} strokeWidth={2} />
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search city or area..."
-                placeholderTextColor={Palette.textTertiary}
-                style={styles.searchInput}
-                autoCorrect={false}
-                autoCapitalize="none"
-              />
-            </View>
+            <SearchField
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search city or area..."
+              autoCorrect={false}
+              autoCapitalize="none"
+              containerStyle={styles.searchWrap}
+            />
 
             <Pressable
               onPress={handleUseCurrentLocation}
@@ -472,21 +467,11 @@ const styles = StyleSheet.create({
     color: Palette.textPrimary,
   },
   searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
     backgroundColor: Palette.white,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Palette.border,
     paddingHorizontal: Spacing.md,
-    minHeight: 48,
-  },
-  searchInput: {
-    flex: 1,
-    ...Type.body,
-    color: Palette.textPrimary,
-    paddingVertical: Spacing.sm,
   },
   currentLocationRow: {
     flexDirection: 'row',

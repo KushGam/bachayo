@@ -1,8 +1,10 @@
 import { useRouter } from 'expo-router';
+import { AlertTriangle, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DEFAULT_TIER_PRICING } from '@/constants/subscriptions';
 import { Palette } from '@/constants/Colors';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import type { PartnerSubscriptionFields } from '@/lib/subscriptions';
 import {
   formatSubscriptionDate,
@@ -27,127 +29,132 @@ export function SubscriptionStatusCard({ partner }: SubscriptionStatusCardProps)
 
   if (status === 'past_due') {
     return (
-      <Pressable onPress={navigate} style={[styles.card, styles.pastDue]}>
-        <Text style={styles.emoji}>⚠️</Text>
-        <View style={styles.copy}>
-          <Text style={styles.titlePastDue}>Payment overdue</Text>
-          <Text style={styles.subPastDue}>Listings are hidden</Text>
+      <Pressable onPress={navigate} style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
+        <View style={[styles.card, styles.pastDue]}>
+          <View style={[styles.iconWrap, styles.iconWrapDanger]}>
+            <AlertTriangle size={18} color={Palette.dangerText} strokeWidth={2} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={styles.titleDanger}>Payment overdue</Text>
+            <Text style={styles.subDanger}>Your listings are hidden until resolved</Text>
+          </View>
+          <ChevronRight size={16} color={Palette.dangerText} strokeWidth={2.5} />
         </View>
-        <Text style={styles.actionPastDue}>Fix now →</Text>
       </Pressable>
     );
   }
 
   if (status === 'active') {
     return (
-      <Pressable onPress={navigate} style={[styles.card, styles.active]}>
-        <View style={styles.checkCircle}>
-          <Text style={styles.checkMark}>✓</Text>
+      <Pressable onPress={navigate} style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
+        <View style={[styles.card, styles.active]}>
+          <View style={[styles.iconWrap, styles.iconWrapSuccess]}>
+            <Check size={18} color={Palette.success} strokeWidth={2.5} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={styles.titleSuccess}>Active — {tierLabel}</Text>
+            <Text style={styles.subSuccess}>
+              Renews {formatSubscriptionDate(partner.current_period_end)}
+            </Text>
+          </View>
+          <ChevronRight size={16} color={Palette.success} strokeWidth={2.5} />
         </View>
-        <View style={styles.copy}>
-          <Text style={styles.titleActive}>Active — {tierLabel} plan</Text>
-          <Text style={styles.subActive}>
-            Renews {formatSubscriptionDate(partner.current_period_end)}
-          </Text>
-        </View>
-        <Text style={styles.actionPrimary}>Manage →</Text>
       </Pressable>
     );
   }
 
   return (
-    <Pressable onPress={navigate} style={[styles.card, styles.trial]}>
-      <Text style={styles.emoji}>✨</Text>
-      <View style={styles.copy}>
-        <Text style={styles.titleTrial}>Free trial</Text>
-        <Text style={styles.subTrial}>
-          {daysLeft > 0 ? `${daysLeft} days remaining` : 'Trial ending soon'}
-        </Text>
+    <Pressable onPress={navigate} style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
+      <View style={[styles.card, styles.trial]}>
+        <View style={[styles.iconWrap, styles.iconWrapTrial]}>
+          <Sparkles size={18} color={Palette.primary} strokeWidth={2} />
+        </View>
+        <View style={styles.copy}>
+          <Text style={styles.titleTrial}>Free trial</Text>
+          <Text style={styles.subTrial}>
+            {daysLeft > 0 ? `${daysLeft} days remaining` : 'Trial ending soon'}
+          </Text>
+        </View>
+        <ChevronRight size={16} color={Palette.primary} strokeWidth={2.5} />
       </View>
-      <Text style={styles.actionPrimary}>Upgrade →</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  pressed: {
+    opacity: 0.92,
+  },
   card: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
+    gap: Spacing.md,
   },
   trial: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#6EE7B7',
+    backgroundColor: Palette.primaryLight,
+    borderColor: Palette.overlay.border,
   },
   active: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: Palette.successBg,
     borderColor: '#BBF7D0',
   },
   pastDue: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: Palette.dangerSoft,
+    borderColor: Palette.dangerBorder,
   },
-  emoji: {
-    fontSize: 16,
-  },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#22C55E',
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkMark: {
-    color: Palette.white,
-    fontSize: 14,
-    fontWeight: '700',
+  iconWrapTrial: {
+    backgroundColor: Palette.white,
+  },
+  iconWrapSuccess: {
+    backgroundColor: Palette.white,
+  },
+  iconWrapDanger: {
+    backgroundColor: Palette.white,
   },
   copy: {
     flex: 1,
     gap: 2,
   },
   titleTrial: {
-    fontSize: 14,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#065F46',
+    color: Palette.primaryDark,
   },
   subTrial: {
-    fontSize: 12,
-    color: '#059669',
+    ...Type.label,
+    color: Palette.textSecondary,
   },
-  titleActive: {
-    fontSize: 14,
+  titleSuccess: {
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#065F46',
+    color: Palette.success,
   },
-  subActive: {
-    fontSize: 12,
-    color: '#059669',
+  subSuccess: {
+    ...Type.label,
+    color: Palette.textSecondary,
   },
-  titlePastDue: {
-    fontSize: 14,
+  titleDanger: {
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#991B1B',
+    color: Palette.dangerText,
   },
-  subPastDue: {
-    fontSize: 12,
-    color: '#DC2626',
-  },
-  actionPrimary: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Palette.primary,
-  },
-  actionPastDue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#DC2626',
+  subDanger: {
+    ...Type.label,
+    color: Palette.dangerText,
   },
 });

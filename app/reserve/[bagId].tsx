@@ -25,6 +25,7 @@ import { Palette } from '@/constants/Colors';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
+import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import {
   formatNprPaisa,
   formatTodayPickupWindow,
@@ -92,7 +93,9 @@ export default function ReserveBagScreen() {
         return;
       }
 
-      setBag(bagData as unknown as RescueBagWithPartner);
+      const bagRow = bagData as unknown as RescueBagWithPartner;
+      const [withStock] = await enrichBagsWithLiveStock([bagRow]);
+      setBag({ ...bagRow, ...withStock });
 
       const userId = sessionData.session?.user?.id;
       if (userId) {

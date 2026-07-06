@@ -1,3 +1,4 @@
+import { Phone } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -8,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { formatRelativeTime, getInitials } from '@/lib/helpers';
-import { isConfirmedOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
+import { isConfirmedOrderStatus, isReservedOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
 import { formatNprFromPaisa, type PartnerBagOrder } from '@/lib/partnerBags';
 
 type OrderSummaryInput = {
@@ -21,27 +22,27 @@ export function formatCollapsedOrdersSummary(
   orders: OrderSummaryInput[] | null | undefined,
   fallback?: { orderCount: number; bagCount: number; revenuePaisa: number },
 ): string {
-  const confirmed = (orders ?? []).filter((order) => isConfirmedOrderStatus(order.status));
-  const hasOrders = confirmed.length > 0;
+  const active = (orders ?? []).filter((order) => isReservedOrderStatus(order.status));
+  const hasOrders = active.length > 0;
 
-  const totalOrders = hasOrders ? confirmed.length : (fallback?.orderCount ?? 0);
+  const totalOrders = hasOrders ? active.length : (fallback?.orderCount ?? 0);
   const totalBags = hasOrders
-    ? confirmed.reduce((sum, order) => sum + (order.quantity ?? 1), 0)
+    ? active.reduce((sum, order) => sum + (order.quantity ?? 1), 0)
     : (fallback?.bagCount ?? 0);
   const totalRevenue = hasOrders
-    ? confirmed.reduce((sum, order) => sum + (order.total_price || 0), 0)
+    ? active.reduce((sum, order) => sum + (order.total_price || 0), 0)
     : (fallback?.revenuePaisa ?? 0);
 
   if (totalOrders === 0) {
-    return '📋 No active orders';
+    return 'No active orders';
   }
 
   const revenueLabel = formatNprFromPaisa(totalRevenue);
   if (totalOrders === 1 && totalBags <= 1) {
-    return `📋 1 order · ${revenueLabel}`;
+    return `1 order · ${revenueLabel}`;
   }
 
-  return `📋 ${totalOrders} order${totalOrders === 1 ? '' : 's'} · ${totalBags} bag${totalBags === 1 ? '' : 's'} · ${revenueLabel}`;
+  return `${totalOrders} orders · ${totalBags} bags · ${revenueLabel}`;
 }
 
 export function formatBagReservedProgressLabel(
@@ -126,12 +127,15 @@ export function BagExpandedOrderRow({
           {formatNprFromPaisa(order.total_price || 0)} to collect
         </Text>
         {phone ? (
-          <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)}>
-            <Text style={styles.phoneText}>📞 {phone}</Text>
+          <Pressable
+            onPress={() => void Linking.openURL(`tel:${phone}`)}
+            style={styles.phoneRow}>
+            <Phone size={12} color="#6B7280" strokeWidth={2} />
+            <Text style={styles.phoneText}>{phone}</Text>
           </Pressable>
         ) : null}
         {order.customer_note ? (
-          <Text style={styles.orderNote}>&quot;{order.customer_note}&quot; 📝</Text>
+          <Text style={styles.orderNote}>&quot;{order.customer_note}&quot;</Text>
         ) : null}
         <View style={styles.orderFooter}>
           <Text style={styles.reservedTime}>
@@ -279,10 +283,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#D85A30',
   },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   phoneText: {
     fontSize: 13,
     color: '#D85A30',
-    marginTop: 2,
   },
   orderNote: {
     fontSize: 12,

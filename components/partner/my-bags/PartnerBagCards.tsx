@@ -1,4 +1,14 @@
 import { useRouter } from 'expo-router';
+import {
+  Ban,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  MoreVertical,
+  RefreshCw,
+  Star,
+  Trash2,
+} from 'lucide-react-native';
 import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import {
   ActionSheetIOS,
@@ -24,7 +34,9 @@ import {
   formatCollapsedOrdersSummary,
 } from '@/components/partner/BagOrdersExpandedPanel';
 import { SuccessToast } from '@/components/ui/SuccessToast';
-import { hapticButtonPress, hapticHeavy, hapticSuccess, hapticWarning } from '@/lib/haptics';
+import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { formatTime12h } from '@/lib/helpers';
 import {
   type CountdownState,
   type PartnerBagOrder,
@@ -32,24 +44,31 @@ import {
   fetchPartnerBagOrders,
   formatBagDateLabel,
   formatNprFromPaisa,
-  formatPickupWindow,
   getBagCountdownState,
   getBagDisplayStatus,
+  getBagPotentialRevenuePaisa,
   getSavingsPct,
+  shouldShowBagEarnedRevenue,
 } from '@/lib/partnerBags';
+import { hapticButtonPress, hapticHeavy, hapticSuccess, hapticWarning } from '@/lib/haptics';
 import { confirmPartnerPickup } from '@/lib/orders';
-import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked } from '@/lib/pendingPickups';
+import { applyFetchedOrdersWithPickupGuard, protectPendingPickup } from '@/lib/pendingPickups';
+import { normalizeOrderStatus } from '@/lib/orderStatus';
 import { supabase } from '@/lib/supabase';
 
-const TERRACOTTA = '#D85A30';
-const TEXT_SECONDARY = '#6B7280';
-const TRACK = '#F0EDE8';
-
 const BAG_STATUS_STYLES = {
-  active: { bg: '#ECFDF5', text: '#065F46', label: '● Active' },
-  sold_out: { bg: '#FEF3C7', text: '#92400E', label: 'Sold out' },
-  expired: { bg: '#F3F4F6', text: '#6B7280', label: 'Expired' },
+  active: { bg: Palette.successBg, text: Palette.success, label: 'Active' },
+  sold_out: { bg: Palette.warningBg, text: Palette.warning, label: 'Sold out' },
+  expired: { bg: Palette.surfaceMuted, text: Palette.textSecondary, label: 'Expired' },
 } as const;
+
+function stripCountdownEmoji(label: string) {
+  return label.replace(/^[🔴⏱🕐]\s*/, '');
+}
+
+function formatPickupRange(start: string, end: string) {
+  return `${formatTime12h(start)} – ${formatTime12h(end)}`;
+}
 
 function CountdownPill({ state }: { state: CountdownState }) {
   const pulse = useSharedValue(1);
@@ -71,7 +90,12 @@ function CountdownPill({ state }: { state: CountdownState }) {
   }
 
   if (state.kind === 'muted') {
-    return <Text style={styles.countdownMuted}>{state.label}</Text>;
+    return (
+      <View style={styles.countdownMutedRow}>
+        <Clock size={13} color={Palette.textSecondary} strokeWidth={2} />
+        <Text style={styles.countdownMuted}>{stripCountdownEmoji(state.label)}</Text>
+      </View>
+    );
   }
 
   const isUrgent = state.kind === 'urgent';
@@ -83,7 +107,7 @@ function CountdownPill({ state }: { state: CountdownState }) {
         pulseStyle,
       ]}>
       <Text style={[styles.countdownPillText, isUrgent ? styles.countdownUrgentText : styles.countdownAmberText]}>
-        {state.label}
+        {stripCountdownEmoji(state.label)}
       </Text>
     </Animated.View>
   );
@@ -109,12 +133,12 @@ function ActiveStatusBadge() {
 }
 
 function SwipeActionButton({
-  emoji,
+  icon: Icon,
   label,
   backgroundColor,
   onPress,
 }: {
-  emoji: string;
+  icon: typeof Ban;
   label: string;
   backgroundColor: string;
   onPress: () => void;
@@ -123,7 +147,7 @@ function SwipeActionButton({
     <Pressable
       onPress={onPress}
       style={[styles.swipeActionBtn, { backgroundColor }]}>
-      <Text style={styles.swipeActionEmoji}>{emoji}</Text>
+      <Icon size={18} color={Palette.white} strokeWidth={2} />
       <Text style={styles.swipeActionLabel}>{label}</Text>
     </Pressable>
   );
@@ -146,6 +170,8 @@ type PartnerTodayBagCardProps = {
   isOrdersExpanded: boolean;
   onToggleOrders: (bagId: string) => void;
   lastPickupTimeRef?: MutableRefObject<number>;
+  pendingPickupIdsRef?: MutableRefObject<Set<string>>;
+  onPickupConfirmed?: (order: PartnerBagOrder) => void;
   onRefresh: () => void;
   onRelist?: () => void;
   onSoldOut?: () => void;
@@ -158,6 +184,8 @@ export function PartnerTodayBagCard({
   isOrdersExpanded,
   onToggleOrders,
   lastPickupTimeRef,
+  pendingPickupIdsRef,
+  onPickupConfirmed,
   onRefresh,
   onRelist,
   onSoldOut,
@@ -166,7 +194,9 @@ export function PartnerTodayBagCard({
   const router = useRouter();
   const swipeRef = useRef<Swipeable>(null);
   const localLastPickupTime = useRef(0);
+  const localPendingPickupIds = useRef(new Set<string>());
   const lastPickupTime = lastPickupTimeRef ?? localLastPickupTime;
+  const pendingPickupIds = pendingPickupIdsRef ?? localPendingPickupIds;
   const [orders, setOrders] = useState<PartnerBagOrder[] | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [markingPickup, setMarkingPickup] = useState<string | null>(null);
@@ -190,13 +220,13 @@ export function PartnerTodayBagCard({
   const capacity = bag.quantity_available;
   const fullyReserved = reserved >= capacity && capacity > 0;
   const progressPct = capacity > 0 ? Math.min(100, (reserved / capacity) * 100) : 0;
-  const potentialRevenue = bag.rescue_price * Math.max(0, bag.quantity_reserved);
-  const earnedRevenue = bag.rescue_price * bag.picked_up_orders;
-  const showEarned = bag.quantity_reserved === 0 && bag.picked_up_orders > 0;
+  const potentialRevenue = getBagPotentialRevenuePaisa(bag, orders);
+  const earnedRevenue = bag.revenue_earned;
+  const showEarned = shouldShowBagEarnedRevenue(bag);
   const progressLabel = formatBagReservedProgressLabel(reserved, capacity, bag.reserved_orders);
   const collapsedSummary = formatCollapsedOrdersSummary(orders, {
-    orderCount: bag.confirmed_orders,
-    bagCount: bag.quantity_reserved,
+    orderCount: bag.reserved_orders,
+    bagCount: Math.max(bag.quantity_reserved, bag.reserved_orders),
     revenuePaisa: potentialRevenue,
   });
 
@@ -216,10 +246,24 @@ export function PartnerTodayBagCard({
   };
 
   const confirmDeleteBag = () => {
-    if (bag.confirmed_orders > 0) {
+    // Bags with ANY orders cannot be deleted due to `orders.bag_id` FK.
+    // If there are active reservations, prefer "Sold out" to stop new reservations.
+    if (bag.total_orders > 0) {
+      const activeReserved = bag.quantity_reserved > 0 || bag.reserved_orders > 0;
       Alert.alert(
         "Can't delete",
-        `${bag.confirmed_orders} customer${bag.confirmed_orders === 1 ? '' : 's'} reserved. Mark as sold out instead.`,
+        activeReserved
+          ? 'This bag already has reservations. You can’t delete it — mark it as sold out instead.'
+          : 'This bag has orders linked to it. You can’t delete it — cancel it instead.',
+        activeReserved
+          ? [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
+            ]
+          : [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Cancel bag', onPress: () => void updateStatus('cancelled') },
+            ],
       );
       return;
     }
@@ -234,7 +278,19 @@ export function PartnerTodayBagCard({
             await hapticWarning();
             const { error } = await supabase.from('rescue_bags').delete().eq('id', bag.id);
             if (error) {
-              Alert.alert('Error', error.message);
+              const msg = error.message ?? 'Could not delete bag';
+              if (msg.toLowerCase().includes('foreign key') || msg.includes('orders_bag_id_fkey')) {
+                Alert.alert(
+                  "Can't delete",
+                  'This bag already has orders linked to it. Mark it as cancelled instead.',
+                  [
+                    { text: 'OK', style: 'cancel' },
+                    { text: 'Cancel bag', onPress: () => void updateStatus('cancelled') },
+                  ],
+                );
+                return;
+              }
+              Alert.alert('Error', msg);
               return;
             }
             onDeleted?.(bag.id);
@@ -257,16 +313,12 @@ export function PartnerTodayBagCard({
 
     if (!willExpand) return;
 
-    if (isPickupFetchBlocked(lastPickupTime.current)) {
-      console.log('[fetchOrders] blocked — pickup just confirmed');
-      setOrdersLoading(false);
-      return;
-    }
-
     setOrdersLoading(true);
     try {
       const rows = await fetchPartnerBagOrders(bag.id);
-      setOrders((prev) => applyFetchedOrdersWithPickupGuard(rows, new Set(), prev ?? []));
+      setOrders((prev) =>
+        applyFetchedOrdersWithPickupGuard(rows, pendingPickupIds.current, prev ?? []),
+      );
     } catch {
       setOrders([]);
     } finally {
@@ -277,6 +329,7 @@ export function PartnerTodayBagCard({
   const markAsPickedUp = async (orderId: string) => {
     const order = orders?.find((row) => row.id === orderId);
     if (!order) return;
+    if (normalizeOrderStatus(order.status) === 'picked_up') return;
 
     try {
       setMarkingPickup(orderId);
@@ -286,9 +339,10 @@ export function PartnerTodayBagCard({
         { ...order, bag } as never,
         'partner_manual',
       );
-      if (!result.ok) throw new Error('pickup failed');
+      if (!result.ok) throw new Error(result.errorMessage ?? 'pickup failed');
 
       lastPickupTime.current = Date.now();
+      protectPendingPickup(pendingPickupIds.current, orderId);
 
       setOrders((prev) =>
         prev?.map((row) =>
@@ -298,10 +352,15 @@ export function PartnerTodayBagCard({
         ) ?? prev,
       );
 
+      onPickupConfirmed?.(order);
       void hapticSuccess();
       setShowPickupToast(true);
-    } catch {
-      Alert.alert('Error', 'Failed to confirm pickup. Please try again.');
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message !== 'pickup failed'
+          ? err.message
+          : 'Failed to confirm pickup. Please try again.';
+      Alert.alert('Error', message);
     } finally {
       setMarkingPickup(null);
     }
@@ -309,13 +368,7 @@ export function PartnerTodayBagCard({
 
   const showMenu = () => {
     void hapticButtonPress();
-    const options = [
-      '✏️ Edit bag',
-      '🚫 Mark as sold out',
-      '🔁 Relist tomorrow',
-      '🗑 Delete bag',
-      'Cancel',
-    ];
+    const options = ['Edit bag', 'Mark as sold out', 'Relist tomorrow', 'Delete bag', 'Cancel'];
     const destructiveIndex = 3;
     const cancelIndex = 4;
 
@@ -333,10 +386,10 @@ export function PartnerTodayBagCard({
       );
     } else {
       Alert.alert('Bag actions', undefined, [
-        { text: '✏️ Edit bag', onPress: () => onSelect(0) },
-        { text: '🚫 Mark as sold out', onPress: () => onSelect(1) },
-        { text: '🔁 Relist tomorrow', onPress: () => onSelect(2) },
-        { text: '🗑 Delete bag', style: 'destructive', onPress: () => onSelect(3) },
+        { text: 'Edit bag', onPress: () => onSelect(0) },
+        { text: 'Mark as sold out', onPress: () => onSelect(1) },
+        { text: 'Relist tomorrow', onPress: () => onSelect(2) },
+        { text: 'Delete bag', style: 'destructive', onPress: () => onSelect(3) },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }
@@ -344,6 +397,12 @@ export function PartnerTodayBagCard({
 
   const cardBody = (
     <View style={styles.card}>
+      <View
+        style={[
+          styles.topStrip,
+          { backgroundColor: displayStatus === 'active' ? Palette.primary : Palette.textTertiary },
+        ]}
+      />
       {dateLabel ? <Text style={styles.dateLabel}>{dateLabel}</Text> : null}
 
       <View style={styles.cardTop}>
@@ -351,7 +410,7 @@ export function PartnerTodayBagCard({
           {bag.title}
         </Text>
         <Pressable onPress={showMenu} style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.menuDots}>⋮</Text>
+          <MoreVertical size={18} color={Palette.textSecondary} strokeWidth={2} />
         </Pressable>
       </View>
 
@@ -369,9 +428,12 @@ export function PartnerTodayBagCard({
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.pickupPillText}>
-          {formatPickupWindow(bag.pickup_start, bag.pickup_end).replace('🕐 ', '')}
-        </Text>
+        <View style={styles.pickupRow}>
+          <Clock size={13} color={Palette.textSecondary} strokeWidth={2} />
+          <Text style={styles.pickupPillText}>
+            {formatPickupRange(bag.pickup_start, bag.pickup_end)}
+          </Text>
+        </View>
         {savings > 0 ? (
           <View style={styles.savingsBadge}>
             <Text style={styles.savingsText}>{savings}% off</Text>
@@ -381,7 +443,7 @@ export function PartnerTodayBagCard({
 
       <View style={styles.progressSection}>
         {fullyReserved ? (
-          <Text style={styles.soldOutCelebration}>Sold out! 🎉</Text>
+          <Text style={styles.soldOutCelebration}>Sold out</Text>
         ) : null}
         <View style={styles.progressRow}>
           <View style={styles.progressTrack}>
@@ -390,7 +452,7 @@ export function PartnerTodayBagCard({
                 styles.progressFill,
                 {
                   width: `${progressPct}%`,
-                  backgroundColor: fullyReserved ? '#10B981' : TERRACOTTA,
+                  backgroundColor: fullyReserved ? Palette.success : Palette.primary,
                 },
               ]}
             />
@@ -418,9 +480,15 @@ export function PartnerTodayBagCard({
         <CountdownPill state={countdown} />
       </View>
 
-      <Pressable onPress={() => void toggleOrders()} style={styles.ordersToggle}>
+      <Pressable
+        onPress={() => void toggleOrders()}
+        style={({ pressed }) => [styles.ordersToggle, pressed && styles.ordersTogglePressed]}>
         <Text style={styles.ordersToggleText}>{collapsedSummary}</Text>
-        <Text style={styles.ordersChevron}>{isOrdersExpanded ? '▴' : '▾'}</Text>
+        {isOrdersExpanded ? (
+          <ChevronUp size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+        ) : (
+          <ChevronDown size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+        )}
       </Pressable>
 
       <ExpandableOrders expanded={isOrdersExpanded}>
@@ -451,24 +519,24 @@ export function PartnerTodayBagCard({
       renderRightActions={() => (
         <View style={styles.swipeActionsRow}>
           <SwipeActionButton
-            emoji="🚫"
+            icon={Ban}
             label="Sold out"
-            backgroundColor="#EF9F27"
+            backgroundColor={Palette.amber}
             onPress={() => void markSoldOut()}
           />
           <SwipeActionButton
-            emoji="🗑"
+            icon={Trash2}
             label="Delete"
-            backgroundColor="#E24B4A"
+            backgroundColor={Palette.danger}
             onPress={() => void deleteBag()}
           />
         </View>
       )}
       renderLeftActions={() => (
         <SwipeActionButton
-          emoji="🔁"
+          icon={RefreshCw}
           label="Relist"
-          backgroundColor={TERRACOTTA}
+          backgroundColor={Palette.primary}
           onPress={() => {
             closeSwipe();
             void hapticButtonPress();
@@ -533,13 +601,16 @@ export function PartnerPastBagCard({
         <Text style={styles.pastDate}>{dateStr}</Text>
         <View style={styles.pastRevenueRow}>
           <Text style={styles.pastRevenue}>{formatNprFromPaisa(bag.revenue_earned)} earned</Text>
-          <Text style={styles.pastPickups}> · {bag.picked_up_orders} pickups</Text>
+          <Text style={styles.pastPickups}> · {bag.picked_up_bags} bags picked up</Text>
         </View>
       </View>
 
       <View style={styles.pastRight}>
         {bag.avg_rating != null ? (
-          <Text style={styles.pastRating}>★ {bag.avg_rating}</Text>
+          <View style={styles.pastRatingRow}>
+            <Star size={12} color={Palette.primary} fill={Palette.primary} strokeWidth={2} />
+            <Text style={styles.pastRating}>{bag.avg_rating}</Text>
+          </View>
         ) : null}
         <Pressable onPress={onRelist} hitSlop={8}>
           <Text style={styles.relistLink}>Relist →</Text>
@@ -551,14 +622,16 @@ export function PartnerPastBagCard({
 
 export function RelistCard({ bag, onRelist }: { bag: PartnerBagWithStats; onRelist: () => void }) {
   const badge = (() => {
-    if (bag.status === 'sold_out' || bag.reserved_orders >= bag.quantity_available) {
-      return { label: '🎉 Sold out', style: styles.relistBadgeGreen };
+    if (bag.status === 'sold_out' || bag.quantity_reserved >= bag.quantity_available) {
+      return { label: 'Sold out', style: styles.relistBadgeGreen };
     }
-    if (bag.picked_up_orders > 0 || bag.reserved_orders > 0) {
-      const sold = bag.picked_up_orders || bag.reserved_orders;
-      return { label: `⚡ ${sold} sold`, style: styles.relistBadgeAmber };
+    if (bag.picked_up_bags > 0) {
+      return { label: `${bag.picked_up_bags} picked up`, style: styles.relistBadgeAmber };
     }
-    return { label: '0 orders', style: styles.relistBadgeGray };
+    if (bag.reserved_orders > 0) {
+      return { label: `${bag.quantity_reserved} reserved`, style: styles.relistBadgeAmber };
+    }
+    return { label: 'No orders', style: styles.relistBadgeGray };
   })();
 
   return (
@@ -566,7 +639,11 @@ export function RelistCard({ bag, onRelist }: { bag: PartnerBagWithStats; onReli
       <Text style={styles.relistTitle} numberOfLines={2}>
         {bag.title}
       </Text>
-      <Text style={styles.relistPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
+      <Text style={styles.relistPrice}>
+        {bag.revenue_earned > 0
+          ? `${formatNprFromPaisa(bag.revenue_earned)} earned`
+          : formatNprFromPaisa(bag.rescue_price)}
+      </Text>
       <View style={[styles.relistBadge, badge.style]}>
         <Text style={styles.relistBadgeText}>{badge.label}</Text>
       </View>
@@ -583,91 +660,109 @@ export function formatUpcomingDateLabel(isoDate: string) {
 
 const styles = StyleSheet.create({
   cardSwipeWrap: {
-    marginHorizontal: 16,
-    marginBottom: 12,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm + 2,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    ...CardChrome,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    ...FloatingShadow,
+  },
+  topStrip: {
+    width: '100%',
+    height: 3,
   },
   dateLabel: {
-    fontSize: 12,
+    ...Type.label,
     fontWeight: '700',
-    color: TEXT_SECONDARY,
+    color: Palette.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md + 2,
     paddingBottom: 4,
   },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md + 2,
     paddingBottom: 4,
-    gap: 8,
+    gap: Spacing.sm,
   },
-  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
+  cardTitle: {
+    flex: 1,
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
   titleMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   titleMetaLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerPrice: {
-    fontSize: 16,
+    ...Type.bodyMedium,
     fontWeight: '700',
-    color: TERRACOTTA,
+    color: Palette.primary,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  pickupRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   menuBtn: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuDots: { fontSize: 22, color: TEXT_SECONDARY, lineHeight: 24 },
-  pickupPillText: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '400' },
+  pickupPillText: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+  },
   savingsBadge: {
-    backgroundColor: '#FAEEDA',
-    borderRadius: 999,
+    backgroundColor: Palette.warningBg,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  savingsText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+  savingsText: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.warning,
+  },
   statusBadge: {
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  statusBadgeActive: { backgroundColor: '#ECFDF5' },
-  statusDot: { fontSize: 10, color: '#065F46', lineHeight: 12 },
-  statusBadgeText: { fontSize: 11, fontWeight: '700' },
-  statusBadgeActiveText: { color: '#065F46' },
-  progressSection: { paddingHorizontal: 16, marginBottom: 12, gap: 6 },
+  statusBadgeActive: { backgroundColor: Palette.successBg },
+  statusDot: { fontSize: 10, color: Palette.success, lineHeight: 12 },
+  statusBadgeText: { ...Type.label, fontWeight: '700' },
+  statusBadgeActiveText: { color: Palette.success },
+  progressSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, gap: 6 },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -677,62 +772,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 6,
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   revenueStatsValue: {
     fontSize: 18,
     fontWeight: '700',
   },
   revenueStatsPotential: {
-    color: TERRACOTTA,
+    color: Palette.primary,
   },
   revenueStatsEarned: {
-    color: '#065F46',
+    color: Palette.success,
   },
   revenueStatsLabel: {
-    fontSize: 12,
-    color: TEXT_SECONDARY,
+    ...Type.label,
+    color: Palette.textSecondary,
   },
   revenueStatsEarnedLabel: {
-    color: '#065F46',
+    color: Palette.success,
   },
-  progressLabel: { fontSize: 12, fontWeight: '500', flexShrink: 0 },
-  soldOutCelebration: { fontSize: 13, fontWeight: '600', color: '#10B981', marginBottom: 2 },
+  progressLabel: { ...Type.label, fontWeight: '500', flexShrink: 0 },
+  soldOutCelebration: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.success,
+    marginBottom: 2,
+  },
   progressTrack: {
     flex: 1,
     height: 6,
     borderRadius: 3,
-    backgroundColor: TRACK,
+    backgroundColor: Palette.borderSubtle,
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: 3 },
-  countdownWrap: { paddingHorizontal: 16, paddingBottom: 14 },
-  countdownMuted: { fontSize: 13, color: TEXT_SECONDARY },
-  countdownClosed: { fontSize: 12, color: '#9CA3AF' },
+  countdownWrap: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md + 2 },
+  countdownMutedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countdownMuted: { ...Type.caption, color: Palette.textSecondary },
+  countdownClosed: { ...Type.label, color: Palette.textTertiary },
   countdownPill: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  countdownAmber: { backgroundColor: '#FEF3C7' },
-  countdownUrgent: { backgroundColor: '#FEE2E2' },
-  countdownPillText: { fontSize: 12, fontWeight: '600' },
-  countdownAmberText: { color: '#92400E' },
-  countdownUrgentText: { color: '#991B1B' },
+  countdownAmber: { backgroundColor: Palette.warningBg },
+  countdownUrgent: { backgroundColor: Palette.dangerSoft },
+  countdownPillText: { ...Type.label, fontWeight: '600' },
+  countdownAmberText: { color: Palette.warning },
+  countdownUrgentText: { color: Palette.dangerText },
   ordersToggle: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: TRACK,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Palette.borderSubtle,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAFAF9',
+    backgroundColor: Palette.background,
+    gap: Spacing.sm,
   },
-  ordersToggleText: { flex: 1, fontSize: 13, color: '#374151', fontWeight: '600' },
-  ordersChevron: { fontSize: 12, color: '#9CA3AF', fontWeight: '600', marginLeft: 8 },
+  ordersTogglePressed: {
+    backgroundColor: Palette.surfaceMuted,
+  },
+  ordersToggleText: {
+    flex: 1,
+    ...Type.caption,
+    color: Palette.textPrimary,
+    fontWeight: '600',
+  },
   swipeActionsRow: { flexDirection: 'row', alignItems: 'stretch' },
   swipeActionBtn: {
     width: 80,
@@ -741,72 +854,84 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 4,
   },
-  swipeActionEmoji: { fontSize: 18 },
-  swipeActionLabel: { fontSize: 11, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' },
+  swipeActionLabel: {
+    ...Type.label,
+    fontWeight: '600',
+    color: Palette.white,
+    textAlign: 'center',
+  },
   pastCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   perfBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
   },
-  perfSoldOut: { backgroundColor: '#ECFDF5', borderColor: '#6EE7B7' },
-  perfPartial: { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
-  perfNone: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+  perfSoldOut: { backgroundColor: Palette.successBg, borderColor: '#6EE7B7' },
+  perfPartial: { backgroundColor: Palette.warningBg, borderColor: '#FDE68A' },
+  perfNone: { backgroundColor: Palette.surfaceMuted, borderColor: Palette.border },
   perfBadgeText: { fontWeight: '700' },
-  perfSoldOutText: { fontSize: 20, color: '#065F46' },
-  perfPartialText: { fontSize: 14, color: '#92400E' },
-  perfNoneText: { fontSize: 18, color: '#6B7280' },
+  perfSoldOutText: { fontSize: 18, color: Palette.success },
+  perfPartialText: { fontSize: 13, color: Palette.warning },
+  perfNoneText: { fontSize: 16, color: Palette.textSecondary },
   pastCenter: { flex: 1, gap: 3 },
-  pastTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A1A' },
-  pastDate: { fontSize: 12, color: TEXT_SECONDARY },
+  pastTitle: { ...Type.bodyMedium, fontWeight: '600', color: Palette.textPrimary },
+  pastDate: { ...Type.label, color: Palette.textSecondary },
   pastRevenueRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  pastRevenue: { fontSize: 13, fontWeight: '600', color: '#065F46' },
-  pastPickups: { fontSize: 12, color: TEXT_SECONDARY },
+  pastRevenue: { ...Type.caption, fontWeight: '600', color: Palette.success },
+  pastPickups: { ...Type.label, color: Palette.textSecondary },
   pastRight: { alignItems: 'flex-end', gap: 6 },
-  pastRating: { fontSize: 13, fontWeight: '600', color: TERRACOTTA },
-  relistLink: { fontSize: 12, fontWeight: '600', color: TERRACOTTA },
+  pastRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pastRating: { ...Type.caption, fontWeight: '600', color: Palette.primary },
+  relistLink: { ...Type.label, fontWeight: '600', color: Palette.primary },
   relistCard: {
     width: 200,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: TRACK,
-    marginRight: 10,
+    ...CardChrome,
+    borderRadius: Radius.md,
+    padding: Spacing.md + 2,
+    marginRight: Spacing.sm + 2,
   },
-  relistTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A1A', minHeight: 36 },
-  relistPrice: { fontSize: 13, fontWeight: '700', color: TERRACOTTA, marginTop: 4 },
+  relistTitle: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+    minHeight: 36,
+  },
+  relistPrice: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primary,
+    marginTop: 4,
+  },
   relistBadge: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
-  relistBadgeGreen: { backgroundColor: '#ECFDF5' },
-  relistBadgeAmber: { backgroundColor: '#FEF3C7' },
-  relistBadgeGray: { backgroundColor: '#F3F4F6' },
-  relistBadgeText: { fontSize: 11, fontWeight: '700', color: '#374151' },
+  relistBadgeGreen: { backgroundColor: Palette.successBg },
+  relistBadgeAmber: { backgroundColor: Palette.warningBg },
+  relistBadgeGray: { backgroundColor: Palette.surfaceMuted },
+  relistBadgeText: { ...Type.label, fontWeight: '700', color: Palette.textPrimary },
   relistBtn: {
-    backgroundColor: '#FAECE7',
-    borderRadius: 999,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 10,
+    marginTop: Spacing.sm + 2,
     alignItems: 'center',
   },
-  relistBtnText: { fontSize: 13, fontWeight: '600', color: TERRACOTTA },
+  relistBtnText: { ...Type.caption, fontWeight: '600', color: Palette.primary },
 });

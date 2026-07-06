@@ -1,14 +1,12 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import {
-  getCategoryPillLabel,
   HOME_CATEGORY_FILTERS,
   type HomeCategoryFilter,
 } from '@/constants/partnerCategories';
-
-import { exploreStyles as styles } from './exploreStyles';
 
 const MAX_DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
 
@@ -23,8 +21,9 @@ type ExploreFilterPanelProps = {
 };
 
 function categoryLabel(key: HomeCategoryFilter, locale: 'en' | 'np') {
-  if (key === 'all') return '🍽 All';
-  return getCategoryPillLabel(key, locale);
+  const item = HOME_CATEGORY_FILTERS.find((filter) => filter.key === key);
+  if (!item) return key;
+  return locale === 'np' ? item.labelNp : item.label;
 }
 
 export function ExploreFilterPanel({
@@ -41,18 +40,18 @@ export function ExploreFilterPanel({
   return (
     <Animated.View
       entering={FadeInDown.duration(200)}
-      exiting={FadeOutUp.duration(200)}
-      style={styles.filterPanelFloating}>
-      <Text style={styles.filterSectionLabel}>Category</Text>
-      <View style={styles.filterWrap}>
+      exiting={FadeOutUp.duration(180)}
+      style={styles.panel}>
+      <Text style={styles.sectionLabel}>Category</Text>
+      <View style={styles.pillRow}>
         {HOME_CATEGORY_FILTERS.map((cat) => {
           const active = selectedCategory === cat.key;
           return (
             <Pressable
               key={cat.key}
               onPress={() => onSelectCategory(cat.key)}
-              style={[styles.filterPill, active && styles.filterPillActive]}>
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+              style={[styles.pill, active && styles.pillActive]}>
+              <Text style={[styles.pillText, active && styles.pillTextActive]}>
                 {categoryLabel(cat.key, locale)}
               </Text>
             </Pressable>
@@ -60,18 +59,16 @@ export function ExploreFilterPanel({
         })}
       </View>
 
-      <Text style={[styles.filterSectionLabel, styles.filterSectionSpacing]}>Distance</Text>
-      <View style={styles.filterWrap}>
+      <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Distance</Text>
+      <View style={styles.pillRow}>
         {MAX_DISTANCE_OPTIONS.map((km) => {
           const active = maxDistanceKm === km;
           return (
             <Pressable
               key={km}
               onPress={() => onSelectDistance(km)}
-              style={[styles.filterPill, active && styles.filterPillActive]}>
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
-                {km}km
-              </Text>
+              style={[styles.pill, active && styles.pillActive]}>
+              <Text style={[styles.pillText, active && styles.pillTextActive]}>{km} km</Text>
             </Pressable>
           );
         })}
@@ -79,11 +76,73 @@ export function ExploreFilterPanel({
 
       <Pressable
         onPress={onApply}
-        style={({ pressed }) => [styles.applyFiltersBtn, pressed && { opacity: 0.9 }]}>
-        <Text style={styles.applyFiltersText}>Apply filters</Text>
+        style={({ pressed }) => [styles.applyBtn, pressed && styles.pressed]}>
+        <Text style={styles.applyText}>Show results</Text>
       </Pressable>
     </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  panel: {
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    backgroundColor: Palette.surface,
+    ...FloatingShadow,
+  },
+  sectionLabel: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  sectionSpacing: {
+    marginTop: Spacing.xs,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  pill: {
+    height: 34,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.background,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    justifyContent: 'center',
+  },
+  pillActive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.primary,
+  },
+  pillText: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+  pillTextActive: {
+    color: Palette.white,
+  },
+  applyBtn: {
+    marginTop: Spacing.xs,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.sm + 2,
+    alignItems: 'center',
+  },
+  applyText: {
+    ...Type.bodyMedium,
+    color: Palette.white,
+    fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.9,
+  },
+});
 
 export { MAX_DISTANCE_OPTIONS };

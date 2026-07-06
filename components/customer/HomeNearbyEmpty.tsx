@@ -1,46 +1,34 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { AppSymbol } from '@/components/ui/AppSymbol';
 
 type HomeNearbyEmptyProps = {
   locale: 'en' | 'np';
 };
 
 export function HomeNearbyEmpty({ locale }: HomeNearbyEmptyProps) {
-  if (locale === 'np') {
-    return (
-      <View style={styles.emptyState}>
-        <View style={styles.emptyIconWrap}>
-          <Text style={styles.emptyEmoji}>🛍</Text>
-        </View>
-        <Text style={styles.emptyTitle}>नजिक अहिले कुनै ब्याग छैन</Text>
-        <Text style={styles.emptySubtitle}>
-          हामी चाँडै तपाईंको शहरमा लन्च गर्दैछौं।{'\n'}
-          साँझ ६–८ बजे फेरि जाँच गर्नुहोस्।
-        </Text>
-        <View style={styles.cityPill}>
-          <Text style={styles.cityPillText}>
-            🚀 काठमाडौं, पोखरा, ललितपुर र भरतपुरमा लन्च
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const isNp = locale === 'np';
 
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconWrap}>
-        <Text style={styles.emptyEmoji}>🛍</Text>
+        <AppSymbol ios="bag" android="shopping-bag" size={28} color={Palette.primary} />
       </View>
-      <Text style={styles.emptyTitle}>No rescue bags nearby yet</Text>
+      <Text style={styles.emptyTitle}>
+        {isNp ? 'नजिक अहिले कुनै ब्याग छैन' : 'No bags nearby right now'}
+      </Text>
       <Text style={styles.emptySubtitle}>
-        We&apos;re launching in your city soon.{'\n'}
-        Check back at 6–8pm when restaurants{'\n'}
-        list their daily surplus.
+        {isNp
+          ? 'साँझ ६–८ बजे फेरि जाँच गर्नुहोस्।\nरेस्टुरेन्टहरूले दैनिक बाँकी सूचीबद्ध गर्छन्।'
+          : 'Check back around 6–8pm when restaurants\nlist their daily surplus.'}
       </Text>
       <View style={styles.cityPill}>
         <Text style={styles.cityPillText}>
-          🚀 Launching in Kathmandu, Pokhara, Lalitpur & Bharatpur
+          {isNp
+            ? 'काठमाडौं · पोखरा · ललितपुर · भरतपुर'
+            : 'Kathmandu · Pokhara · Lalitpur · Bharatpur'}
         </Text>
       </View>
     </View>
@@ -50,46 +38,48 @@ export function HomeNearbyEmpty({ locale }: HomeNearbyEmptyProps) {
 const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 32,
-    marginHorizontal: 16,
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
   emptyIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FAECE7',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyEmoji: {
-    fontSize: 32,
+    marginBottom: Spacing.lg,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    ...Type.h2,
+    color: Palette.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...Type.body,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
+    lineHeight: 22,
+    marginBottom: Spacing.lg,
   },
   cityPill: {
-    backgroundColor: '#FAECE7',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    backgroundColor: Palette.background,
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
   cityPillText: {
-    fontSize: 12,
-    color: Palette.primaryDark,
+    ...Type.label,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

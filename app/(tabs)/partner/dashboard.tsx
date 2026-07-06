@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Lock } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -14,30 +15,34 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActiveBagMiniCard } from '@/components/partner/ActiveBagMiniCard';
+import { DashboardHeroBlock } from '@/components/partner/DashboardHeroBlock';
 import { DashboardCtaCard } from '@/components/partner/DashboardCtaCard';
-import { buildDashboardStats, DashboardStatsRow } from '@/components/partner/DashboardStatsRow';
+import { buildDashboardStats } from '@/components/partner/DashboardStatsRow';
 import { PartnerEmptyState } from '@/components/partner/PartnerEmptyState';
 import { PartnerOrderRow } from '@/components/partner/PartnerOrderRow';
 import { PartnerSectionHeader } from '@/components/partner/PartnerSectionHeader';
+import { DashboardQuickActions } from '@/components/partner/DashboardQuickActions';
 import { SubscriptionBanner } from '@/components/partner/SubscriptionBanner';
-import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
-import { getCategoryById } from '@/constants/partnerCategories';
-import { useAuthStore } from '@/store/useAuthStore';
 import { RetryState } from '@/components/ui/RetryState';
-import { OrderCardSkeleton, StatsSkeleton } from '@/components/ui/Skeleton';
+import { OrderCardSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
-import { Spacing } from '@/constants/theme';
+import { getCategoryById } from '@/constants/partnerCategories';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
+import { useAuthStore } from '@/store/useAuthStore';
 import {
   formatTodayBilingual,
-  getGreeting,
   getTodayIsoDateLocal,
   getYesterdayIsoDateLocal,
 } from '@/lib/helpers';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
-import { isConfirmedOrderStatus, isReservedOrderStatus, isRevenueOrderStatus } from '@/lib/orderStatus';
-import { fetchCustomerOrders, confirmPartnerPickup } from '@/lib/orders';
-import { fetchPartnerBagOrders, type PartnerBagOrder } from '@/lib/partnerBags';
-import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked } from '@/lib/pendingPickups';
+import { isReservedOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
+import {
+  confirmPartnerPickup,
+  fetchPartnerDayStats,
+  fetchPartnerOrders,
+} from '@/lib/orders';
+import { fetchPartnerBagOrders, fetchPartnerBagsForDate, applyBagStockPatch, applyReservationToPartnerBag, type PartnerBagOrder, type PartnerBagWithStats } from '@/lib/partnerBags';
+import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
 import {
   getTrialDaysRemaining,
@@ -45,21 +50,18 @@ import {
 } from '@/lib/subscriptions';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
+import { usePartnerStore } from '@/store/usePartnerStore';
 import type { PartnerOrderWithCustomer } from '@/types/app';
-import type { Partner, RescueBag } from '@/types/database';
-
-function truncateName(name: string, max = 14) {
-  const trimmed = name.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
-}
+import type { Partner } from '@/types/database';
 
 export default function PartnerDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const locale = useAuthStore((s) => s.locale);
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [bags, setBags] = useState<RescueBag[]>([]);
+  const partner = usePartnerStore((s) => s.partner);
+  const setPartnerInStore = usePartnerStore((s) => s.setPartner);
+  const refreshPartner = usePartnerStore((s) => s.refreshPartner);
+  const [bags, setBags] = useState<PartnerBagWithStats[]>([]);
   const [orders, setOrders] = useState<PartnerOrderWithCustomer[]>([]);
   const [todayStats, setTodayStats] = useState({
     bagsListed: 0,
@@ -76,17 +78,13 @@ export default function PartnerDashboardScreen() {
   const [bagOrdersLoading, setBagOrdersLoading] = useState<string | null>(null);
   const [markingPickup, setMarkingPickup] = useState<string | null>(null);
   const lastPickupTime = useRef(0);
+  const pendingPickupIds = useRef(new Set<string>());
 
   const today = getTodayIsoDateLocal();
   const yesterday = getYesterdayIsoDateLocal();
   const dates = useMemo(() => formatTodayBilingual(), []);
 
   const loadData = useCallback(async () => {
-    if (isPickupFetchBlocked(lastPickupTime.current)) {
-      console.log('[loadData] blocked — pickup just confirmed');
-      return;
-    }
-
     setFetchError(null);
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
@@ -104,32 +102,30 @@ export default function PartnerDashboardScreen() {
 
       if (partnerError) throw partnerError;
       if (!partnerData) {
-        setPartner(null);
+        setPartnerInStore(null);
         setBags([]);
         setOrders([]);
         setLoading(false);
         return;
       }
 
-      setPartner(partnerData);
+      setPartnerInStore(partnerData);
 
-      const [bagsRes, orderRows, statsToday, statsYesterday] = await Promise.all([
-        supabase
-          .from('rescue_bags')
-          .select('*')
-          .eq('partner_id', partnerData.id)
-          .eq('available_date', today)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false }),
+      const [bagRows, orderRows, statsToday, statsYesterday] = await Promise.all([
+        fetchPartnerBagsForDate(partnerData.id, today),
         fetchPartnerOrders(partnerData.id, today),
         fetchPartnerDayStats(partnerData.id, today),
         fetchPartnerDayStats(partnerData.id, yesterday),
       ]);
 
-      if (bagsRes.error) throw bagsRes.error;
+      const visibleBags = bagRows.filter(
+        (bag) => bag.status === 'active' || bag.status === 'sold_out',
+      );
 
-      setBags(bagsRes.data ?? []);
-      setOrders((prev) => applyFetchedOrdersWithPickupGuard(orderRows, new Set(), prev));
+      setBags(visibleBags);
+      setOrders((prev) =>
+        applyFetchedOrdersWithPickupGuard(orderRows, pendingPickupIds.current, prev),
+      );
       if (!isPickupFetchBlocked(lastPickupTime.current)) {
         setTodayStats(statsToday);
         setYesterdayStats(statsYesterday);
@@ -139,7 +135,7 @@ export default function PartnerDashboardScreen() {
     } finally {
       setLoading(false);
     }
-  }, [today, yesterday]);
+  }, [today, yesterday, setPartnerInStore]);
 
   const loadDataRef = useRef(loadData);
   loadDataRef.current = loadData;
@@ -147,6 +143,13 @@ export default function PartnerDashboardScreen() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshPartner();
+      void loadData();
+    }, [loadData, refreshPartner]),
+  );
 
   useEffect(() => {
     if (!partner?.id) return;
@@ -163,6 +166,7 @@ export default function PartnerDashboardScreen() {
             {
               event: 'UPDATE',
               table: 'orders',
+              filter: `partner_id=eq.${partner.id}`,
               callback: (payload) => {
                 const updated = (payload as { new?: PartnerOrderWithCustomer }).new;
                 if (!updated?.id) return;
@@ -195,16 +199,80 @@ export default function PartnerDashboardScreen() {
             {
               event: 'INSERT',
               table: 'orders',
-              callback: () => {
+              filter: `partner_id=eq.${partner.id}`,
+              callback: (payload) => {
                 if (isPickupFetchBlocked(lastPickupTime.current)) return;
+
+                const inserted = (payload as {
+                  new?: {
+                    id?: string;
+                    bag_id?: string;
+                    quantity?: number;
+                    status?: string;
+                    total_price?: number;
+                  };
+                }).new;
+
+                if (inserted?.bag_id) {
+                  const qty = inserted.quantity ?? 1;
+                  const status = inserted.status ?? 'confirmed';
+
+                  setBags((prev) =>
+                    prev.map((bag) =>
+                      bag.id === inserted.bag_id
+                        ? applyReservationToPartnerBag(
+                            bag,
+                            qty,
+                            status,
+                            inserted.total_price ?? 0,
+                          )
+                        : bag,
+                    ),
+                  );
+
+                  setTodayStats((prev) => ({
+                    ...prev,
+                    reserved: prev.reserved + qty,
+                  }));
+
+                  if (inserted.id) {
+                    setBagOrdersMap((prev) => {
+                      const next = { ...prev };
+                      delete next[inserted.bag_id!];
+                      return next;
+                    });
+                  }
+                }
+
                 void loadDataRef.current();
               },
             },
             {
+              event: 'UPDATE',
               table: 'rescue_bags',
-              callback: () => {
-                if (isPickupFetchBlocked(lastPickupTime.current)) return;
-                void loadDataRef.current();
+              callback: (payload) => {
+                const updated = (payload as {
+                  new?: {
+                    id?: string;
+                    quantity_reserved?: number;
+                    quantity_available?: number;
+                    status?: PartnerBagWithStats['status'];
+                  };
+                }).new;
+
+                if (!updated?.id) return;
+
+                setBags((prev) =>
+                  prev.map((bag) =>
+                    bag.id === updated.id
+                      ? applyBagStockPatch(bag, {
+                          quantity_reserved: updated.quantity_reserved,
+                          quantity_available: updated.quantity_available,
+                          status: updated.status,
+                        })
+                      : bag,
+                  ),
+                );
               },
             },
           ],
@@ -234,7 +302,10 @@ export default function PartnerDashboardScreen() {
     [todayStats, yesterdayStats],
   );
 
-  const activeOrders = orders.filter((o) => isReservedOrderStatus(o.status)).length;
+  const activeOrders = useMemo(
+    () => orders.filter((order) => isReservedOrderStatus(order.status)).length,
+    [orders],
+  );
 
   const totalBagsReserved = useMemo(
     () => bags.reduce((sum, bag) => sum + bag.quantity_reserved, 0),
@@ -246,19 +317,19 @@ export default function PartnerDashboardScreen() {
       void hapticButtonPress();
       const willExpand = expandedBagId !== bagId;
       setExpandedBagId(willExpand ? bagId : null);
-      if (!willExpand) return;
+    if (!willExpand) return;
 
-      if (isPickupFetchBlocked(lastPickupTime.current)) {
-        return;
-      }
-
-      setBagOrdersLoading(bagId);
-      try {
-        const rows = await fetchPartnerBagOrders(bagId);
-        setBagOrdersMap((prev) => ({
-          ...prev,
-          [bagId]: applyFetchedOrdersWithPickupGuard(rows, new Set(), prev[bagId] ?? []),
-        }));
+    setBagOrdersLoading(bagId);
+    try {
+      const rows = await fetchPartnerBagOrders(bagId);
+      setBagOrdersMap((prev) => ({
+        ...prev,
+        [bagId]: applyFetchedOrdersWithPickupGuard(
+          rows,
+          pendingPickupIds.current,
+          prev[bagId] ?? [],
+        ),
+      }));
       } catch {
         setBagOrdersMap((prev) => ({ ...prev, [bagId]: [] }));
       } finally {
@@ -273,6 +344,10 @@ export default function PartnerDashboardScreen() {
       const order = orders.find((row) => row.id === orderId);
       if (!order) return;
 
+      if (normalizeOrderStatus(order.status) === 'picked_up') {
+        return;
+      }
+
       Alert.alert(
         'Confirm pickup',
         'Has the customer collected their bag and paid?',
@@ -286,19 +361,41 @@ export default function PartnerDashboardScreen() {
                 const result = await confirmPartnerPickup(order, 'partner_manual', partner?.name);
 
                 if (!result.ok) {
-                  Alert.alert('Error', 'Failed to confirm. Please try again.');
+                  Alert.alert('Error', result.errorMessage ?? 'Failed to confirm. Please try again.');
                   setMarkingPickup(null);
                   return;
                 }
 
                 lastPickupTime.current = Date.now();
+                protectPendingPickup(pendingPickupIds.current, orderId);
+
+                const pickedUpAt = result.alreadyPickedUp
+                  ? order.picked_up_at ?? new Date().toISOString()
+                  : new Date().toISOString();
 
                 setOrders((prev) =>
                   prev.map((row) =>
                     row.id === orderId
-                      ? { ...row, status: 'picked_up', picked_up_at: new Date().toISOString() }
+                      ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
                       : row,
                   ),
+                );
+
+                setBags((prev) =>
+                  prev.map((bag) => {
+                    if (bag.id !== order.bag_id) return bag;
+                    const qty = order.quantity ?? 1;
+                    return {
+                      ...bag,
+                      quantity_reserved: Math.max(0, bag.quantity_reserved - qty),
+                      reserved_orders: Math.max(0, bag.reserved_orders - 1),
+                      confirmed_orders: Math.max(0, bag.confirmed_orders - 1),
+                      picked_up_orders: bag.picked_up_orders + 1,
+                      picked_up_bags: bag.picked_up_bags + qty,
+                      potential_revenue: Math.max(0, bag.potential_revenue - order.total_price),
+                      revenue_earned: bag.revenue_earned + order.total_price,
+                    };
+                  }),
                 );
 
                 setBagOrdersMap((prev) => {
@@ -309,19 +406,24 @@ export default function PartnerDashboardScreen() {
                     ...prev,
                     [bagId]: list.map((row) =>
                       row.id === orderId
-                        ? { ...row, status: 'picked_up', picked_up_at: new Date().toISOString() }
+                        ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
                         : row,
                     ),
                   };
                 });
 
-                setTodayStats((prev) => ({
-                  ...prev,
-                  pickedUp: prev.pickedUp + 1,
-                }));
+                if (!result.alreadyPickedUp) {
+                  setTodayStats((prev) => ({
+                    ...prev,
+                    pickedUp: prev.pickedUp + (order.quantity ?? 1),
+                    reserved: Math.max(0, prev.reserved - (order.quantity ?? 1)),
+                  }));
+                }
 
                 setMarkingPickup(null);
-                void hapticSuccess();
+                if (!result.alreadyPickedUp) {
+                  void hapticSuccess();
+                }
               })();
             },
           },
@@ -381,59 +483,52 @@ export default function PartnerDashboardScreen() {
         }>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerCopy}>
-            {categoryMeta ? (
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>
-                  {categoryMeta.icon} {locale === 'np' ? categoryMeta.labelNp : categoryMeta.label}
-                </Text>
-              </View>
-            ) : null}
-            <Text style={styles.greeting}>
-              {getGreeting()}, {truncateName(partner?.name ?? 'there')} 👋
-            </Text>
-            <Text style={styles.dateEn}>{dates.en}</Text>
-          </View>
+      {partner ? (
+        <DashboardHeroBlock
+          partnerName={partner.name}
+          categoryLabel={locale === 'np' ? (categoryMeta?.labelNp ?? '') : (categoryMeta?.label ?? '')}
+          categoryIcon={categoryMeta?.icon ?? ''}
+          dateLabel={locale === 'np' ? dates.np : dates.en}
+          paddingTop={insets.top + Spacing.md}
+          stats={statCards}
+          loading={loading}
+          onNotifications={() => {
+            void hapticButtonPress();
+            router.push('/notifications');
+          }}
+        />
+      ) : (
+        <View style={[styles.headerPlaceholder, { paddingTop: insets.top + Spacing.md }]} />
+      )}
 
-          <NotificationBellBadge
-            variant="dark"
-            size={18}
-            onPress={() => {
-              void hapticButtonPress();
-              router.push('/notifications');
-            }}
-          />
-        </View>
-
-        {partner ? <SubscriptionBanner partner={partner} placement="inHeader" /> : null}
-      </View>
+      {partner ? (
+        <SubscriptionBanner partner={partner} placement="content" />
+      ) : null}
 
       {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
-      {loading ? (
-        <View style={styles.statsSkeleton}>
-          <StatsSkeleton />
-        </View>
-      ) : (
-        <DashboardStatsRow stats={statCards} />
-      )}
+      <View style={styles.content}>
+        {fetchError ? (
+          <View style={styles.retryWrap}>
+            <RetryState message={fetchError} onRetry={loadData} />
+          </View>
+        ) : null}
 
-      {fetchError ? (
-        <View style={styles.retryWrap}>
-          <RetryState message={fetchError} onRetry={loadData} />
-        </View>
-      ) : null}
-
-      {partner ? (
-        <DashboardCtaCard
-          category={partner.category}
-          onPress={() => router.push('/partner/add-bag')}
-        />
-      ) : loading ? (
-        <View style={styles.ctaSkeleton} />
-      ) : null}
+        {partner ? (
+          <>
+            <DashboardQuickActions
+              onScan={() => router.push('/(tabs)/partner/scan')}
+              onMyBags={() => router.push('/(tabs)/partner/my-bags')}
+            />
+            <DashboardCtaCard
+              category={partner.category}
+              compact={bags.length > 0}
+              onPress={() => router.push('/partner/add-bag')}
+            />
+          </>
+        ) : loading ? (
+          <View style={styles.ctaSkeleton} />
+        ) : null}
 
       <PartnerSectionHeader
         title="Active today"
@@ -450,41 +545,28 @@ export default function PartnerDashboardScreen() {
         </View>
       ) : bags.length === 0 ? (
         <PartnerEmptyState
-          emoji="🛍"
+          ios="bag.fill"
+          android="shopping-bag"
           title="No bags listed today"
-          subtitle="Tap the card above to list your first bag"
+          subtitle="List your first rescue bag to start receiving orders"
           dashed
           compact
         />
       ) : (
         <View style={styles.bagsList}>
           {bags.map((bag) => {
-            const bagRevenue = orders
-              .filter(
-                (order) =>
-                  order.bag_id === bag.id && isRevenueOrderStatus(order.status),
-              )
-              .reduce((sum, order) => sum + (order.total_price || 0), 0);
-
-            const bagOrdersForSummary = orders.filter((order) => order.bag_id === bag.id);
-            const waitingCustomers = bagOrdersForSummary.filter((order) =>
-              isReservedOrderStatus(order.status),
-            ).length;
-            const confirmedForBag = bagOrdersForSummary.filter((order) =>
-              isConfirmedOrderStatus(order.status),
-            );
+            const loadedOrders = bagOrdersMap[bag.id];
 
             return (
               <ActiveBagMiniCard
                 key={bag.id}
                 bag={bag}
-                revenueEarned={bagRevenue}
-                waitingCustomers={waitingCustomers}
-                summaryOrders={bagOrdersMap[bag.id] ?? bagOrdersForSummary}
+                waitingCustomers={bag.reserved_orders}
+                summaryOrders={loadedOrders}
                 summaryFallback={{
-                  orderCount: confirmedForBag.length,
-                  bagCount: bag.quantity_reserved,
-                  revenuePaisa: bagRevenue,
+                  orderCount: bag.reserved_orders,
+                  bagCount: Math.max(bag.quantity_reserved, bag.reserved_orders),
+                  revenuePaisa: bag.potential_revenue,
                 }}
                 isOrdersExpanded={expandedBagId === bag.id}
                 bagOrders={bagOrdersMap[bag.id] ?? null}
@@ -500,7 +582,7 @@ export default function PartnerDashboardScreen() {
               void hapticButtonPress();
               router.push('/partner/add-bag');
             }}
-            style={styles.addAnother}>
+            style={({ pressed }) => [styles.addAnother, pressed && styles.addAnotherPressed]}>
             <Text style={styles.addAnotherPlus}>+</Text>
             <Text style={styles.addAnotherText}>Add another bag</Text>
           </Pressable>
@@ -509,8 +591,8 @@ export default function PartnerDashboardScreen() {
 
       <PartnerSectionHeader
         title="Orders"
-        count={activeOrders}
-        countSuffix="reserved"
+        count={activeOrders > 0 ? activeOrders : undefined}
+        countSuffix="waiting"
       />
 
       {loading ? (
@@ -520,28 +602,31 @@ export default function PartnerDashboardScreen() {
         </View>
       ) : orders.length === 0 ? (
         <PartnerEmptyState
-          emoji="🍽"
-          emojiInCircle
+          ios="fork.knife"
+          android="restaurant"
           title="No orders yet today"
-          subtitle={'List a bag and customers\nnearby can start reserving'}
+          subtitle="List a bag and customers nearby can start reserving"
         />
       ) : (
-        orders.map((order) => (
-          <PartnerOrderRow
-            key={order.id}
-            order={order}
-            partnerName={partner?.name}
-            onMarkPickedUp={markAsPickedUp}
-            onScan={() => router.push('/(tabs)/partner/scan')}
-          />
-        ))
+        <View style={styles.ordersList}>
+          {orders.map((order) => (
+            <PartnerOrderRow
+              key={order.id}
+              order={order}
+              partnerName={partner?.name}
+              onMarkPickedUp={markAsPickedUp}
+              onScan={() => router.push('/(tabs)/partner/scan')}
+            />
+          ))}
+        </View>
       )}
+      </View>
       </ScrollView>
 
       {isPendingApproval ? (
         <View style={styles.pendingOverlay}>
           <View style={styles.pendingIconCircle}>
-            <Text style={styles.pendingIcon}>🔒</Text>
+            <Lock size={36} color={Palette.primary} strokeWidth={1.8} />
           </View>
           <Text style={styles.pendingTitle}>Awaiting approval</Text>
           <Text style={styles.pendingCopy}>
@@ -562,123 +647,88 @@ export default function PartnerDashboardScreen() {
 const styles = StyleSheet.create({
   screenWrap: {
     flex: 1,
-    backgroundColor: '#F2F0EB',
+    backgroundColor: Palette.background,
   },
   screen: {
     flex: 1,
-    backgroundColor: '#F2F0EB',
+    backgroundColor: Palette.background,
   },
   container: {
     paddingBottom: 120,
   },
+  content: {
+    paddingTop: Spacing.xs,
+  },
   fallback: {
     padding: Spacing.xl,
   },
-  header: {
-    backgroundColor: '#1A1A1A',
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  headerCopy: {
-    flex: 1,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#D85A30',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  categoryBadgeText: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  greeting: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 22,
-  },
-  dateEn: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 3,
-    fontWeight: '400',
-  },
-  statsSkeleton: {
-    marginTop: -1,
-    marginHorizontal: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: '#242424',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  headerPlaceholder: {
+    backgroundColor: Palette.primaryDark,
+    height: 160,
+    borderBottomLeftRadius: Radius.lg + 8,
+    borderBottomRightRadius: Radius.lg + 8,
   },
   retryWrap: {
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
   },
   ctaSkeleton: {
     height: 88,
-    borderRadius: 20,
-    backgroundColor: '#E8E4DE',
-    marginHorizontal: 16,
-    marginTop: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: Palette.surfaceMuted,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
   },
   bagsList: {
     gap: 0,
   },
   bagsSkeleton: {
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm + 2,
   },
   bagSkeletonCard: {
     height: 140,
-    borderRadius: 16,
-    backgroundColor: '#E8E4DE',
+    borderRadius: Radius.lg,
+    backgroundColor: Palette.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#EBEBEB',
+    borderColor: Palette.borderSubtle,
   },
   addAnother: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#EBEBEB',
-    borderStyle: 'dashed',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 20,
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm + 2,
+    padding: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 80,
+    minHeight: 72,
+    borderStyle: 'dashed',
+    borderColor: Palette.border,
+  },
+  addAnotherPressed: {
+    backgroundColor: Palette.surfaceMuted,
   },
   addAnotherPlus: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#D85A30',
-    lineHeight: 28,
-    marginBottom: 4,
+    color: Palette.primary,
+    lineHeight: 26,
+    marginBottom: 2,
   },
   addAnotherText: {
-    fontSize: 13,
-    color: '#D85A30',
+    ...Type.caption,
+    color: Palette.primary,
     fontWeight: '600',
     textAlign: 'center',
   },
+  ordersList: {
+    paddingBottom: Spacing.sm,
+  },
   ordersSkeleton: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
   },
   fallbackTitle: {
-    fontSize: 15,
+    ...Type.body,
     color: Palette.textSecondary,
     textAlign: 'center',
     marginTop: Spacing.xxxl,
@@ -688,44 +738,41 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: Spacing.xxl,
     zIndex: 50,
   },
   pendingIconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FAECE7',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pendingIcon: {
-    fontSize: 48,
-  },
   pendingTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginTop: 20,
+    ...Type.h2,
+    color: Palette.textPrimary,
+    marginTop: Spacing.lg,
     textAlign: 'center',
   },
   pendingCopy: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#6B7280',
+    ...Type.caption,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: Spacing.sm,
+    lineHeight: 20,
+    maxWidth: 300,
   },
   pendingCallButton: {
-    marginTop: 24,
+    marginTop: Spacing.xl,
     backgroundColor: Palette.primary,
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.lg + 4,
+    paddingVertical: Spacing.md,
   },
   pendingCallButtonText: {
     color: Palette.white,
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '700',
   },
 });

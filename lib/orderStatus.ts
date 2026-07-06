@@ -20,6 +20,14 @@ export function isConfirmedOrderStatus(status: string) {
   return normalizeOrderStatus(status) === 'confirmed';
 }
 
+/** Valid `order_status` enum values partners may transition to picked_up. */
+export const PARTNER_PICKUP_ELIGIBLE_ENUM_STATUSES = ['confirmed', 'pending'] as const;
+
+export function isPartnerPickupEligibleDbStatus(status: string) {
+  const normalized = normalizeOrderStatus(status);
+  return normalized === 'confirmed' || normalized === 'pending';
+}
+
 export function isRevenueOrderStatus(status: string) {
   const normalized = normalizeOrderStatus(status);
   return normalized === 'confirmed' || normalized === 'picked_up';

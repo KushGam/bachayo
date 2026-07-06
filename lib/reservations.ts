@@ -1,12 +1,13 @@
 import { supabase } from '@/lib/supabase';
+import { useBagsStore } from '@/store/useBagsStore';
 import {
   NEW_RESERVATION_APP_STATUS,
   NEW_RESERVATION_DB_STATUS,
 } from '@/lib/orderStatus';
 import type { RescueBagWithPartner } from '@/types/app';
 
-/** Statuses that count as an active reservation (includes legacy `paid`). */
-export const ACTIVE_RESERVATION_STATUSES = ['confirmed', 'pending', 'paid'] as const;
+/** Statuses that count as an active reservation (enum-safe for Supabase filters). */
+export const ACTIVE_RESERVATION_STATUSES = ['confirmed', 'pending'] as const;
 
 export type ActiveReservation = {
   id: string;
@@ -209,6 +210,8 @@ export async function createReservation(
   if (orderError || !order) {
     return mapOrderInsertError(orderError?.message, orderError?.code);
   }
+
+  useBagsStore.getState().incrementBagReserved(bag.id, input.quantity);
 
   if (bag.partner.user_id) {
     try {

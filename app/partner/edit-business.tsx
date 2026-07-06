@@ -28,6 +28,7 @@ import type { PartnerProfileRow } from '@/lib/partnerProfile';
 import { supabase } from '@/lib/supabase';
 import { formatTimeFromDate } from '@/lib/validation/partner';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePartnerStore } from '@/store/usePartnerStore';
 
 function defaultTime(hours: number, minutes = 0) {
   const d = new Date();
@@ -129,6 +130,18 @@ export default function EditBusinessScreen() {
       Alert.alert('Error', error.message);
       return;
     }
+
+    const updatedPartner = {
+      name: name.trim(),
+      name_np: nameNp.trim() || null,
+      category: toDbPartnerCategory(category ?? 'restaurant'),
+      phone: phone.trim() ? formatNepalPhone(phone.trim()) : null,
+      description,
+    };
+
+    setPartner((current) => (current ? { ...current, ...updatedPartner } : current));
+    usePartnerStore.getState().patchPartner(updatedPartner);
+    void usePartnerStore.getState().refreshPartner();
 
     await hapticSuccess();
     setToast('Business info updated ✓');

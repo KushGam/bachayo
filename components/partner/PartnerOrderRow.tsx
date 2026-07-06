@@ -1,9 +1,11 @@
+import { QrCode } from 'lucide-react-native';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
 import {
   formatNprPaisa,
@@ -29,16 +31,16 @@ type PartnerOrderRowProps = {
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Waiting',
-  confirmed: 'Confirmed',
-  picked_up: 'Picked up ✓',
+  confirmed: 'Ready',
+  picked_up: 'Picked up',
   cancelled: 'Cancelled',
 };
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
-  pending: { bg: '#FEF3C7', text: '#92400E' },
-  confirmed: { bg: '#FEF3C7', text: '#92400E' },
-  picked_up: { bg: '#ECFDF5', text: '#065F46' },
-  cancelled: { bg: '#F3F4F6', text: '#6B7280' },
+  pending: { bg: Palette.warningBg, text: Palette.warning },
+  confirmed: { bg: Palette.warningBg, text: Palette.warning },
+  picked_up: { bg: Palette.successBg, text: Palette.success },
+  cancelled: { bg: Palette.surfaceMuted, text: Palette.textSecondary },
 };
 
 function formatPickedUpTime(iso: string | null) {
@@ -82,6 +84,8 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const canExpand = !isCancelled && !isPickedUp && normalizedStatus === 'confirmed';
 
   const runConfirm = async () => {
+    if (isPickedUp) return;
+
     setLoading(true);
 
     const result = await confirmPartnerPickup(order, 'partner_manual', partnerName);
@@ -95,9 +99,11 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
     onOrderPickedUp?.(order.id);
     setLocalStatus('picked_up');
     setExpanded(false);
-    void hapticSuccess();
-    void celebrateMilestoneOnce('pickupConfirmed');
-    setShowToast(true);
+    if (!result.alreadyPickedUp) {
+      void hapticSuccess();
+      void celebrateMilestoneOnce('pickupConfirmed');
+      setShowToast(true);
+    }
   };
 
   const confirmFromDashboard = () => {
@@ -166,6 +172,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
           </View>
 
           <View style={styles.right}>
+            <Text style={styles.price}>{formatNprPaisa(order.total_price)}</Text>
             <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
               <Text style={[styles.badgeText, { color: statusStyle.text }]}>
                 {STATUS_LABELS[normalizedStatus]}
@@ -196,7 +203,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
 
             <View style={styles.paymentReminder}>
               <Text style={styles.paymentReminderText}>
-                💵 Collect {formatNprPaisa(order.total_price)} before handing over
+                Collect {formatNprPaisa(order.total_price)} before handing over
               </Text>
             </View>
 
@@ -210,7 +217,8 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
                     onScan();
                   }}
                   style={({ pressed }) => [styles.scanBtn, pressed && { opacity: 0.9 }]}>
-                  <Text style={styles.scanBtnText}>📷 Scan QR</Text>
+                  <QrCode size={15} color={Palette.textPrimary} strokeWidth={2} />
+                  <Text style={styles.scanBtnText}>Scan QR</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -223,7 +231,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
                   pressed && !loading && { opacity: 0.92 },
                 ]}>
                 <Text style={styles.pickupBtnText}>
-                  {loading ? 'Updating…' : '✓ Mark as picked up'}
+                  {loading ? 'Updating…' : 'Confirm pickup'}
                 </Text>
               </Pressable>
             </View>
@@ -236,19 +244,17 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   wrapDone: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#EBEBEB',
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
+    ...FloatingShadow,
   },
   cardCancelled: {
     opacity: 0.5,
@@ -257,18 +263,18 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F0EB',
+    backgroundColor: Palette.primaryLight,
   },
   avatarText: {
-    color: '#1A1A1A',
+    color: Palette.primaryDark,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -277,120 +283,131 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   customerName: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
   },
   bagTitle: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...Type.label,
+    color: Palette.textSecondary,
     marginTop: 2,
   },
   pickedUpMeta: {
-    fontSize: 12,
-    color: '#065F46',
+    ...Type.label,
+    color: Palette.success,
     marginTop: 2,
     fontWeight: '500',
   },
   cancelledNote: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    ...Type.label,
+    color: Palette.textTertiary,
     fontStyle: 'italic',
     marginTop: 4,
   },
   right: {
     alignItems: 'flex-end',
+    gap: 6,
+  },
+  price: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.textPrimary,
   },
   badge: {
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeText: {
-    fontSize: 12,
+    ...Type.label,
     fontWeight: '600',
   },
   expanded: {
-    paddingTop: 14,
-    marginTop: 14,
+    paddingTop: Spacing.md + 2,
+    marginTop: Spacing.md + 2,
     borderTopWidth: 1,
-    borderTopColor: '#F0EDE8',
+    borderTopColor: Palette.borderSubtle,
     gap: 6,
   },
   detailName: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
   },
   detailPhone: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...Type.caption,
+    color: Palette.textSecondary,
     textDecorationLine: 'underline',
   },
   detailNote: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...Type.caption,
+    color: Palette.textSecondary,
     fontStyle: 'italic',
   },
   detailMeta: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 8,
+    ...Type.label,
+    color: Palette.textTertiary,
+    marginBottom: Spacing.sm,
   },
   qrBlock: {
     alignItems: 'center',
     gap: 6,
-    marginVertical: 8,
+    marginVertical: Spacing.sm,
   },
   qrWrap: {
-    padding: 8,
-    backgroundColor: '#FAECE7',
-    borderRadius: 12,
+    padding: Spacing.sm,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.md,
   },
   codeLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...Type.label,
+    color: Palette.textSecondary,
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
   paymentReminder: {
-    backgroundColor: '#FAECE7',
-    borderRadius: 8,
-    padding: 8,
-    marginVertical: 8,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
+    marginVertical: Spacing.sm,
   },
   paymentReminderText: {
-    fontSize: 12,
-    color: '#993C1D',
+    ...Type.label,
+    color: Palette.primaryDark,
     textAlign: 'center',
+    fontWeight: '600',
   },
   pickupMeta: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...Type.label,
+    color: Palette.textSecondary,
     marginBottom: 4,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     marginTop: 4,
   },
   scanBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F5F3EF',
+    borderRadius: Radius.md,
+    backgroundColor: Palette.background,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
   },
   scanBtnText: {
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: '600',
-    color: '#374151',
+    color: Palette.textPrimary,
   },
   pickupBtn: {
     flex: 2,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#10B981',
+    borderRadius: Radius.md,
+    backgroundColor: Palette.success,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -398,8 +415,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pickupBtnText: {
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: Palette.white,
   },
 });

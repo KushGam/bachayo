@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import { getCancellationEligibility } from '@/constants/cancellation';
-import { isReservedOrderStatus, isRevenueOrderStatus } from '@/lib/orderStatus';
+import {
+  isPartnerPickupEligibleDbStatus,
+  isRevenueOrderStatus,
+  normalizeOrderStatus,
+  PARTNER_PICKUP_ELIGIBLE_ENUM_STATUSES,
+} from '@/lib/orderStatus';
 import type { CustomerOrderWithDetails, PartnerOrderWithCustomer } from '@/types/app';
 
 const ORDER_SELECT = `
@@ -27,20 +32,31 @@ export async function fetchCustomerOrders(userId: string) {
 }
 
 export async function fetchPartnerOrders(partnerId: string, today: string) {
-  const { data, error } = await supabase
-    .from('orders')
-    .select(`
+  const [{ data, error }, { data: todayBags }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(`
       *,
       bag:rescue_bags(*),
       customer:profiles(id, full_name, phone)
     `)
-    .eq('partner_id', partnerId)
-    .order('created_at', { ascending: false });
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('rescue_bags')
+      .select('id')
+      .eq('partner_id', partnerId)
+      .eq('available_date', today),
+  ]);
 
   if (error) throw error;
 
+  const todayBagIds = new Set((todayBags ?? []).map((bag) => bag.id));
+
   return ((data ?? []) as unknown as PartnerOrderWithCustomer[]).filter(
-    (order) => order.bag?.available_date === today,
+    (order) =>
+      order.bag?.available_date === today ||
+      todayBagIds.has(order.bag_id),
   );
 }
 
@@ -139,13 +155,12 @@ export async function fetchPartnerDayStats(partnerId: string, date: string) {
   const [{ data: bags }, { data: orders }] = await Promise.all([
     supabase
       .from('rescue_bags')
-      .select('id, status')
+      .select('id, status, quantity_reserved')
       .eq('partner_id', partnerId)
-      .eq('available_date', date)
-      .eq('status', 'active'),
+      .eq('available_date', date),
     supabase
       .from('orders')
-      .select('total_price, status, created_at, picked_up_at')
+      .select('total_price, status, quantity, created_at, picked_up_at')
       .eq('partner_id', partnerId),
   ]);
 
@@ -156,14 +171,17 @@ export async function fetchPartnerDayStats(partnerId: string, date: string) {
     (o) => o.status === 'picked_up' && o.picked_up_at && isLocalIsoDate(o.picked_up_at, date),
   );
 
-  const reserved = createdToday.filter((o) => isRevenueOrderStatus(o.status)).length;
-  const pickedUp = pickedUpToday.length;
+  const bagsListed = bagList.filter(
+    (bag) => bag.status === 'active' || bag.status === 'sold_out',
+  ).length;
+  const reserved = bagList.reduce((sum, bag) => sum + (bag.quantity_reserved ?? 0), 0);
+  const pickedUp = pickedUpToday.reduce((sum, order) => sum + (order.quantity ?? 1), 0);
   const revenue = createdToday
     .filter((o) => isRevenueOrderStatus(o.status))
     .reduce((sum, o) => sum + (o.total_price || 0), 0);
 
   return {
-    bagsListed: bagList.length,
+    bagsListed,
     reserved,
     pickedUp,
     revenue,
@@ -229,15 +247,55 @@ export async function markOrderPickedUp(
       confirmed_by: confirmedBy,
     } as never)
     .eq('id', orderId)
-    .eq('status', 'confirmed');
+    .in('status', [...PARTNER_PICKUP_ELIGIBLE_ENUM_STATUSES])
+    .select('id, status, picked_up_at')
+    .maybeSingle();
 
   if (result.error) {
     console.error('Failed to update order:', result.error);
-  } else {
-    console.log('Order marked as picked up:', orderId, confirmedBy);
+    return { ...result, didUpdate: false };
   }
 
-  return result;
+  if (result.data) {
+    console.log('Order marked as picked up:', orderId, confirmedBy);
+    return { ...result, didUpdate: true };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('orders')
+    .select('id, status, picked_up_at')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { data: null, error: fetchError, didUpdate: false };
+  }
+
+  if (existing?.status === 'picked_up') {
+    return { data: existing, error: null, didUpdate: false };
+  }
+
+  if (existing && isPartnerPickupEligibleDbStatus(existing.status)) {
+    console.warn(
+      '[markOrderPickedUp] update blocked — partner may lack UPDATE policy on orders',
+      orderId,
+      existing.status,
+    );
+    return {
+      data: null,
+      error: {
+        message:
+          'Could not confirm pickup. Ask your admin to run migration 028_partner_confirm_pickup.sql.',
+      } as typeof result.error,
+      didUpdate: false,
+    };
+  }
+
+  return {
+    data: null,
+    error: { message: 'Order not found or not in confirmed status' } as typeof result.error,
+    didUpdate: false,
+  };
 }
 
 export async function notifyCustomerPickupConfirmed(
@@ -276,14 +334,26 @@ export async function confirmPartnerPickup(
   order: PartnerOrderWithCustomer,
   confirmedBy: PickupConfirmedBy,
   partnerName?: string,
-): Promise<{ ok: boolean; errorMessage?: string }> {
-  const { error } = await markOrderPickedUp(order.id, confirmedBy);
-  if (error) {
-    return { ok: false, errorMessage: error.message };
+): Promise<{ ok: boolean; alreadyPickedUp?: boolean; errorMessage?: string }> {
+  if (normalizeOrderStatus(order.status) === 'picked_up') {
+    return { ok: true, alreadyPickedUp: true };
   }
 
-  await notifyCustomerPickupConfirmed(order, partnerName);
-  return { ok: true };
+  const result = await markOrderPickedUp(order.id, confirmedBy);
+  if (result.error) {
+    return { ok: false, errorMessage: result.error.message };
+  }
+
+  if (!result.data) {
+    return { ok: false, errorMessage: 'Order not found or not in confirmed status' };
+  }
+
+  if (result.didUpdate) {
+    await notifyCustomerPickupConfirmed(order, partnerName);
+    return { ok: true };
+  }
+
+  return { ok: true, alreadyPickedUp: true };
 }
 
 export async function cancelReservation(orderId: string, reason?: string | null) {

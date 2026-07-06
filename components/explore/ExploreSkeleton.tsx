@@ -1,20 +1,24 @@
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ListSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 
 export function ExploreSkeleton() {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Skeleton height={36} borderRadius={999} width="55%" />
-        <Skeleton height={48} borderRadius={14} />
+      <View style={styles.mapArea}>
+        <View style={[styles.floatingChrome, { paddingTop: insets.top + Spacing.sm }]}>
+          <Skeleton height={92} borderRadius={Radius.lg} />
+        </View>
       </View>
-      <View style={styles.mapArea} />
       <View style={styles.sheet}>
-        <Skeleton width={36} height={4} borderRadius={2} style={styles.handle} />
-        <Skeleton width="50%" height={16} style={{ marginBottom: Spacing.md, marginHorizontal: 16 }} />
+        <Skeleton width={40} height={4} borderRadius={2} style={styles.handle} />
+        <Skeleton width="45%" height={18} style={styles.title} />
+        <Skeleton width="60%" height={14} style={styles.subtitle} />
         <View style={styles.sheetContent}>
           <ListSkeleton count={4} />
         </View>
@@ -28,16 +32,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.background,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    backgroundColor: Palette.white,
-    gap: 10,
-  },
   mapArea: {
     flex: 1,
-    backgroundColor: '#E8E4DC',
+    backgroundColor: Palette.surfaceMuted,
+    position: 'relative',
+  },
+  floatingChrome: {
+    paddingHorizontal: Spacing.lg,
   },
   sheet: {
     position: 'absolute',
@@ -46,16 +47,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     minHeight: 280,
     height: '50%',
-    backgroundColor: Palette.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 12,
+    backgroundColor: Palette.surface,
+    borderTopLeftRadius: Radius.lg + 8,
+    borderTopRightRadius: Radius.lg + 8,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
   handle: {
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+  },
+  title: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   sheetContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
   },
 });

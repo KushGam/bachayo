@@ -48,6 +48,30 @@ export function haversineDistanceKm(
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Correct lat/lng stored swapped (common in Nepal partner records). */
+export function normalizeNepalCoords(latitude: number, longitude: number) {
+  const latInNepal = latitude >= 26 && latitude <= 31;
+  const lngInNepal = longitude >= 80 && longitude <= 89;
+  const latLooksLikeLng = latitude >= 80 && latitude <= 89;
+  const lngLooksLikeLat = longitude >= 26 && longitude <= 31;
+
+  if (!latInNepal && latLooksLikeLng && lngLooksLikeLat) {
+    return { latitude: longitude, longitude: latitude };
+  }
+
+  return { latitude, longitude };
+}
+
+export function partnerDistanceKm(
+  origin: { latitude: number; longitude: number },
+  partner: { latitude: number; longitude: number },
+): number | null {
+  const coords = normalizeNepalCoords(partner.latitude, partner.longitude);
+  const km = haversineDistanceKm(origin, coords);
+  if (!Number.isFinite(km) || km > 500) return null;
+  return km;
+}
+
 export function formatDistanceKm(distanceKm: number): string {
   if (distanceKm < 1) return `${Math.round(distanceKm * 10) / 10} km away`;
   return `${distanceKm.toFixed(1)} km away`;
@@ -151,6 +175,45 @@ export function formatTime12h(time: string) {
   const period = h >= 12 ? 'pm' : 'am';
   const hour12 = h % 12 || 12;
   return m === 0 ? `${hour12}:00${period}` : `${hour12}:${String(m).padStart(2, '0')}${period}`;
+}
+
+function shiftIsoDateLocal(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
+  date.setDate(date.getDate() + days);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export function formatCompactPickupWindow(pickupStart: string, pickupEnd: string) {
+  return `${formatTime12h(pickupStart)} – ${formatTime12h(pickupEnd)}`;
+}
+
+/** Today → time only; tomorrow → "Tomorrow · …"; else "Wed, 8 Jul · …" */
+export function formatBagPickupLabel(
+  availableDate: string,
+  pickupStart: string,
+  pickupEnd: string,
+  today = getTodayIsoDateLocal(),
+) {
+  const window = formatCompactPickupWindow(pickupStart, pickupEnd);
+
+  if (availableDate === today) {
+    return window;
+  }
+
+  if (availableDate === shiftIsoDateLocal(today, 1)) {
+    return `Tomorrow · ${window}`;
+  }
+
+  const dateLabel = new Date(`${availableDate}T12:00:00`).toLocaleDateString('en-NP', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${dateLabel} · ${window}`;
 }
 
 export function formatTodayPickupWindow(pickupStart: string, pickupEnd: string) {

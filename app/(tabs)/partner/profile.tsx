@@ -1,8 +1,25 @@
 import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { Camera, LogOut } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import {
+  Bell,
+  Check,
+  Clock,
+  CreditCard,
+  FileText,
+  Globe,
+  HelpCircle,
+  Image as ImageIcon,
+  Info,
+  LogOut,
+  Mail,
+  MapPin,
+  Phone,
+  Share2,
+  Store,
+  User,
+  Wallet,
+} from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -22,12 +39,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PartnerProfileHero } from '@/components/partner/PartnerProfileHero';
+import { PartnerProfileStatsCard } from '@/components/partner/PartnerProfileStatsCard';
 import { ProfileMenuRow } from '@/components/partner/ProfileMenuRow';
 import { SubscriptionStatusCard } from '@/components/partner/SubscriptionStatusCard';
-import { AppImage } from '@/components/ui/AppImage';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { DEFAULT_TIER_PRICING } from '@/constants/subscriptions';
 import { formatRsPaisa } from '@/lib/helpers';
 import { hapticButtonPress, hapticWarning } from '@/lib/haptics';
@@ -38,10 +57,8 @@ import {
 import {
   fetchPartnerProfileStats,
   formatAcceptedPaymentsLabel,
-  formatFoodRescued,
   formatOpeningHours,
   formatPartnerLocationLabel,
-  formatRatingDisplay,
   PAYMENT_METHOD_OPTIONS,
   type OwnerProfileRow,
   type PartnerProfileRow,
@@ -51,12 +68,13 @@ import { getStatusLabel } from '@/lib/subscriptions';
 import { resolvePartnerCoverUrl } from '@/lib/images';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore, type Locale } from '@/store/useAuthStore';
+import { usePartnerStore } from '@/store/usePartnerStore';
 
 const COVER_HEIGHT = 200;
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 const SHARE_MESSAGE =
-  "I'm using LastBag to sell my surplus food and reduce waste! Join me — it's free to try for 30 days. Download at lastbag.app 🛍";
+  "I'm using LastBag to sell my surplus food and reduce waste! Join me — it's free to try for 30 days. Download at lastbag.app";
 
 function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
@@ -69,20 +87,11 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
 function ProfileSkeleton() {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Skeleton height={200} borderRadius={0} />
-      <View style={styles.statsCard}>
-        <View style={styles.statsGrid}>
-          {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={styles.statCell}>
-              <Skeleton height={22} width="60%" />
-              <Skeleton height={12} width="80%" style={{ marginTop: 8 }} />
-            </View>
-          ))}
-        </View>
-      </View>
-      <Skeleton height={72} style={{ marginHorizontal: 16, marginTop: 12, borderRadius: 16 }} />
-      <Skeleton height={220} style={{ marginHorizontal: 16, marginTop: 24, borderRadius: 16 }} />
+    <View style={styles.screen}>
+      <Skeleton height={200 + insets.top} borderRadius={0} />
+      <Skeleton height={160} style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.lg, borderRadius: Radius.lg }} />
+      <Skeleton height={72} style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.md, borderRadius: Radius.lg }} />
+      <Skeleton height={220} style={{ marginHorizontal: Spacing.lg, marginTop: Spacing.xl, borderRadius: Radius.lg }} />
     </View>
   );
 }
@@ -91,6 +100,9 @@ export default function PartnerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { locale, setLocale, reset } = useAuthStore();
+  const setPartnerInStore = usePartnerStore((s) => s.setPartner);
+  const patchPartnerInStore = usePartnerStore((s) => s.patchPartner);
+  const clearPartner = usePartnerStore((s) => s.clearPartner);
 
   const [partner, setPartner] = useState<PartnerProfileRow | null>(null);
   const [owner, setOwner] = useState<OwnerProfileRow | null>(null);
@@ -127,7 +139,9 @@ export default function PartnerProfileScreen() {
     ]);
 
     if (partnerData) {
-      setPartner(partnerData as PartnerProfileRow);
+      const row = partnerData as PartnerProfileRow;
+      setPartner(row);
+      setPartnerInStore(row);
       const partnerStats = await fetchPartnerProfileStats(partnerData.id);
       setStats(partnerStats);
       const meta = decodePartnerMeta(partnerData.description);
@@ -139,11 +153,17 @@ export default function PartnerProfileScreen() {
     }
 
     setLoading(false);
-  }, []);
+  }, [setPartnerInStore]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -191,6 +211,7 @@ export default function PartnerProfileScreen() {
         .eq('id', partner.id);
       if (error) throw error;
       setPartner((current) => (current ? { ...current, cover_image_url: url } : current));
+      patchPartnerInStore({ cover_image_url: url });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not update cover photo. Please try again.';
@@ -211,6 +232,7 @@ export default function PartnerProfileScreen() {
     }
     setSelectedPayments(next);
     setPartner((current) => (current ? { ...current, description } : current));
+    patchPartnerInStore({ description });
     setPaymentsOpen(false);
   };
 
@@ -252,6 +274,7 @@ export default function PartnerProfileScreen() {
         onPress: () => {
           void hapticWarning();
           void supabase.auth.signOut().then(() => {
+            clearPartner();
             reset();
             router.replace('/(auth)/welcome');
           });
@@ -271,8 +294,10 @@ export default function PartnerProfileScreen() {
 
   const category = getCategoryById(partner?.category ?? 'restaurant');
   const categoryLabel = category
-    ? `${category.icon} ${locale === 'np' ? category.labelNp : category.label}`
-    : '🍛 Restaurant';
+    ? locale === 'np'
+      ? category.labelNp
+      : category.label
+    : 'Restaurant';
   const locationLabel = partner
     ? formatPartnerLocationLabel(partner, locale)
     : 'Set your location';
@@ -295,91 +320,49 @@ export default function PartnerProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
         }
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
-        <View style={[styles.coverWrap, { height: coverHeight }]}>
-          {partner?.cover_image_url ? (
-            <AppImage
-              source={{ uri: partner.cover_image_url }}
-              style={[styles.cover, { height: coverHeight }]}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.cover, styles.coverPlaceholder, { height: coverHeight }]}>
-              <Text style={styles.coverEmoji}>🏪</Text>
-            </View>
-          )}
-          <LinearGradient
-            colors={['rgba(0,0,0,0.35)', 'transparent', 'rgba(0,0,0,0.65)']}
-            locations={[0, 0.35, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[styles.headerActions, { top: insets.top + 12 }]}>
-            <Pressable onPress={() => void pickCoverPhoto()} style={styles.headerIconBtn}>
-              <Camera size={18} color={Palette.white} strokeWidth={2} />
-            </Pressable>
-          </View>
-          <View style={styles.identityOverlay}>
-            <Text style={styles.businessName}>{partner?.name ?? 'Your business'}</Text>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{categoryLabel}</Text>
-            </View>
-            <Text style={styles.locationOverlay}>{locationLabel}</Text>
-          </View>
-        </View>
+        <PartnerProfileHero
+          coverHeight={coverHeight}
+          coverUrl={partner?.cover_image_url ?? null}
+          businessName={partner?.name ?? 'Your business'}
+          categoryLabel={categoryLabel}
+          locationLabel={locationLabel}
+          topInset={insets.top}
+          onEditCover={() => void pickCoverPhoto()}
+        />
 
-        <View style={styles.statsCard}>
-          <View style={styles.statsHead}>
-            <Text style={styles.statsTitle}>Today&apos;s performance</Text>
-            <View style={styles.statsPill}>
-              <Text style={styles.statsPillText}>
-                {tierLabel} · {statusLabel}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>🛍 {stats.bagsSold}</Text>
-              <Text style={styles.statLabel}>Bags sold</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{revenueLabel}</Text>
-              <Text style={styles.statLabel}>Revenue</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>⭐ {formatRatingDisplay(partner?.rating ?? 0)}</Text>
-              <Text style={styles.statLabel}>Avg rating</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>🌱 {formatFoodRescued(stats.foodRescuedKg)}</Text>
-              <Text style={styles.statLabel}>Food rescued</Text>
-            </View>
-          </View>
-        </View>
+        <PartnerProfileStatsCard
+          bagsSold={stats.bagsSold}
+          revenueLabel={revenueLabel}
+          rating={partner?.rating ?? 0}
+          foodRescuedKg={stats.foodRescuedKg}
+          tierLabel={tierLabel}
+          statusLabel={statusLabel}
+        />
 
         {partner ? <SubscriptionStatusCard partner={partner} /> : null}
 
         <SectionLabel>Business</SectionLabel>
         <SettingsCard>
           <ProfileMenuRow
-            emoji="🏪"
+            icon={Store}
             label="Business details"
             subtitle={partner?.name ?? 'Not set'}
             onPress={() => router.push('/partner/edit-business')}
           />
           <ProfileMenuRow
-            emoji="📍"
+            icon={MapPin}
             label="Location"
             subtitle={partner?.address?.slice(0, 48) ?? 'Not set'}
             onPress={() => router.push('/partner/edit-location')}
           />
           <ProfileMenuRow
-            emoji="🕐"
+            icon={Clock}
             label="Opening hours"
             subtitle={formatOpeningHours(partner?.description)}
             onPress={() => router.push('/partner/edit-hours')}
           />
           <ProfileMenuRow
-            emoji="📸"
+            icon={ImageIcon}
             label="Cover photo"
             subtitle="Tap to change"
             onPress={() => void pickCoverPhoto()}
@@ -390,7 +373,7 @@ export default function PartnerProfileScreen() {
                 <Image source={{ uri: partner.cover_image_url }} style={styles.thumb} />
               ) : (
                 <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                  <Text>🏪</Text>
+                  <Store size={16} color={Palette.primary} strokeWidth={2} />
                 </View>
               )
             }
@@ -400,7 +383,7 @@ export default function PartnerProfileScreen() {
         <SectionLabel>Owner</SectionLabel>
         <SettingsCard>
           <ProfileMenuRow
-            emoji="👤"
+            icon={User}
             label="Your name"
             subtitle={owner?.full_name ?? 'Not set'}
             onPress={() => {
@@ -409,7 +392,7 @@ export default function PartnerProfileScreen() {
             }}
           />
           <ProfileMenuRow
-            emoji="📧"
+            icon={Mail}
             label="Email"
             subtitle={owner?.email ?? 'Not set'}
             onPress={() => {
@@ -418,7 +401,7 @@ export default function PartnerProfileScreen() {
             }}
           />
           <ProfileMenuRow
-            emoji="📱"
+            icon={Phone}
             label="Phone"
             subtitle={owner?.phone ?? partner?.phone ?? 'Not set'}
             showChevron={false}
@@ -436,13 +419,13 @@ export default function PartnerProfileScreen() {
         <SectionLabel>Payment</SectionLabel>
         <SettingsCard>
           <ProfileMenuRow
-            emoji="💳"
+            icon={CreditCard}
             label="Subscription & billing"
             subtitle={`${tierLabel} · ${statusLabel}`}
             onPress={() => router.push('/(tabs)/partner/subscription')}
           />
           <ProfileMenuRow
-            emoji="💵"
+            icon={Wallet}
             label="Accepted payments"
             subtitle={formatAcceptedPaymentsLabel(meta.accepted_payments)}
             onPress={openPaymentsSheet}
@@ -453,16 +436,16 @@ export default function PartnerProfileScreen() {
         <SectionLabel>Settings</SectionLabel>
         <SettingsCard>
           <ProfileMenuRow
-            emoji="🔔"
+            icon={Bell}
             label="Notifications"
             subtitle="Manage alerts and reminders"
             onPress={() => router.push('/notifications/preferences')}
           />
-          <View style={[styles.row, styles.rowBorder]}>
-            <View style={styles.iconWrap}>
-              <Text style={styles.emoji}>🌐</Text>
+          <View style={[styles.langRow, styles.rowBorder]}>
+            <View style={styles.langIconWrap}>
+              <Globe size={16} color={Palette.primary} strokeWidth={2} />
             </View>
-            <Text style={styles.rowLabel}>Language</Text>
+            <Text style={styles.langLabel}>Language</Text>
             <View style={styles.langToggle}>
               {(['en', 'np'] as Locale[]).map((code) => {
                 const active = locale === code;
@@ -480,7 +463,7 @@ export default function PartnerProfileScreen() {
             </View>
           </View>
           <ProfileMenuRow
-            emoji="📤"
+            icon={Share2}
             label="Tell other restaurants"
             subtitle="Invite via WhatsApp"
             onPress={() => void Share.share({ message: SHARE_MESSAGE })}
@@ -491,20 +474,20 @@ export default function PartnerProfileScreen() {
         <SectionLabel>Support</SectionLabel>
         <SettingsCard>
           <ProfileMenuRow
-            emoji="❓"
+            icon={HelpCircle}
             label="Help & support"
             subtitle="FAQ and contact us"
             onPress={() => router.push('/support/help')}
           />
           <ProfileMenuRow
-            emoji="📋"
+            icon={FileText}
             label="Terms & Privacy"
             onPress={() => router.push('/legal/terms')}
           />
           <ProfileMenuRow
-            emoji="ℹ️"
+            icon={Info}
             label="About LastBag"
-            subtitle="Made in Nepal 🇳🇵"
+            subtitle="Made in Nepal"
             showChevron={false}
             isLast
             right={<Text style={styles.versionInline}>v{APP_VERSION}</Text>}
@@ -512,15 +495,15 @@ export default function PartnerProfileScreen() {
           />
         </SettingsCard>
 
-        <Pressable onPress={signOut} style={({ pressed }) => [styles.signOutCard, pressed && { opacity: 0.9 }]}>
+        <Pressable onPress={signOut} style={({ pressed }) => [styles.signOutCard, pressed && styles.pressed]}>
           <View style={styles.signOutIcon}>
-            <LogOut size={18} color="#E24B4A" strokeWidth={2} />
+            <LogOut size={18} color={Palette.danger} strokeWidth={2} />
           </View>
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
 
-        <Text style={styles.footerTagline}>LastBag · Rescue food, save money 🛍</Text>
-        <Text style={styles.footerVersion}>Version {APP_VERSION} · Nepal 🇳🇵</Text>
+        <Text style={styles.footerTagline}>LastBag · Rescue food, save money</Text>
+        <Text style={styles.footerVersion}>Version {APP_VERSION} · Nepal</Text>
       </ScrollView>
 
       <Modal visible={paymentsOpen} transparent animationType="slide" onRequestClose={() => setPaymentsOpen(false)}>
@@ -539,10 +522,10 @@ export default function PartnerProfileScreen() {
                   )
                 }
                 style={styles.paymentOption}>
-                <Text style={styles.paymentOptionText}>
-                  {checked ? '✓ ' : '○ '}
-                  {option}
-                </Text>
+                <View style={[styles.paymentCheck, checked && styles.paymentCheckActive]}>
+                  {checked ? <Check size={12} color={Palette.white} strokeWidth={3} /> : null}
+                </View>
+                <Text style={styles.paymentOptionText}>{option}</Text>
               </Pressable>
             );
           })}
@@ -610,186 +593,63 @@ export default function PartnerProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F5F3EF',
-  },
-  coverWrap: {
-    position: 'relative',
-    backgroundColor: '#FAECE7',
-  },
-  cover: {
-    width: '100%',
-    backgroundColor: '#FAECE7',
-  },
-  coverPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverEmoji: {
-    fontSize: 48,
-  },
-  headerActions: {
-    position: 'absolute',
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  headerIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  identityOverlay: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 28,
-    gap: 6,
-  },
-  businessName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Palette.white,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  categoryBadgeText: {
-    fontSize: 12,
-    color: Palette.white,
-    fontWeight: '600',
-  },
-  locationOverlay: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  statsCard: {
-    marginTop: -20,
-    marginHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: Palette.white,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  statsHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingHorizontal: 4,
-  },
-  statsTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  statsPill: {
-    backgroundColor: '#FAECE7',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statsPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Palette.primaryDark,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  statTile: {
-    width: '48.5%',
-    minHeight: 72,
-    borderRadius: 14,
-    backgroundColor: '#FAF8F5',
-    borderWidth: 1,
-    borderColor: '#F0EDE8',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    justifyContent: 'center',
-  },
-  statValue: {
-    fontSize: 19,
-    fontWeight: '600',
-    color: Palette.primary,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: Palette.textSecondary,
-    marginTop: 4,
+    backgroundColor: Palette.background,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    ...Type.label,
+    color: Palette.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginLeft: 16,
-    marginTop: 28,
-    marginBottom: 8,
+    marginLeft: Spacing.lg,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
   card: {
-    backgroundColor: Palette.white,
-    borderRadius: 16,
-    marginHorizontal: 16,
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    marginHorizontal: Spacing.lg,
     overflow: 'hidden',
+    ...FloatingShadow,
   },
   thumb: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   thumbPlaceholder: {
-    backgroundColor: '#FAECE7',
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   changeLink: {
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: '600',
     color: Palette.primary,
   },
-  row: {
-    minHeight: 52,
-    paddingHorizontal: 16,
+  langRow: {
+    minHeight: 56,
+    paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   rowBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#F0EDE8',
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.borderSubtle,
   },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FAECE7',
+  langIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emoji: {
-    fontSize: 16,
-  },
-  rowLabel: {
+  langLabel: {
     flex: 1,
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '500',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
   },
   langToggle: {
     flexDirection: 'row',
@@ -798,60 +658,65 @@ const styles = StyleSheet.create({
   langPill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: '#F5F3EF',
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.surfaceMuted,
   },
   langPillActive: {
     backgroundColor: Palette.primary,
   },
   langText: {
-    fontSize: 12,
+    ...Type.label,
     fontWeight: '600',
-    color: '#6B7280',
+    color: Palette.textSecondary,
   },
   langTextActive: {
     color: Palette.white,
   },
   versionInline: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    ...Type.label,
+    color: Palette.textTertiary,
   },
   signOutCard: {
-    marginTop: 20,
-    marginHorizontal: 16,
-    borderRadius: 16,
-    backgroundColor: Palette.white,
-    minHeight: 52,
-    paddingHorizontal: 16,
+    marginTop: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    ...CardChrome,
+    borderRadius: Radius.lg,
+    minHeight: 56,
+    paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
+    ...FloatingShadow,
+  },
+  pressed: {
+    opacity: 0.9,
   },
   signOutIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEE2E2',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Palette.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   signOutText: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#E24B4A',
+    color: Palette.danger,
   },
   footerTagline: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    ...Type.caption,
+    color: Palette.textTertiary,
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: Spacing.lg,
   },
   footerVersion: {
-    fontSize: 11,
-    color: '#C4C0B8',
+    ...Type.label,
+    color: Palette.textTertiary,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 40,
+    opacity: 0.7,
   },
   modalRoot: {
     flex: 1,
@@ -859,47 +724,64 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   modalSheet: {
     backgroundColor: Palette.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    gap: 10,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.sm,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 4,
+    ...Type.h2,
+    color: Palette.textPrimary,
+    marginBottom: Spacing.xs,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1A1A1A',
+    borderColor: Palette.borderSubtle,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    ...Type.body,
+    color: Palette.textPrimary,
+    backgroundColor: Palette.background,
   },
   paymentOption: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  paymentCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Palette.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentCheckActive: {
+    backgroundColor: Palette.primary,
+    borderColor: Palette.primary,
   },
   paymentOptionText: {
-    fontSize: 15,
-    color: '#1A1A1A',
+    ...Type.body,
+    color: Palette.textPrimary,
   },
   modalSaveBtn: {
-    marginTop: 8,
+    marginTop: Spacing.sm,
     backgroundColor: Palette.primary,
-    borderRadius: 999,
-    paddingVertical: 14,
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
   },
   modalSaveText: {
+    ...Type.bodyMedium,
     color: Palette.white,
-    fontSize: 15,
     fontWeight: '600',
   },
 });

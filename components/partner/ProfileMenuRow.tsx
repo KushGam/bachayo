@@ -1,7 +1,13 @@
+import type { LucideIcon } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
+
 type ProfileMenuRowProps = {
-  emoji: string;
+  emoji?: string;
+  icon?: LucideIcon;
   label: string;
   subtitle?: string;
   onPress?: () => void;
@@ -13,13 +19,14 @@ type ProfileMenuRowProps = {
 
 export function ProfileMenuRow({
   emoji,
+  icon: Icon,
   label,
   subtitle,
   onPress,
   right,
   showChevron = true,
   isLast = false,
-  labelColor = '#1A1A1A',
+  labelColor = Palette.textPrimary,
 }: ProfileMenuRowProps) {
   const interactive = Boolean(onPress);
 
@@ -30,38 +37,47 @@ export function ProfileMenuRow({
       style={({ pressed }) => [
         styles.row,
         !isLast && styles.rowBorder,
-        interactive && pressed && { opacity: 0.88 },
+        interactive && pressed && styles.rowPressed,
       ]}>
       <View style={styles.iconWrap}>
-        <Text style={styles.emoji}>{emoji}</Text>
+        {Icon ? (
+          <Icon size={16} color={Palette.primary} strokeWidth={2} />
+        ) : (
+          <Text style={styles.emoji}>{emoji}</Text>
+        )}
       </View>
       <View style={styles.copy}>
         <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
       </View>
       {right}
-      {showChevron && interactive && !right ? <Text style={styles.chevron}>›</Text> : null}
+      {showChevron && interactive && !right ? (
+        <ChevronRight size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 52,
-    paddingHorizontal: 16,
+    minHeight: 56,
+    paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
+  },
+  rowPressed: {
+    backgroundColor: Palette.surfaceMuted,
   },
   rowBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#F0EDE8',
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.borderSubtle,
   },
   iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FAECE7',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -73,16 +89,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    fontSize: 15,
+    ...Type.bodyMedium,
     fontWeight: '500',
   },
   subtitle: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  chevron: {
-    fontSize: 16,
-    color: '#C4C0B8',
-    fontWeight: '500',
+    ...Type.label,
+    color: Palette.textTertiary,
   },
 });

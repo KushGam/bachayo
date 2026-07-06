@@ -6,17 +6,22 @@ export type ReviewOrderContext = Order & {
   partner: Pick<Partner, 'name' | 'cover_image_url' | 'category'>;
 };
 
-export type SubmitCustomerReviewInput = {
-  orderId: string;
-  customerId: string;
-  partnerId: string;
-  rating: number;
-  comment?: string;
-  quantityFeedback?: string | null;
-  valueFeedback?: string | null;
-  wouldReturn?: string | null;
-  photoUrl?: string | null;
+type ReviewOrderRow = Order & {
+  bag: Pick<RescueBag, 'title' | 'title_np'> | null;
+  partner: Pick<Partner, 'name' | 'cover_image_url' | 'category'> | null;
 };
+
+function normalizeReviewOrder(row: ReviewOrderRow): ReviewOrderContext {
+  return {
+    ...row,
+    bag: row.bag ?? { title: 'Rescue bag', title_np: null },
+    partner: row.partner ?? {
+      name: 'Restaurant',
+      cover_image_url: null,
+      category: 'restaurant',
+    },
+  };
+}
 
 export async function fetchOrderForReview(orderId: string) {
   const { data, error } = await supabase
@@ -31,33 +36,27 @@ export async function fetchOrderForReview(orderId: string) {
 
   if (error) throw error;
   if (!data) return null;
-  return data as unknown as ReviewOrderContext;
+  return normalizeReviewOrder(data as unknown as ReviewOrderRow);
 }
 
+export type SubmitCustomerReviewInput = {
+  orderId: string;
+  customerId: string;
+  partnerId: string;
+  rating: number;
+  comment?: string;
+  quantityFeedback?: string | null;
+  valueFeedback?: string | null;
+  wouldReturn?: string | null;
+  photoUrl?: string | null;
+};
+
 export async function recalculatePartnerRating(partnerId: string) {
-  const { data: reviews, error } = await supabase
-    .from('reviews')
-    .select('rating')
-    .eq('partner_id', partnerId);
+  const { error } = await supabase.rpc('recalculate_partner_rating', {
+    p_partner_id: partnerId,
+  });
 
   if (error) throw error;
-
-  const list = reviews ?? [];
-  const totalReviews = list.length;
-  const avgRating =
-    totalReviews > 0
-      ? Math.round((list.reduce((sum, review) => sum + review.rating, 0) / totalReviews) * 10) / 10
-      : 0;
-
-  const { error: updateError } = await supabase
-    .from('partners')
-    .update({
-      rating: avgRating,
-      total_reviews: totalReviews,
-    })
-    .eq('id', partnerId);
-
-  if (updateError) throw updateError;
 }
 
 export async function submitCustomerReview(input: SubmitCustomerReviewInput) {

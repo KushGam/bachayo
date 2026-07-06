@@ -19,6 +19,7 @@ import { Palette } from '@/constants/Colors';
 import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { track } from '@/lib/analytics';
 import { getRescueBagImageUrl } from '@/lib/images';
+import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
 import { findActiveReservationForBag } from '@/lib/reservations';
 import { supabase } from '@/lib/supabase';
@@ -87,7 +88,8 @@ export default function RescueBagDetailScreen() {
 
       if (!error && data) {
         const bagData = data as unknown as RescueBagWithPartner;
-        setBag(bagData);
+        const [withStock] = await enrichBagsWithLiveStock([bagData]);
+        setBag({ ...bagData, ...withStock });
         track('bag_viewed', { bag_id: id, partner_id: bagData.partner_id });
 
         if (userId) {

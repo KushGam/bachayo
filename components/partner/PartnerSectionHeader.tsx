@@ -1,4 +1,9 @@
+import { ChevronRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { hapticButtonPress } from '@/lib/haptics';
 
 type PartnerSectionHeaderProps = {
   title: string;
@@ -15,12 +20,12 @@ export function PartnerSectionHeader({
   actionLabel,
   onAction,
 }: PartnerSectionHeaderProps) {
-  const showBadge = count != null;
+  const showBadge = count != null && count > 0;
 
   return (
     <View style={styles.row}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={styles.right}>
+      <View style={styles.left}>
+        <Text style={styles.title}>{title}</Text>
         {showBadge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
@@ -28,12 +33,19 @@ export function PartnerSectionHeader({
             </Text>
           </View>
         ) : null}
-        {actionLabel && onAction ? (
-          <Pressable onPress={onAction} hitSlop={8}>
-            <Text style={styles.action}>{actionLabel}</Text>
-          </Pressable>
-        ) : null}
       </View>
+      {actionLabel && onAction ? (
+        <Pressable
+          onPress={() => {
+            void hapticButtonPress();
+            onAction();
+          }}
+          hitSlop={8}
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.75 }]}>
+          <Text style={styles.action}>{actionLabel}</Text>
+          <ChevronRight size={14} color={Palette.primary} strokeWidth={2.5} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -43,34 +55,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  right: {
+  left: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  title: {
+    ...Type.h2,
+    color: Palette.textPrimary,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   badge: {
-    backgroundColor: '#D85A30',
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
     paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Palette.overlay.border,
   },
   badgeText: {
-    fontSize: 11,
+    ...Type.label,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Palette.primaryDark,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   action: {
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: '600',
-    color: '#D85A30',
+    color: Palette.primary,
   },
 });

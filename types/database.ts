@@ -256,6 +256,10 @@ export type Database = {
           partner_id: string;
           rating: number;
           comment: string | null;
+          quantity_feedback: string | null;
+          value_feedback: string | null;
+          would_return: string | null;
+          photo_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -265,6 +269,10 @@ export type Database = {
           partner_id: string;
           rating: number;
           comment?: string | null;
+          quantity_feedback?: string | null;
+          value_feedback?: string | null;
+          would_return?: string | null;
+          photo_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -274,6 +282,10 @@ export type Database = {
           partner_id?: string;
           rating?: number;
           comment?: string | null;
+          quantity_feedback?: string | null;
+          value_feedback?: string | null;
+          would_return?: string | null;
+          photo_url?: string | null;
           created_at?: string;
         };
         Relationships: [
