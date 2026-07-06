@@ -2,7 +2,7 @@
 export const LANDING_STATS = {
   foodSavedKg: 2400,
   restaurantCount: 180,
-  city: 'Kathmandu',
+  cityCount: 4,
 } as const;
 
 export function formatCountNumber(value: number) {

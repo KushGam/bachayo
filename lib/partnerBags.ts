@@ -164,9 +164,10 @@ export async function fetchPartnerBagOrders(bagId: string) {
     .from('orders')
     .select(`
       *,
-      customer:profiles(id, full_name, phone)
+      customer:profiles(id, full_name, phone, email)
     `)
     .eq('bag_id', bagId)
+    .in('status', ['confirmed', 'picked_up', 'pending'])
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -324,7 +325,7 @@ export function computeTodaySummary(bags: PartnerBagWithStats[]) {
   const listed = bags.length;
   const reserved = bags.reduce((sum, bag) => sum + bag.reserved_orders, 0);
   const potentialRevenue = bags.reduce(
-    (sum, bag) => sum + bag.rescue_price * Math.max(0, bag.reserved_orders),
+    (sum, bag) => sum + bag.rescue_price * Math.max(0, bag.quantity_reserved),
     0,
   );
   return { listed, reserved, potentialRevenue };

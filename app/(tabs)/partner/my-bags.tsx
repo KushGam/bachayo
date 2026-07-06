@@ -46,6 +46,7 @@ import {
   groupPastBags,
   type PartnerBagWithStats,
 } from '@/lib/partnerBags';
+import { isPickupFetchBlocked } from '@/lib/pendingPickups';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import { useBagPrefillStore, type BagPrefillData } from '@/store/useBagPrefillStore';
@@ -118,7 +119,7 @@ function TodaySummaryPills({ bags }: { bags: PartnerBagWithStats[] }) {
   const pills = [
     { emoji: '🛍', value: String(summary.listed), label: 'Listed' },
     { emoji: '✓', value: String(summary.reserved), label: 'Reserved' },
-    { emoji: '₨', value: formatNprFromPaisa(summary.potentialRevenue).replace('₨ ', ''), label: 'Revenue' },
+    { emoji: '₨', value: formatNprFromPaisa(summary.potentialRevenue).replace('₨ ', ''), label: 'Potential' },
   ];
 
   return (
@@ -129,7 +130,7 @@ function TodaySummaryPills({ bags }: { bags: PartnerBagWithStats[] }) {
             {pill.emoji === '₨' ? `₨ ${pill.value}` : pill.value}
           </Text>
           <Text style={styles.summaryLabel}>
-            {pill.emoji === '₨' ? 'Revenue' : `${pill.emoji} ${pill.label}`}
+            {pill.emoji === '₨' ? 'Potential' : `${pill.emoji} ${pill.label}`}
           </Text>
         </View>
       ))}
@@ -232,7 +233,16 @@ export default function PartnerMyBagsScreen() {
   const [reactivationToast, setReactivationToast] = useState(false);
   const [soldOutToast, setSoldOutToast] = useState(false);
   const [showFabHint, setShowFabHint] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const lastPickupTime = useRef(0);
 
+  const isFirstLoad = useRef(true);
+  const bagsCacheRef = useRef<{
+    today: PartnerBagWithStats[];
+    upcoming: PartnerBagWithStats[];
+    past: PartnerBagWithStats[];
+    yesterday: PartnerBagWithStats[];
+  } | null>(null);
   const lastScrollY = useRef(0);
   const fabOpacity = useSharedValue(1);
   const fabScale = useSharedValue(1);
@@ -294,7 +304,20 @@ export default function PartnerMyBagsScreen() {
   }, []);
 
   const loadBags = useCallback(async () => {
+    if (isPickupFetchBlocked(lastPickupTime.current)) {
+      console.log('[loadBags] blocked — pickup just confirmed');
+      return;
+    }
+
     setErrorText(null);
+
+    if (bagsCacheRef.current) {
+      setTodayBags(bagsCacheRef.current.today);
+      setUpcomingBags(bagsCacheRef.current.upcoming);
+      setPastBags(bagsCacheRef.current.past);
+      setYesterdayBags(bagsCacheRef.current.yesterday);
+    }
+
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
     if (!userId) {
@@ -332,10 +355,17 @@ export default function PartnerMyBagsScreen() {
       setUpcomingBags(upcomingRows);
       setPastBags(pastRows);
       setYesterdayBags(yesterdayRows);
+      bagsCacheRef.current = {
+        today: todayRows,
+        upcoming: upcomingRows,
+        past: pastRows,
+        yesterday: yesterdayRows,
+      };
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'Failed to load bags');
     } finally {
       setLoading(false);
+      isFirstLoad.current = false;
     }
   }, [today, yesterday]);
 
@@ -383,6 +413,10 @@ export default function PartnerMyBagsScreen() {
               table: 'orders',
               filter: `partner_id=eq.${partnerId}`,
               callback: () => {
+                if (isPickupFetchBlocked(lastPickupTime.current)) {
+                  console.log('[realtime] blocked stale update');
+                  return;
+                }
                 void loadBagsRef.current();
               },
             },
@@ -436,8 +470,12 @@ export default function PartnerMyBagsScreen() {
     return Array.from(map.entries());
   }, [upcomingBags]);
 
+  const handleToggleOrders = useCallback((bagId: string) => {
+    setExpandedOrderId((current) => (current === bagId ? null : bagId));
+  }, []);
+
   const renderTabContent = () => {
-    if (loading) {
+    if (isFirstLoad.current && loading) {
       return (
         <View style={styles.skeletonWrap}>
           <ListSkeleton count={3} />
@@ -473,6 +511,9 @@ export default function PartnerMyBagsScreen() {
             <PartnerTodayBagCard
               key={bag.id}
               bag={bag}
+              isOrdersExpanded={expandedOrderId === bag.id}
+              onToggleOrders={handleToggleOrders}
+              lastPickupTimeRef={lastPickupTime}
               onRefresh={loadBags}
               onRelist={() => handleRelist(bag)}
               onSoldOut={() => setSoldOutToast(true)}
@@ -514,6 +555,9 @@ export default function PartnerMyBagsScreen() {
                   key={bag.id}
                   bag={bag}
                   dateLabel={formatUpcomingDateLabel(date)}
+                  isOrdersExpanded={expandedOrderId === bag.id}
+                  onToggleOrders={handleToggleOrders}
+                  lastPickupTimeRef={lastPickupTime}
                   onRefresh={loadBags}
                   onRelist={() => handleRelist(bag)}
                   onSoldOut={() => setSoldOutToast(true)}
@@ -606,7 +650,12 @@ export default function PartnerMyBagsScreen() {
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TERRACOTTA} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={TERRACOTTA}
+            colors={[TERRACOTTA]}
+          />
         }
         onScroll={handleScroll}
         scrollEventThrottle={16}

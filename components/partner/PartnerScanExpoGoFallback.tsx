@@ -23,7 +23,7 @@ export default function PartnerScanExpoGoFallback() {
         visible={pickup.sheetVisible}
         order={pickup.foundOrder}
         confirming={pickup.confirming}
-        onConfirm={() => void pickup.confirmPickup('partner_qr')}
+        onConfirm={() => void pickup.confirmPickup('partner_manual')}
         onDismiss={pickup.dismissSheet}
       />
 

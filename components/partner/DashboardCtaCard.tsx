@@ -1,8 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
-import { Palette } from '@/constants/Colors';
-import { CATEGORY_BAG_CONFIG } from '@/constants/partnerBagPresets';
 import { hapticButtonPress } from '@/lib/haptics';
 import type { PartnerCategory } from '@/types/database';
 
@@ -13,9 +11,8 @@ type DashboardCtaCardProps = {
   onPress: () => void;
 };
 
-export function DashboardCtaCard({ category, onPress }: DashboardCtaCardProps) {
+export function DashboardCtaCard({ onPress }: DashboardCtaCardProps) {
   const scale = useSharedValue(1);
-  const config = CATEGORY_BAG_CONFIG[category] ?? CATEGORY_BAG_CONFIG.restaurant;
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -35,13 +32,13 @@ export function DashboardCtaCard({ category, onPress }: DashboardCtaCardProps) {
       }}
       android_ripple={null}
       style={[styles.card, animStyle]}>
+      <View style={styles.textureCircle} pointerEvents="none" />
+
       <View style={styles.copy}>
-        <View style={styles.iconCircle}>
-          <Text style={styles.iconEmoji}>🛍</Text>
-        </View>
         <Text style={styles.title}>List today&apos;s rescue bag</Text>
-        <Text style={styles.subtitle}>{config.ctaTagline}</Text>
+        <Text style={styles.subtitle}>Turn tonight&apos;s surplus into revenue</Text>
       </View>
+
       <View style={styles.plusCircle}>
         <Text style={styles.plus}>+</Text>
       </View>
@@ -56,41 +53,49 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 20,
-    backgroundColor: Palette.primary,
+    backgroundColor: '#D85A30',
     paddingHorizontal: 20,
-    paddingVertical: 18,
-    gap: 12,
+    paddingVertical: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#D85A30',
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+      },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  textureCircle: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    right: -40,
+    top: -60,
   },
   copy: {
     flex: 1,
   },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  iconEmoji: {
-    fontSize: 18,
-  },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    color: Palette.white,
+    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.75)',
-    marginTop: 3,
+    marginTop: 4,
     lineHeight: 18,
   },
   plusCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -98,7 +103,7 @@ const styles = StyleSheet.create({
   plus: {
     fontSize: 24,
     fontWeight: '700',
-    color: Palette.primary,
+    color: '#FFFFFF',
     lineHeight: 28,
     marginTop: -2,
   },

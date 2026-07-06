@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ManualQREntry } from '@/components/partner/ManualQREntry';
 import { PickupOrderSheet } from '@/components/partner/PickupOrderSheet';
 import { PickupSuccessOverlay } from '@/components/partner/PickupSuccessOverlay';
 import { Palette } from '@/constants/Colors';
@@ -35,7 +36,9 @@ export default function PartnerScanNative() {
   const [partnerName, setPartnerName] = useState<string | undefined>();
   const [errorText, setErrorText] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const scanLock = useRef(false);
+  const pickupMethodRef = useRef<'partner_qr' | 'partner_manual'>('partner_qr');
   const pickup = usePartnerPickupFlow(partnerName);
 
   const scanLineY = useSharedValue(-80);
@@ -120,6 +123,7 @@ export default function PartnerScanNative() {
       }
 
       void hapticHeavy();
+      pickupMethodRef.current = 'partner_qr';
       pickup.openOrder(order);
       scanLock.current = false;
     } catch {
@@ -144,19 +148,47 @@ export default function PartnerScanNative() {
         <Pressable onPress={requestPermission} style={styles.permissionBtn}>
           <Text style={styles.permissionBtnText}>Grant permission</Text>
         </Pressable>
+        <Pressable
+          onPress={() => setShowManualEntry(true)}
+          style={[styles.permissionBtn, styles.manualFallbackBtn]}>
+          <Text style={styles.permissionBtnText}>Enter code instead</Text>
+        </Pressable>
+        {showManualEntry ? (
+          <View style={styles.manualOverlay}>
+            <ManualQREntry
+              onOrderFound={(order) => {
+                pickupMethodRef.current = 'partner_manual';
+                setShowManualEntry(false);
+                pickup.openOrder(order);
+              }}
+            />
+          </View>
+        ) : null}
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        facing="back"
-        enableTorch={torchOn}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={({ data }) => void handleBarcode(data)}
-      />
+      {!showManualEntry ? (
+        <CameraView
+          style={styles.camera}
+          facing="back"
+          enableTorch={torchOn}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={({ data }) => void handleBarcode(data)}
+        />
+      ) : (
+        <View style={[styles.manualPanel, { paddingTop: insets.top + 56 }]}>
+          <ManualQREntry
+            onOrderFound={(order) => {
+              pickupMethodRef.current = 'partner_manual';
+              setShowManualEntry(false);
+              pickup.openOrder(order);
+            }}
+          />
+        </View>
+      )}
 
       <Animated.View pointerEvents="none" style={[styles.errorFlash, flashStyle]} />
 
@@ -191,7 +223,22 @@ export default function PartnerScanNative() {
         <Animated.View style={[styles.scanLine, scanLineStyle]} />
       </View>
 
-      <Text style={styles.hintText}>Point camera at customer&apos;s QR code</Text>
+      <Text style={styles.hintText}>
+        {showManualEntry ? 'Enter the 6-digit code from the customer' : "Point camera at customer's QR code"}
+      </Text>
+
+      <Pressable
+        onPress={() => {
+          void hapticButtonPress();
+          setShowManualEntry((current) => !current);
+          setErrorText(null);
+          scanLock.current = false;
+        }}
+        style={[styles.manualToggle, { bottom: insets.bottom + 24 }]}>
+        <Text style={styles.manualToggleText}>
+          {showManualEntry ? 'Use camera instead' : 'Enter code instead'}
+        </Text>
+      </Pressable>
 
       {errorText ? (
         <View style={styles.errorBanner}>
@@ -203,7 +250,7 @@ export default function PartnerScanNative() {
         visible={pickup.sheetVisible}
         order={pickup.foundOrder}
         confirming={pickup.confirming}
-        onConfirm={() => void pickup.confirmPickup('partner_qr')}
+        onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
         onDismiss={() => {
           pickup.dismissSheet();
           scanLock.current = false;
@@ -365,5 +412,32 @@ const styles = StyleSheet.create({
   permissionBtnText: {
     color: Palette.white,
     fontWeight: '800',
+  },
+  manualFallbackBtn: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  manualPanel: {
+    flex: 1,
+    backgroundColor: '#F5F3EF',
+  },
+  manualOverlay: {
+    marginTop: 16,
+    width: '100%',
+    maxWidth: 360,
+  },
+  manualToggle: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  manualToggleText: {
+    color: Palette.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

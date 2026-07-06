@@ -1,11 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ChevronDown } from 'lucide-react-native';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -22,6 +19,13 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
+  BagOrdersExpandedPanel,
+  formatBagReservedProgressLabel,
+  formatCollapsedOrdersSummary,
+} from '@/components/partner/BagOrdersExpandedPanel';
+import { SuccessToast } from '@/components/ui/SuccessToast';
+import { hapticButtonPress, hapticHeavy, hapticSuccess, hapticWarning } from '@/lib/haptics';
+import {
   type CountdownState,
   type PartnerBagOrder,
   type PartnerBagWithStats,
@@ -33,38 +37,19 @@ import {
   getBagDisplayStatus,
   getSavingsPct,
 } from '@/lib/partnerBags';
-import { getInitials } from '@/lib/helpers';
-import { hapticButtonPress, hapticHeavy, hapticWarning } from '@/lib/haptics';
-import { normalizeOrderStatus } from '@/lib/orderStatus';
+import { confirmPartnerPickup } from '@/lib/orders';
+import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked } from '@/lib/pendingPickups';
 import { supabase } from '@/lib/supabase';
-import type { OrderStatus } from '@/types/database';
 
 const TERRACOTTA = '#D85A30';
 const TEXT_SECONDARY = '#6B7280';
 const TRACK = '#F0EDE8';
-
-const AVATAR_COLORS = ['#D85A30', '#993C1D', '#B45309', '#065F46', '#1D4ED8', '#7C3AED'];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i += 1) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 const BAG_STATUS_STYLES = {
   active: { bg: '#ECFDF5', text: '#065F46', label: '● Active' },
   sold_out: { bg: '#FEF3C7', text: '#92400E', label: 'Sold out' },
   expired: { bg: '#F3F4F6', text: '#6B7280', label: 'Expired' },
 } as const;
-
-const ORDER_STATUS_STYLES: Record<OrderStatus, { bg: string; text: string; label: string }> = {
-  pending: { bg: '#FEF3C7', text: '#92400E', label: 'Pending' },
-  confirmed: { bg: '#ECFDF5', text: '#065F46', label: 'Confirmed' },
-  picked_up: { bg: '#ECFDF5', text: '#065F46', label: 'Done ✓' },
-  cancelled: { bg: '#F3F4F6', text: '#6B7280', label: 'Cancelled' },
-};
 
 function CountdownPill({ state }: { state: CountdownState }) {
   const pulse = useSharedValue(1);
@@ -151,89 +136,16 @@ function ExpandableOrders({
   expanded: boolean;
   children: ReactNode;
 }) {
-  const height = useSharedValue(0);
-  const [measuredHeight, setMeasuredHeight] = useState(0);
-
-  useEffect(() => {
-    height.value = withTiming(expanded ? measuredHeight : 0, {
-      duration: 200,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [expanded, measuredHeight, height]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    height: height.value,
-    overflow: 'hidden',
-  }));
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <View
-        onLayout={(event) => {
-          const nextHeight = event.nativeEvent.layout.height;
-          if (nextHeight > 0) {
-            setMeasuredHeight(nextHeight);
-          }
-        }}>
-        {children}
-      </View>
-    </Animated.View>
-  );
-}
-
-function BagOrderRow({ order, onScan }: { order: PartnerBagOrder; onScan: () => void }) {
-  const customerName =
-    order.customer_name || order.customer?.full_name || order.customer?.phone || 'Customer';
-  const phone = order.customer_phone || order.customer?.phone;
-  const normalizedStatus = normalizeOrderStatus(order.status);
-  const statusStyle = ORDER_STATUS_STYLES[normalizedStatus];
-
-  return (
-    <View style={styles.orderRow}>
-      <View style={[styles.orderAvatar, { backgroundColor: avatarColor(customerName) }]}>
-        <Text style={styles.orderAvatarText}>{getInitials(customerName)}</Text>
-      </View>
-
-      <View style={styles.orderCenter}>
-        <Text style={styles.orderName}>{customerName}</Text>
-        {phone ? (
-          <Pressable onPress={() => Linking.openURL(`tel:${phone}`)}>
-            <Text style={styles.orderPhone}>{phone}</Text>
-          </Pressable>
-        ) : null}
-        {order.customer_note ? (
-          <Text style={styles.orderNote} numberOfLines={2}>
-            Note: {order.customer_note}
-          </Text>
-        ) : null}
-        {order.quantity > 1 ? (
-          <Text style={styles.orderQty}>× {order.quantity} bag(s)</Text>
-        ) : null}
-      </View>
-
-      <View style={styles.orderRight}>
-        <View
-          style={[
-            styles.orderBadge,
-            { backgroundColor: statusStyle.bg },
-          ]}>
-          <Text style={[styles.orderBadgeText, { color: statusStyle.text }]}>
-            {statusStyle.label}
-          </Text>
-        </View>
-        {normalizedStatus === 'confirmed' ? (
-          <Pressable onPress={onScan} hitSlop={8}>
-            <Text style={styles.scanLink}>Scan →</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
+  if (!expanded) return null;
+  return <View>{children}</View>;
 }
 
 type PartnerTodayBagCardProps = {
   bag: PartnerBagWithStats;
   dateLabel?: string;
+  isOrdersExpanded: boolean;
+  onToggleOrders: (bagId: string) => void;
+  lastPickupTimeRef?: MutableRefObject<number>;
   onRefresh: () => void;
   onRelist?: () => void;
   onSoldOut?: () => void;
@@ -243,6 +155,9 @@ type PartnerTodayBagCardProps = {
 export function PartnerTodayBagCard({
   bag,
   dateLabel,
+  isOrdersExpanded,
+  onToggleOrders,
+  lastPickupTimeRef,
   onRefresh,
   onRelist,
   onSoldOut,
@@ -250,14 +165,15 @@ export function PartnerTodayBagCard({
 }: PartnerTodayBagCardProps) {
   const router = useRouter();
   const swipeRef = useRef<Swipeable>(null);
-  const [expanded, setExpanded] = useState(false);
+  const localLastPickupTime = useRef(0);
+  const lastPickupTime = lastPickupTimeRef ?? localLastPickupTime;
   const [orders, setOrders] = useState<PartnerBagOrder[] | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [markingPickup, setMarkingPickup] = useState<string | null>(null);
+  const [showPickupToast, setShowPickupToast] = useState(false);
   const [countdown, setCountdown] = useState<CountdownState>(() =>
     getBagCountdownState(bag.available_date, bag.pickup_start, bag.pickup_end),
   );
-
-  const chevronRotation = useSharedValue(0);
 
   useEffect(() => {
     const tick = () =>
@@ -267,22 +183,22 @@ export function PartnerTodayBagCard({
     return () => clearInterval(id);
   }, [bag.available_date, bag.pickup_start, bag.pickup_end]);
 
-  useEffect(() => {
-    chevronRotation.value = withTiming(expanded ? 180 : 0, { duration: 200 });
-  }, [chevronRotation, expanded]);
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${chevronRotation.value}deg` }],
-  }));
-
   const displayStatus = getBagDisplayStatus(bag);
   const statusStyle = BAG_STATUS_STYLES[displayStatus === 'active' ? 'active' : displayStatus];
   const savings = getSavingsPct(bag.original_price, bag.rescue_price);
-  const reserved = bag.reserved_orders;
+  const reserved = bag.quantity_reserved;
   const capacity = bag.quantity_available;
   const fullyReserved = reserved >= capacity && capacity > 0;
   const progressPct = capacity > 0 ? Math.min(100, (reserved / capacity) * 100) : 0;
-  const waitingOrders = bag.total_orders;
+  const potentialRevenue = bag.rescue_price * Math.max(0, bag.quantity_reserved);
+  const earnedRevenue = bag.rescue_price * bag.picked_up_orders;
+  const showEarned = bag.quantity_reserved === 0 && bag.picked_up_orders > 0;
+  const progressLabel = formatBagReservedProgressLabel(reserved, capacity, bag.reserved_orders);
+  const collapsedSummary = formatCollapsedOrdersSummary(orders, {
+    orderCount: bag.confirmed_orders,
+    bagCount: bag.quantity_reserved,
+    revenuePaisa: potentialRevenue,
+  });
 
   const closeSwipe = () => swipeRef.current?.close();
 
@@ -336,21 +252,58 @@ export function PartnerTodayBagCard({
 
   const toggleOrders = async () => {
     void hapticButtonPress();
-    if (expanded) {
-      setExpanded(false);
+    const willExpand = !isOrdersExpanded;
+    onToggleOrders(bag.id);
+
+    if (!willExpand) return;
+
+    if (isPickupFetchBlocked(lastPickupTime.current)) {
+      console.log('[fetchOrders] blocked — pickup just confirmed');
+      setOrdersLoading(false);
       return;
     }
-    setExpanded(true);
-    if (orders === null) {
-      setOrdersLoading(true);
-      try {
-        const rows = await fetchPartnerBagOrders(bag.id);
-        setOrders(rows);
-      } catch {
-        setOrders([]);
-      } finally {
-        setOrdersLoading(false);
-      }
+
+    setOrdersLoading(true);
+    try {
+      const rows = await fetchPartnerBagOrders(bag.id);
+      setOrders((prev) => applyFetchedOrdersWithPickupGuard(rows, new Set(), prev ?? []));
+    } catch {
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const markAsPickedUp = async (orderId: string) => {
+    const order = orders?.find((row) => row.id === orderId);
+    if (!order) return;
+
+    try {
+      setMarkingPickup(orderId);
+
+      const pickedUpAt = new Date().toISOString();
+      const result = await confirmPartnerPickup(
+        { ...order, bag } as never,
+        'partner_manual',
+      );
+      if (!result.ok) throw new Error('pickup failed');
+
+      lastPickupTime.current = Date.now();
+
+      setOrders((prev) =>
+        prev?.map((row) =>
+          row.id === orderId
+            ? { ...row, status: 'picked_up' as const, picked_up_at: pickedUpAt }
+            : row,
+        ) ?? prev,
+      );
+
+      void hapticSuccess();
+      setShowPickupToast(true);
+    } catch {
+      Alert.alert('Error', 'Failed to confirm pickup. Please try again.');
+    } finally {
+      setMarkingPickup(null);
     }
   };
 
@@ -389,72 +342,76 @@ export function PartnerTodayBagCard({
     }
   };
 
-  const pickupEndLabel = (() => {
-    const [h, m] = bag.pickup_end.split(':').map(Number);
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  })();
-
   const cardBody = (
     <View style={styles.card}>
       {dateLabel ? <Text style={styles.dateLabel}>{dateLabel}</Text> : null}
 
       <View style={styles.cardTop}>
-        <View style={styles.cardTitleWrap}>
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {bag.title}
-          </Text>
-          <View style={styles.pickupPill}>
-            <Text style={styles.pickupPillText}>
-              {formatPickupWindow(bag.pickup_start, bag.pickup_end)}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {bag.title}
+        </Text>
         <Pressable onPress={showMenu} style={styles.menuBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.menuDots}>⋮</Text>
         </Pressable>
       </View>
 
-      <View style={styles.priceRow}>
-        <View style={styles.priceLeft}>
-          <Text style={styles.rescuePrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
-          <Text style={styles.originalPrice}>{formatNprFromPaisa(bag.original_price)}</Text>
-          {savings > 0 ? (
-            <View style={styles.savingsBadge}>
-              <Text style={styles.savingsText}>{savings}% off</Text>
+      <View style={styles.titleMetaRow}>
+        <View style={styles.titleMetaLeft}>
+          {displayStatus === 'active' ? (
+            <ActiveStatusBadge />
+          ) : (
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
             </View>
-          ) : null}
+          )}
         </View>
-        {displayStatus === 'active' ? (
-          <ActiveStatusBadge />
-        ) : (
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+        <Text style={styles.headerPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
+      </View>
+
+      <View style={styles.metaRow}>
+        <Text style={styles.pickupPillText}>
+          {formatPickupWindow(bag.pickup_start, bag.pickup_end).replace('🕐 ', '')}
+        </Text>
+        {savings > 0 ? (
+          <View style={styles.savingsBadge}>
+            <Text style={styles.savingsText}>{savings}% off</Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.progressSection}>
         {fullyReserved ? (
           <Text style={styles.soldOutCelebration}>Sold out! 🎉</Text>
         ) : null}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${progressPct}%`,
-                backgroundColor: fullyReserved ? '#10B981' : TERRACOTTA,
-              },
-            ]}
-          />
-        </View>
-        {!fullyReserved ? (
-          <Text style={styles.progressLabel}>
-            {reserved} of {capacity} reserved
+        <View style={styles.progressRow}>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progressPct}%`,
+                  backgroundColor: fullyReserved ? '#10B981' : TERRACOTTA,
+                },
+              ]}
+            />
+          </View>
+          <Text style={[styles.progressLabel, { color: progressLabel.color }]}>
+            {progressLabel.text}
           </Text>
-        ) : null}
+        </View>
+      </View>
+
+      <View style={styles.revenueStatsRow}>
+        <Text
+          style={[
+            styles.revenueStatsValue,
+            showEarned ? styles.revenueStatsEarned : styles.revenueStatsPotential,
+          ]}>
+          {formatNprFromPaisa(showEarned ? earnedRevenue : potentialRevenue)}
+        </Text>
+        <Text style={[styles.revenueStatsLabel, showEarned && styles.revenueStatsEarnedLabel]}>
+          {showEarned ? 'earned' : 'potential'}
+        </Text>
       </View>
 
       <View style={styles.countdownWrap}>
@@ -462,38 +419,28 @@ export function PartnerTodayBagCard({
       </View>
 
       <Pressable onPress={() => void toggleOrders()} style={styles.ordersToggle}>
-        <Text style={styles.ordersToggleText}>
-          📋 {waitingOrders} active order{waitingOrders === 1 ? '' : 's'}
-        </Text>
-        <Animated.View style={chevronStyle}>
-          <ChevronDown size={16} color="#9CA3AF" strokeWidth={2} />
-        </Animated.View>
+        <Text style={styles.ordersToggleText}>{collapsedSummary}</Text>
+        <Text style={styles.ordersChevron}>{isOrdersExpanded ? '▴' : '▾'}</Text>
       </Pressable>
 
-      <ExpandableOrders expanded={expanded}>
-        <View style={styles.ordersSection}>
-          {ordersLoading ? (
-            <ActivityIndicator color={TERRACOTTA} style={styles.ordersLoader} />
-          ) : orders && orders.length > 0 ? (
-            orders.map((order) => (
-              <BagOrderRow
-                key={order.id}
-                order={order}
-                onScan={() => router.push('/(tabs)/partner/scan')}
-              />
-            ))
-          ) : (
-            <Text style={styles.ordersEmpty}>
-              No reservations yet — customers can still reserve until {pickupEndLabel}
-            </Text>
-          )}
-        </View>
+      <ExpandableOrders expanded={isOrdersExpanded}>
+        <BagOrdersExpandedPanel
+          orders={orders}
+          loading={ordersLoading}
+          markingPickup={markingPickup}
+          onMarkPickedUp={(orderId) => void markAsPickedUp(orderId)}
+        />
       </ExpandableOrders>
     </View>
   );
 
   return (
     <View style={styles.cardSwipeWrap}>
+      <SuccessToast
+        visible={showPickupToast}
+        title="Pickup confirmed! ✓"
+        onHide={() => setShowPickupToast(false)}
+      />
       <Swipeable
       ref={swipeRef}
       friction={2}
@@ -664,19 +611,35 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 10,
+    paddingBottom: 4,
     gap: 8,
   },
-  cardTitleWrap: { flex: 1, gap: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A1A' },
-  pickupPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FAECE7',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
+  titleMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
   },
-  pickupPillText: { fontSize: 12, color: '#993C1D', fontWeight: '500' },
+  titleMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: TERRACOTTA,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
   menuBtn: {
     width: 44,
     height: 44,
@@ -684,20 +647,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuDots: { fontSize: 22, color: TEXT_SECONDARY, lineHeight: 24 },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  priceLeft: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, flex: 1 },
-  rescuePrice: { fontSize: 18, fontWeight: '700', color: TERRACOTTA },
-  originalPrice: {
-    fontSize: 13,
-    color: TEXT_SECONDARY,
-    textDecorationLine: 'line-through',
-  },
+  pickupPillText: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '400' },
   savingsBadge: {
     backgroundColor: '#FAEEDA',
     borderRadius: 999,
@@ -718,9 +668,39 @@ const styles = StyleSheet.create({
   statusBadgeText: { fontSize: 11, fontWeight: '700' },
   statusBadgeActiveText: { color: '#065F46' },
   progressSection: { paddingHorizontal: 16, marginBottom: 12, gap: 6 },
-  progressLabel: { fontSize: 12, color: TEXT_SECONDARY, marginTop: 2 },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  revenueStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  revenueStatsValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  revenueStatsPotential: {
+    color: TERRACOTTA,
+  },
+  revenueStatsEarned: {
+    color: '#065F46',
+  },
+  revenueStatsLabel: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+  },
+  revenueStatsEarnedLabel: {
+    color: '#065F46',
+  },
+  progressLabel: { fontSize: 12, fontWeight: '500', flexShrink: 0 },
   soldOutCelebration: { fontSize: 13, fontWeight: '600', color: '#10B981', marginBottom: 2 },
   progressTrack: {
+    flex: 1,
     height: 6,
     borderRadius: 3,
     backgroundColor: TRACK,
@@ -751,7 +731,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FAFAF9',
   },
-  ordersToggleText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+  ordersToggleText: { flex: 1, fontSize: 13, color: '#374151', fontWeight: '600' },
+  ordersChevron: { fontSize: 12, color: '#9CA3AF', fontWeight: '600', marginLeft: 8 },
   swipeActionsRow: { flexDirection: 'row', alignItems: 'stretch' },
   swipeActionBtn: {
     width: 80,
@@ -762,41 +743,6 @@ const styles = StyleSheet.create({
   },
   swipeActionEmoji: { fontSize: 18 },
   swipeActionLabel: { fontSize: 11, fontWeight: '600', color: '#FFFFFF', textAlign: 'center' },
-  ordersSection: { backgroundColor: '#FAFAF9' },
-  ordersLoader: { paddingVertical: 20 },
-  ordersEmpty: {
-    fontSize: 13,
-    color: TEXT_SECONDARY,
-    textAlign: 'center',
-    padding: 16,
-    lineHeight: 20,
-  },
-  orderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderTopWidth: 0.5,
-    borderTopColor: TRACK,
-  },
-  orderAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderAvatarText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
-  orderCenter: { flex: 1, gap: 2 },
-  orderName: { fontSize: 14, fontWeight: '600', color: '#1A1A1A' },
-  orderPhone: { fontSize: 12, color: TEXT_SECONDARY },
-  orderNote: { fontSize: 12, color: TEXT_SECONDARY, fontStyle: 'italic' },
-  orderQty: { fontSize: 12, color: TEXT_SECONDARY },
-  orderRight: { alignItems: 'flex-end', gap: 4 },
-  orderBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  orderBadgeText: { fontSize: 11, fontWeight: '700' },
-  scanLink: { fontSize: 11, fontWeight: '600', color: TERRACOTTA },
   pastCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,

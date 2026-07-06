@@ -7,7 +7,9 @@ import { DEFAULT_AREA_ID, DEFAULT_CITY_ID } from '@/constants/locations';
 type LocationStore = {
   cityId: string;
   areaId: string;
+  maxDistanceKm: number;
   setLocation: (cityId: string, areaId: string) => void;
+  setMaxDistanceKm: (km: number) => void;
 };
 
 export const useLocationStore = create<LocationStore>()(
@@ -15,12 +17,18 @@ export const useLocationStore = create<LocationStore>()(
     (set) => ({
       cityId: DEFAULT_CITY_ID,
       areaId: DEFAULT_AREA_ID,
+      maxDistanceKm: 10,
       setLocation: (cityId, areaId) => set({ cityId, areaId }),
+      setMaxDistanceKm: (maxDistanceKm) => set({ maxDistanceKm }),
     }),
     {
       name: 'lastbag-location',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ cityId: state.cityId, areaId: state.areaId }),
+      partialize: (state) => ({
+        cityId: state.cityId,
+        areaId: state.areaId,
+        maxDistanceKm: state.maxDistanceKm,
+      }),
     },
   ),
 );

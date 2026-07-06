@@ -1,7 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Palette } from '@/constants/Colors';
-
 type PartnerSectionHeaderProps = {
   title: string;
   count?: number;
@@ -45,13 +43,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1A1A1A',
   },
   right: {
@@ -60,19 +58,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   badge: {
-    backgroundColor: Palette.primary,
+    backgroundColor: '#D85A30',
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Palette.white,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   action: {
     fontSize: 13,
-    fontWeight: '700',
-    color: Palette.primary,
+    fontWeight: '600',
+    color: '#D85A30',
   },
 });

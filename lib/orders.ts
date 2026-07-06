@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getCancellationEligibility } from '@/constants/cancellation';
-import { isRevenueOrderStatus, isReservedOrderStatus } from '@/lib/orderStatus';
+import { isReservedOrderStatus, isRevenueOrderStatus } from '@/lib/orderStatus';
 import type { CustomerOrderWithDetails, PartnerOrderWithCustomer } from '@/types/app';
 
 const ORDER_SELECT = `
@@ -127,33 +127,43 @@ export async function fetchPartnerBagsBefore(partnerId: string, beforeDate: stri
   return data ?? [];
 }
 
+function isLocalIsoDate(iso: string, date: string) {
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}` === date;
+}
+
 export async function fetchPartnerDayStats(partnerId: string, date: string) {
   const [{ data: bags }, { data: orders }] = await Promise.all([
     supabase
       .from('rescue_bags')
-      .select('id, quantity_reserved, status')
+      .select('id, status')
       .eq('partner_id', partnerId)
-      .eq('available_date', date),
+      .eq('available_date', date)
+      .eq('status', 'active'),
     supabase
       .from('orders')
-      .select('total_price, status, bag:rescue_bags(available_date)')
+      .select('total_price, status, created_at, picked_up_at')
       .eq('partner_id', partnerId),
   ]);
 
   const bagList = bags ?? [];
-  const dayOrders = (orders ?? []).filter((row) => {
-    const bag = row.bag as { available_date?: string } | null;
-    return bag?.available_date === date;
-  });
+  const allOrders = orders ?? [];
+  const createdToday = allOrders.filter((o) => isLocalIsoDate(o.created_at, date));
+  const pickedUpToday = allOrders.filter(
+    (o) => o.status === 'picked_up' && o.picked_up_at && isLocalIsoDate(o.picked_up_at, date),
+  );
 
-  const reserved = dayOrders.filter((o) => isReservedOrderStatus(o.status)).length;
-  const pickedUp = dayOrders.filter((o) => o.status === 'picked_up').length;
-  const revenue = dayOrders
+  const reserved = createdToday.filter((o) => isRevenueOrderStatus(o.status)).length;
+  const pickedUp = pickedUpToday.length;
+  const revenue = createdToday
     .filter((o) => isRevenueOrderStatus(o.status))
-    .reduce((sum, o) => sum + o.total_price, 0);
+    .reduce((sum, o) => sum + (o.total_price || 0), 0);
 
   return {
-    bagsListed: bagList.filter((b) => b.status === 'active' || b.status === 'sold_out').length,
+    bagsListed: bagList.length,
     reserved,
     pickedUp,
     revenue,

@@ -27,6 +27,7 @@ import { fetchCustomerOrders } from '@/lib/orders';
 import { fetchActiveReservedBagIds } from '@/lib/reservations';
 import { addRecentSearch, getRecentSearches, removeRecentSearch } from '@/lib/recentSearches';
 import { isPartnerVisibleToCustomers, type PartnerSubscriptionFields } from '@/lib/subscriptions';
+import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useBagsStore, type HomeBag } from '@/store/useBagsStore';
@@ -39,6 +40,7 @@ type HeaderUser = {
 };
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed'];
+const DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
 
 const CATEGORY_EMOJI: Record<HomeCategoryFilter, string> = {
   all: '🍽',
@@ -84,7 +86,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const locale = useAuthStore((s) => s.locale);
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
-  const { cityId, areaId, setLocation } = useLocationStore();
+  const { cityId, areaId, maxDistanceKm, setLocation, setMaxDistanceKm } = useLocationStore();
 
   const [user, setUser] = useState<HeaderUser>({ name: 'Guest' });
   const [activeOrder, setActiveOrder] = useState<CustomerOrderWithDetails | null>(null);
@@ -165,8 +167,72 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
-    }, [loadProfile]),
+      void loadActiveOrder();
+      void loadReservedBagIds();
+    }, [loadActiveOrder, loadProfile, loadReservedBagIds]),
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
+      if (!userId || cancelled) return;
+
+      const channelName = `customer-home-${userId}`;
+
+      try {
+        await subscribePostgresChannel(
+          supabase,
+          channelName,
+          [
+            {
+              event: 'UPDATE',
+              table: 'orders',
+              filter: `customer_id=eq.${userId}`,
+              callback: (payload) => {
+                const updated = (payload as { new?: { status?: string } }).new;
+                if (!updated?.status) return;
+
+                if (updated.status === 'picked_up') {
+                  setActiveOrder(null);
+                } else if (ACTIVE_ORDER_STATUSES.includes(updated.status as OrderStatus)) {
+                  void loadActiveOrder();
+                }
+                void loadReservedBagIds();
+              },
+            },
+            {
+              event: 'INSERT',
+              table: 'orders',
+              filter: `customer_id=eq.${userId}`,
+              callback: () => {
+                void loadActiveOrder();
+                void loadReservedBagIds();
+              },
+            },
+          ],
+          () => cancelled,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('[home] realtime subscribe failed:', error);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      void (async () => {
+        const { data } = await supabase.auth.getSession();
+        const userId = data.session?.user?.id;
+        if (userId) {
+          await removeChannelByName(supabase, `customer-home-${userId}`);
+        }
+      })();
+    };
+  }, [loadActiveOrder, loadReservedBagIds]);
 
   useEffect(() => {
     void (async () => {
@@ -332,9 +398,16 @@ export default function HomeScreen() {
   };
 
   const filteredBags = useMemo(() => {
-    if (selectedCategory === 'all') return bags;
-    return bags.filter((b) => b.partner.category === selectedCategory);
-  }, [bags, selectedCategory]);
+    const byCategory =
+      selectedCategory === 'all'
+        ? bags
+        : bags.filter((b) => b.partner.category === selectedCategory);
+
+    return byCategory.filter((bag) => {
+      if (bag.distance_km == null) return true;
+      return bag.distance_km <= maxDistanceKm;
+    });
+  }, [bags, maxDistanceKm, selectedCategory]);
 
   const closingSoon = useMemo(
     () => filteredBags.filter((b) => isClosingSoon(b.available_date, b.pickup_end)),
@@ -509,6 +582,31 @@ export default function HomeScreen() {
                   numberOfLines={1}
                   style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
                   {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <CustomerSectionHeader
+          title={locale === 'np' ? 'दूरी' : 'Distance'}
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsRow}>
+          {DISTANCE_OPTIONS.map((km) => {
+            const active = maxDistanceKm === km;
+            return (
+              <Pressable
+                key={km}
+                onPress={() => {
+                  void hapticButtonPress();
+                  setMaxDistanceKm(km);
+                }}
+                style={[styles.categoryPill, active && styles.categoryPillActive]}>
+                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                  {km} km
                 </Text>
               </Pressable>
             );

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Linking,
   Pressable,
   RefreshControl,
@@ -32,9 +33,11 @@ import {
   getTodayIsoDateLocal,
   getYesterdayIsoDateLocal,
 } from '@/lib/helpers';
-import { hapticButtonPress } from '@/lib/haptics';
-import { isReservedOrderStatus } from '@/lib/orderStatus';
-import { fetchPartnerDayStats, fetchPartnerOrders } from '@/lib/orders';
+import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
+import { isConfirmedOrderStatus, isReservedOrderStatus, isRevenueOrderStatus } from '@/lib/orderStatus';
+import { fetchCustomerOrders, confirmPartnerPickup } from '@/lib/orders';
+import { fetchPartnerBagOrders, type PartnerBagOrder } from '@/lib/partnerBags';
+import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked } from '@/lib/pendingPickups';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
 import {
   getTrialDaysRemaining,
@@ -45,7 +48,7 @@ import { supabase } from '@/lib/supabase';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 import type { Partner, RescueBag } from '@/types/database';
 
-function truncateName(name: string, max = 15) {
+function truncateName(name: string, max = 14) {
   const trimmed = name.trim();
   if (trimmed.length <= max) return trimmed;
   return `${trimmed.slice(0, max - 1)}…`;
@@ -68,12 +71,22 @@ export default function PartnerDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [expandedBagId, setExpandedBagId] = useState<string | null>(null);
+  const [bagOrdersMap, setBagOrdersMap] = useState<Record<string, PartnerBagOrder[] | null>>({});
+  const [bagOrdersLoading, setBagOrdersLoading] = useState<string | null>(null);
+  const [markingPickup, setMarkingPickup] = useState<string | null>(null);
+  const lastPickupTime = useRef(0);
 
   const today = getTodayIsoDateLocal();
   const yesterday = getYesterdayIsoDateLocal();
   const dates = useMemo(() => formatTodayBilingual(), []);
 
   const loadData = useCallback(async () => {
+    if (isPickupFetchBlocked(lastPickupTime.current)) {
+      console.log('[loadData] blocked — pickup just confirmed');
+      return;
+    }
+
     setFetchError(null);
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
@@ -116,9 +129,11 @@ export default function PartnerDashboardScreen() {
       if (bagsRes.error) throw bagsRes.error;
 
       setBags(bagsRes.data ?? []);
-      setOrders(orderRows);
-      setTodayStats(statsToday);
-      setYesterdayStats(statsYesterday);
+      setOrders((prev) => applyFetchedOrdersWithPickupGuard(orderRows, new Set(), prev));
+      if (!isPickupFetchBlocked(lastPickupTime.current)) {
+        setTodayStats(statsToday);
+        setYesterdayStats(statsYesterday);
+      }
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -146,14 +161,49 @@ export default function PartnerDashboardScreen() {
           channelName,
           [
             {
+              event: 'UPDATE',
+              table: 'orders',
+              callback: (payload) => {
+                const updated = (payload as { new?: PartnerOrderWithCustomer }).new;
+                if (!updated?.id) return;
+
+                if (isPickupFetchBlocked(lastPickupTime.current)) {
+                  console.log('[realtime] blocked stale update');
+                  return;
+                }
+
+                setOrders((prev) => {
+                  const index = prev.findIndex((row) => row.id === updated.id);
+                  if (index === -1) {
+                    if (!isPickupFetchBlocked(lastPickupTime.current)) {
+                      void loadDataRef.current();
+                    }
+                    return prev;
+                  }
+
+                  const current = prev[index];
+                  if (current.status === 'picked_up' && updated.status === 'confirmed') {
+                    return prev;
+                  }
+
+                  return prev.map((row) =>
+                    row.id === updated.id ? { ...row, ...updated } : row,
+                  );
+                });
+              },
+            },
+            {
+              event: 'INSERT',
               table: 'orders',
               callback: () => {
+                if (isPickupFetchBlocked(lastPickupTime.current)) return;
                 void loadDataRef.current();
               },
             },
             {
               table: 'rescue_bags',
               callback: () => {
+                if (isPickupFetchBlocked(lastPickupTime.current)) return;
                 void loadDataRef.current();
               },
             },
@@ -186,16 +236,100 @@ export default function PartnerDashboardScreen() {
 
   const activeOrders = orders.filter((o) => isReservedOrderStatus(o.status)).length;
 
-  const handleOrderPickedUp = useCallback((orderId: string) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId
-          ? { ...order, status: 'picked_up', picked_up_at: new Date().toISOString() }
-          : order,
-      ),
-    );
-    void loadDataRef.current();
-  }, []);
+  const totalBagsReserved = useMemo(
+    () => bags.reduce((sum, bag) => sum + bag.quantity_reserved, 0),
+    [bags],
+  );
+
+  const handleToggleBagOrders = useCallback(
+    async (bagId: string) => {
+      void hapticButtonPress();
+      const willExpand = expandedBagId !== bagId;
+      setExpandedBagId(willExpand ? bagId : null);
+      if (!willExpand) return;
+
+      if (isPickupFetchBlocked(lastPickupTime.current)) {
+        return;
+      }
+
+      setBagOrdersLoading(bagId);
+      try {
+        const rows = await fetchPartnerBagOrders(bagId);
+        setBagOrdersMap((prev) => ({
+          ...prev,
+          [bagId]: applyFetchedOrdersWithPickupGuard(rows, new Set(), prev[bagId] ?? []),
+        }));
+      } catch {
+        setBagOrdersMap((prev) => ({ ...prev, [bagId]: [] }));
+      } finally {
+        setBagOrdersLoading(null);
+      }
+    },
+    [expandedBagId],
+  );
+
+  const markAsPickedUp = useCallback(
+    (orderId: string) => {
+      const order = orders.find((row) => row.id === orderId);
+      if (!order) return;
+
+      Alert.alert(
+        'Confirm pickup',
+        'Has the customer collected their bag and paid?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Yes, confirmed ✓',
+            onPress: () => {
+              void (async () => {
+                setMarkingPickup(orderId);
+                const result = await confirmPartnerPickup(order, 'partner_manual', partner?.name);
+
+                if (!result.ok) {
+                  Alert.alert('Error', 'Failed to confirm. Please try again.');
+                  setMarkingPickup(null);
+                  return;
+                }
+
+                lastPickupTime.current = Date.now();
+
+                setOrders((prev) =>
+                  prev.map((row) =>
+                    row.id === orderId
+                      ? { ...row, status: 'picked_up', picked_up_at: new Date().toISOString() }
+                      : row,
+                  ),
+                );
+
+                setBagOrdersMap((prev) => {
+                  const bagId = order.bag_id;
+                  const list = prev[bagId];
+                  if (!list) return prev;
+                  return {
+                    ...prev,
+                    [bagId]: list.map((row) =>
+                      row.id === orderId
+                        ? { ...row, status: 'picked_up', picked_up_at: new Date().toISOString() }
+                        : row,
+                    ),
+                  };
+                });
+
+                setTodayStats((prev) => ({
+                  ...prev,
+                  pickedUp: prev.pickedUp + 1,
+                }));
+
+                setMarkingPickup(null);
+                void hapticSuccess();
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [orders, partner?.name],
+  );
   const categoryMeta = partner ? getCategoryById(partner.category) : null;
 
   const subscriptionStatus =
@@ -247,7 +381,7 @@ export default function PartnerDashboardScreen() {
         }>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerCopy}>
             {categoryMeta ? (
@@ -264,6 +398,8 @@ export default function PartnerDashboardScreen() {
           </View>
 
           <NotificationBellBadge
+            variant="dark"
+            size={18}
             onPress={() => {
               void hapticButtonPress();
               router.push('/notifications');
@@ -277,13 +413,11 @@ export default function PartnerDashboardScreen() {
       {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
       {loading ? (
-        <View style={[styles.statsSkeleton, showOverlapBanner && styles.statsSkeletonOverlap]}>
+        <View style={styles.statsSkeleton}>
           <StatsSkeleton />
         </View>
       ) : (
-        <View style={showOverlapBanner ? styles.statsOverlapOffset : undefined}>
-          <DashboardStatsRow stats={statCards} />
-        </View>
+        <DashboardStatsRow stats={statCards} />
       )}
 
       {fetchError ? (
@@ -303,16 +437,17 @@ export default function PartnerDashboardScreen() {
 
       <PartnerSectionHeader
         title="Active today"
-        count={bags.length}
+        count={bags.length > 0 ? totalBagsReserved : undefined}
+        countSuffix="reserved"
         actionLabel={bags.length > 0 ? 'Manage' : undefined}
         onAction={bags.length > 0 ? () => router.push('/(tabs)/partner/my-bags') : undefined}
       />
 
       {loading ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
-          <View style={styles.miniSkeleton} />
-          <View style={styles.miniSkeleton} />
-        </ScrollView>
+        <View style={styles.bagsSkeleton}>
+          <View style={styles.bagSkeletonCard} />
+          <View style={styles.bagSkeletonCard} />
+        </View>
       ) : bags.length === 0 ? (
         <PartnerEmptyState
           emoji="🛍"
@@ -322,10 +457,44 @@ export default function PartnerDashboardScreen() {
           compact
         />
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScroll}>
-          {bags.map((bag) => (
-            <ActiveBagMiniCard key={bag.id} bag={bag} />
-          ))}
+        <View style={styles.bagsList}>
+          {bags.map((bag) => {
+            const bagRevenue = orders
+              .filter(
+                (order) =>
+                  order.bag_id === bag.id && isRevenueOrderStatus(order.status),
+              )
+              .reduce((sum, order) => sum + (order.total_price || 0), 0);
+
+            const bagOrdersForSummary = orders.filter((order) => order.bag_id === bag.id);
+            const waitingCustomers = bagOrdersForSummary.filter((order) =>
+              isReservedOrderStatus(order.status),
+            ).length;
+            const confirmedForBag = bagOrdersForSummary.filter((order) =>
+              isConfirmedOrderStatus(order.status),
+            );
+
+            return (
+              <ActiveBagMiniCard
+                key={bag.id}
+                bag={bag}
+                revenueEarned={bagRevenue}
+                waitingCustomers={waitingCustomers}
+                summaryOrders={bagOrdersMap[bag.id] ?? bagOrdersForSummary}
+                summaryFallback={{
+                  orderCount: confirmedForBag.length,
+                  bagCount: bag.quantity_reserved,
+                  revenuePaisa: bagRevenue,
+                }}
+                isOrdersExpanded={expandedBagId === bag.id}
+                bagOrders={bagOrdersMap[bag.id] ?? null}
+                ordersLoading={bagOrdersLoading === bag.id}
+                markingPickup={markingPickup}
+                onToggleOrders={() => void handleToggleBagOrders(bag.id)}
+                onMarkPickedUp={markAsPickedUp}
+              />
+            );
+          })}
           <Pressable
             onPress={() => {
               void hapticButtonPress();
@@ -335,13 +504,13 @@ export default function PartnerDashboardScreen() {
             <Text style={styles.addAnotherPlus}>+</Text>
             <Text style={styles.addAnotherText}>Add another bag</Text>
           </Pressable>
-        </ScrollView>
+        </View>
       )}
 
       <PartnerSectionHeader
         title="Orders"
-        count={activeOrders > 0 ? activeOrders : undefined}
-        countSuffix={activeOrders === 1 ? 'active' : 'active'}
+        count={activeOrders}
+        countSuffix="reserved"
       />
 
       {loading ? (
@@ -362,8 +531,7 @@ export default function PartnerDashboardScreen() {
             key={order.id}
             order={order}
             partnerName={partner?.name}
-            onPickupComplete={loadData}
-            onOrderPickedUp={handleOrderPickedUp}
+            onMarkPickedUp={markAsPickedUp}
             onScan={() => router.push('/(tabs)/partner/scan')}
           />
         ))
@@ -394,24 +562,22 @@ export default function PartnerDashboardScreen() {
 const styles = StyleSheet.create({
   screenWrap: {
     flex: 1,
-    backgroundColor: Palette.background,
+    backgroundColor: '#F2F0EB',
   },
   screen: {
     flex: 1,
-    backgroundColor: Palette.background,
+    backgroundColor: '#F2F0EB',
   },
   container: {
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   fallback: {
     padding: Spacing.xl,
   },
   header: {
-    backgroundColor: Palette.primary,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    backgroundColor: '#1A1A1A',
     paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingBottom: 24,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -424,57 +590,37 @@ const styles = StyleSheet.create({
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: '#D85A30',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     marginBottom: 6,
   },
   categoryBadgeText: {
-    fontSize: 12,
-    color: Palette.white,
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   greeting: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    color: Palette.white,
-    lineHeight: 26,
+    color: '#FFFFFF',
+    lineHeight: 22,
   },
   dateEn: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
-    marginTop: 8,
-    fontWeight: '500',
-  },
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    borderWidth: 1.5,
-    borderColor: Palette.primary,
-  },
-  statsOverlapOffset: {
-    marginTop: 12,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 3,
+    fontWeight: '400',
   },
   statsSkeleton: {
-    marginHorizontal: 16,
-    marginTop: -20,
-  },
-  statsSkeletonOverlap: {
-    marginTop: 12,
+    marginTop: -1,
+    marginHorizontal: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: '#242424',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   retryWrap: {
     marginHorizontal: 16,
@@ -483,45 +629,49 @@ const styles = StyleSheet.create({
   ctaSkeleton: {
     height: 88,
     borderRadius: 20,
-    backgroundColor: Palette.imagePlaceholder,
+    backgroundColor: '#E8E4DE',
     marginHorizontal: 16,
     marginTop: 16,
   },
-  hScroll: {
-    paddingLeft: 16,
-    paddingRight: 6,
+  bagsList: {
+    gap: 0,
   },
-  miniSkeleton: {
-    width: 168,
-    height: 150,
+  bagsSkeleton: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  bagSkeletonCard: {
+    height: 140,
     borderRadius: 16,
-    backgroundColor: Palette.imagePlaceholder,
-    marginRight: 10,
+    backgroundColor: '#E8E4DE',
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
   },
   addAnother: {
-    width: 120,
-    minHeight: 150,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F0EDE8',
-    backgroundColor: Palette.white,
+    borderWidth: 1.5,
+    borderColor: '#EBEBEB',
+    borderStyle: 'dashed',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginRight: 16,
+    minHeight: 80,
   },
   addAnotherPlus: {
     fontSize: 24,
     fontWeight: '700',
-    color: Palette.primary,
+    color: '#D85A30',
     lineHeight: 28,
+    marginBottom: 4,
   },
   addAnotherText: {
-    fontSize: 12,
-    color: Palette.primary,
-    fontWeight: '700',
+    fontSize: 13,
+    color: '#D85A30',
+    fontWeight: '600',
     textAlign: 'center',
-    paddingHorizontal: 8,
   },
   ordersSkeleton: {
     paddingHorizontal: 16,

@@ -39,9 +39,9 @@ const HERO_HEIGHT = SCREEN_HEIGHT * 0.58;
 
 const COPY = {
   en: {
-    badge: 'Kathmandu',
+    badge: 'Nepal 🇳🇵',
     headline: 'Good food.\nHalf the price.\nZero waste.',
-    subtext: "Rescue surplus meals from Kathmandu's best restaurants, cafes & bakeries",
+    subtext: "Rescue surplus meals from Nepal's best restaurants, cafes & bakeries",
     howItWorks: 'How it works',
     step1: 'Find nearby bags',
     step2: 'Reserve in seconds',
@@ -51,13 +51,13 @@ const COPY = {
     login: 'Already have an account? Log in',
     statFoodLabel: 'kg food saved',
     statRestaurantsLabel: 'restaurants',
-    statCityLabel: 'city',
-    trustLine: 'Join thousands rescuing food every week',
+    statCityLabel: 'cities',
+    trustLine: 'Launching across Nepal 🇳🇵',
   },
   np: {
-    badge: 'काठमाडौं',
+    badge: 'नेपाल 🇳🇵',
     headline: 'राम्रो खाना।\nआधा मूल्यमा।\nखेर नफाली।',
-    subtext: 'काठमाडौंका राम्रा रेस्टुरेन्ट, क्याफे र बेकरीबाट बचेको खाना किन्नुहोस्',
+    subtext: 'नेपालका राम्रा रेस्टुरेन्ट, क्याफे र बेकरीबाट बचेको खाना किन्नुहोस्',
     howItWorks: 'कसरी काम गर्छ',
     step1: 'नजिकका ब्यागहरू',
     step2: 'छिटो रिजर्भ गर्नुहोस्',
@@ -68,7 +68,7 @@ const COPY = {
     statFoodLabel: 'किलो खाना बच्यो',
     statRestaurantsLabel: 'रेस्टुरेन्ट',
     statCityLabel: 'शहर',
-    trustLine: 'हप्तामा हजारौंले खाना बचाउँदै',
+    trustLine: 'नेपालभरि विस्तार हुँदै 🇳🇵',
   },
 } as const;
 
@@ -168,7 +168,7 @@ export default function LandingScreen() {
           <View style={styles.statDivider} />
           <StatCell value={formatCountNumber(restaurants)} label={copy.statRestaurantsLabel} />
           <View style={styles.statDivider} />
-          <StatCell value={LANDING_STATS.city} label={copy.statCityLabel} />
+          <StatCell value={String(LANDING_STATS.cityCount)} label={copy.statCityLabel} />
         </Animated.View>
 
         <Text style={styles.trustLine}>{copy.trustLine}</Text>

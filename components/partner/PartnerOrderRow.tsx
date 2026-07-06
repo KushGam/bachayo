@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -21,34 +21,25 @@ import type { OrderStatus } from '@/types/database';
 type PartnerOrderRowProps = {
   order: PartnerOrderWithCustomer;
   partnerName?: string;
-  onPickupComplete?: () => void;
+  onMarkPickedUp?: (orderId: string) => void;
   onOrderPickedUp?: (orderId: string) => void;
+  onPickupReverted?: (orderId: string) => void;
   onScan?: () => void;
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Waiting',
   confirmed: 'Confirmed',
-  picked_up: 'Done ✓',
+  picked_up: 'Picked up ✓',
   cancelled: 'Cancelled',
 };
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
-  pending: { bg: '#FAECE7', text: Palette.primaryDark },
-  confirmed: { bg: '#FAECE7', text: Palette.primaryDark },
+  pending: { bg: '#FEF3C7', text: '#92400E' },
+  confirmed: { bg: '#FEF3C7', text: '#92400E' },
   picked_up: { bg: '#ECFDF5', text: '#065F46' },
   cancelled: { bg: '#F3F4F6', text: '#6B7280' },
 };
-
-const AVATAR_COLORS = ['#D85A30', '#993C1D', '#B45309', '#065F46', '#1D4ED8', '#7C3AED'];
-
-function avatarColor(name: string) {
-  let hash = 0;
-  for (let index = 0; index < name.length; index += 1) {
-    hash = name.charCodeAt(index) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function formatPickedUpTime(iso: string | null) {
   if (!iso) return null;
@@ -59,18 +50,27 @@ function formatPickedUpTime(iso: string | null) {
 export const PartnerOrderRow = memo(function PartnerOrderRow({
   order,
   partnerName,
-  onPickupComplete,
+  onMarkPickedUp,
   onOrderPickedUp,
+  onPickupReverted,
   onScan,
 }: PartnerOrderRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState(order.status);
   const [showToast, setShowToast] = useState(false);
+  const prevOrderStatusRef = useRef(order.status);
 
   useEffect(() => {
+    const prev = normalizeOrderStatus(prevOrderStatusRef.current);
+    const next = normalizeOrderStatus(order.status);
     setLocalStatus(order.status);
-  }, [order.status]);
+    if (prev !== 'picked_up' && next === 'picked_up' && onMarkPickedUp) {
+      setExpanded(false);
+      setShowToast(true);
+    }
+    prevOrderStatusRef.current = order.status;
+  }, [onMarkPickedUp, order.status]);
 
   const customerName =
     order.customer_name || order.customer.full_name || order.customer.phone || 'Customer';
@@ -83,25 +83,29 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
 
   const runConfirm = async () => {
     setLoading(true);
+
     const result = await confirmPartnerPickup(order, 'partner_manual', partnerName);
     setLoading(false);
 
     if (!result.ok) {
-      Alert.alert('Error', 'Failed to update. Try again.');
+      Alert.alert('Error', 'Failed to update. Please try again.');
       return;
     }
 
+    onOrderPickedUp?.(order.id);
     setLocalStatus('picked_up');
     setExpanded(false);
-    onOrderPickedUp?.(order.id);
     void hapticSuccess();
     void celebrateMilestoneOnce('pickupConfirmed');
     setShowToast(true);
-    onPickupComplete?.();
   };
 
   const confirmFromDashboard = () => {
     void hapticButtonPress();
+    if (onMarkPickedUp) {
+      onMarkPickedUp(order.id);
+      return;
+    }
     Alert.alert(
       'Confirm pickup',
       'Has this customer collected their bag and paid?',
@@ -140,7 +144,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
           pressed && canExpand && { opacity: 0.96 },
         ]}>
         <View style={styles.row}>
-          <View style={[styles.avatar, { backgroundColor: avatarColor(customerName) }]}>
+          <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(customerName)}</Text>
           </View>
 
@@ -149,9 +153,8 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
               {customerName}
             </Text>
             <Text numberOfLines={1} style={styles.bagTitle}>
-              {order.bag.title}
+              {order.bag.title} · {pickupWindow}
             </Text>
-            <Text style={styles.meta}>Reserved {formatRelativeTime(order.created_at)}</Text>
             {isPickedUp && order.picked_up_at ? (
               <Text style={styles.pickedUpMeta}>
                 Picked up at {formatPickedUpTime(order.picked_up_at)}
@@ -236,24 +239,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   wrapDone: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   card: {
-    backgroundColor: Palette.white,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     marginHorizontal: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.03,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 1 },
-      },
-      android: { elevation: 1 },
-      default: {},
-    }),
+    borderWidth: 1,
+    borderColor: '#EBEBEB',
   },
   cardCancelled: {
     opacity: 0.5,
@@ -265,16 +260,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F2F0EB',
   },
   avatarText: {
-    color: Palette.white,
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#1A1A1A',
+    fontSize: 15,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -286,12 +282,8 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
   bagTitle: {
-    fontSize: 13,
-    color: Palette.textSecondary,
-  },
-  meta: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#6B7280',
     marginTop: 2,
   },
   pickedUpMeta: {
@@ -315,8 +307,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   expanded: {
     paddingTop: 14,

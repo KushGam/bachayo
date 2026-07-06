@@ -34,10 +34,9 @@ import {
   getPickupMinutesRemaining,
   openMapsDirections,
 } from '@/lib/helpers';
-import { isReservedOrderStatus, isReviewEligibleOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
+import { normalizeOrderStatus } from '@/lib/orderStatus';
 import { cancelReservation, fetchCustomerOrders } from '@/lib/orders';
 import { hapticSuccess } from '@/lib/haptics';
-import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import type { CustomerOrderWithDetails } from '@/types/app';
 import type { OrderStatus } from '@/types/database';
@@ -48,15 +47,16 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 type TabKey = 'active' | 'past';
 
-const PAST_STATUSES: OrderStatus[] = ['picked_up', 'cancelled'];
+const ACTIVE_STATUSES = ['confirmed', 'pending'] as const;
+const PAST_STATUSES = ['picked_up', 'cancelled', 'missed'] as const;
 
 function isActiveOrderStatus(status: string) {
-  return isReservedOrderStatus(status);
+  return ACTIVE_STATUSES.includes(normalizeOrderStatus(status) as (typeof ACTIVE_STATUSES)[number]);
 }
 
 function isPastOrderStatus(status: string) {
   const normalized = normalizeOrderStatus(status);
-  return PAST_STATUSES.includes(normalized) || normalized === 'cancelled';
+  return PAST_STATUSES.includes(normalized as (typeof PAST_STATUSES)[number]);
 }
 
 function statusLabel(status: OrderStatus) {
@@ -151,6 +151,8 @@ export default function MyBagsScreen() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [, tick] = useState(0);
   const refreshOrdersRef = useRef<() => Promise<void>>(async () => {});
+  const isFirstLoad = useRef(true);
+  const ordersCacheRef = useRef<CustomerOrderWithDetails[] | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => tick((t) => t + 1), 60_000);
@@ -159,6 +161,11 @@ export default function MyBagsScreen() {
 
   const refreshOrders = useCallback(async () => {
     setFetchError(null);
+
+    if (ordersCacheRef.current) {
+      setOrders(ordersCacheRef.current);
+    }
+
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
     if (!userId) {
@@ -171,9 +178,12 @@ export default function MyBagsScreen() {
 
     try {
       const rows = await fetchCustomerOrders(userId);
+      ordersCacheRef.current = rows;
       setOrders(rows);
     } catch (err) {
-      setOrders([]);
+      if (!ordersCacheRef.current) {
+        setOrders([]);
+      }
       setFetchError(err instanceof Error ? err.message : 'Failed to load orders');
     }
   }, []);
@@ -181,9 +191,12 @@ export default function MyBagsScreen() {
   refreshOrdersRef.current = refreshOrders;
 
   const loadOrders = useCallback(async () => {
-    setLoading(true);
+    if (isFirstLoad.current) {
+      setLoading(true);
+    }
     await refreshOrders();
     setLoading(false);
+    isFirstLoad.current = false;
   }, [refreshOrders]);
 
   const onRefresh = useCallback(async () => {
@@ -197,83 +210,78 @@ export default function MyBagsScreen() {
   }, [loadOrders]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
+    if (!customerId) return;
+
+    void refreshOrdersRef.current();
+
+    const channel = supabase
+      .channel(`orders-${customerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `customer_id=eq.${customerId}`,
+        },
+        (payload) => {
+          console.log('Order updated:', payload.new);
+
+          const updatedOrder = payload.new as Partial<CustomerOrderWithDetails>;
+          if (!updatedOrder?.id) return;
+
+          setOrders((prev) => {
+            const exists = prev.find((order) => order.id === updatedOrder.id);
+            if (!exists) {
+              void refreshOrdersRef.current();
+              return prev;
+            }
+
+            return prev.map((order) =>
+              order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order,
+            );
+          });
+
+          if (updatedOrder.status === 'picked_up') {
+            void hapticSuccess();
+            setShowPickupToast(true);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `customer_id=eq.${customerId}`,
+        },
+        () => {
+          void refreshOrdersRef.current();
+        },
+      )
+      .subscribe((status) => {
+        console.log('[realtime] orders subscription:', status);
+      });
+
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         void refreshOrdersRef.current();
       }
     });
 
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (!customerId) return;
-
-    let cancelled = false;
-    const channelName = `customer-orders-${customerId}`;
-
-    void (async () => {
-      try {
-        await subscribePostgresChannel(
-          supabase,
-          channelName,
-          [
-            {
-              event: 'UPDATE',
-              table: 'orders',
-              filter: `customer_id=eq.${customerId}`,
-              callback: (payload) => {
-                const updated = (payload as { new?: Partial<CustomerOrderWithDetails> }).new;
-                if (!updated?.id) return;
-
-                setOrders((prev) => {
-                  const index = prev.findIndex((order) => order.id === updated.id);
-                  if (index === -1) {
-                    void refreshOrdersRef.current();
-                    return prev;
-                  }
-
-                  return prev.map((order) =>
-                    order.id === updated.id ? { ...order, ...updated } : order,
-                  );
-                });
-
-                if (updated.status === 'picked_up') {
-                  void hapticSuccess();
-                  setShowPickupToast(true);
-                }
-              },
-            },
-            {
-              event: 'INSERT',
-              table: 'orders',
-              filter: `customer_id=eq.${customerId}`,
-              callback: () => {
-                void refreshOrdersRef.current();
-              },
-            },
-          ],
-          () => cancelled,
-        );
-      } catch (error) {
-        if (!cancelled) {
-          console.warn('[my-bags] realtime subscribe failed:', error);
-        }
-      }
-    })();
-
     return () => {
-      cancelled = true;
-      void removeChannelByName(supabase, channelName);
+      void supabase.removeChannel(channel);
+      appStateSub.remove();
     };
   }, [customerId]);
 
   const activeOrders = useMemo(
-    () => orders.filter((o) => isActiveOrderStatus(o.status)),
+    () => orders.filter((order) => isActiveOrderStatus(order.status)),
     [orders],
   );
   const pastOrders = useMemo(
-    () => orders.filter((o) => isPastOrderStatus(o.status)),
+    () => orders.filter((order) => isPastOrderStatus(order.status)),
     [orders],
   );
 
@@ -361,7 +369,7 @@ export default function MyBagsScreen() {
         </View>
       ) : null}
 
-      {loading && listData.length === 0 ? (
+      {isFirstLoad.current && loading && listData.length === 0 ? (
         <View style={styles.content}>
           <ListSkeleton count={3} />
         </View>
@@ -489,7 +497,9 @@ export default function MyBagsScreen() {
                   </View>
                 ) : null}
 
-                {isReviewEligibleOrderStatus(item.status) && !item.review ? (
+                {tab === 'past' &&
+                normalizeOrderStatus(item.status) === 'picked_up' &&
+                !item.review ? (
                   <Pressable
                     onPress={() => router.push(`/review/${item.id}`)}
                     style={styles.leaveReviewBtn}>
@@ -497,7 +507,9 @@ export default function MyBagsScreen() {
                   </Pressable>
                 ) : null}
 
-                {isReviewEligibleOrderStatus(item.status) && item.review ? (
+                {tab === 'past' &&
+                normalizeOrderStatus(item.status) === 'picked_up' &&
+                item.review ? (
                   <View style={styles.reviewedPill}>
                     <Text style={styles.reviewedPillText}>✓ Reviewed</Text>
                   </View>
@@ -527,8 +539,8 @@ export default function MyBagsScreen() {
 
       <SuccessToast
         visible={showPickupToast}
-        title="✓ Pickup confirmed!"
-        message="Your bag has been collected. Leave a review to help others!"
+        title="🎉 Pickup confirmed!"
+        message="Your bag has been collected. Enjoy your meal!"
         onHide={() => setShowPickupToast(false)}
       />
 

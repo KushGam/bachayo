@@ -25,6 +25,11 @@ export function isRevenueOrderStatus(status: string) {
   return normalized === 'confirmed' || normalized === 'picked_up';
 }
 
+/** Cash collected — picked up orders only. */
+export function isRealizedRevenueOrderStatus(status: string) {
+  return normalizeOrderStatus(status) === 'picked_up';
+}
+
 /** Status written when creating a new reservation on legacy DBs. */
 export const NEW_RESERVATION_DB_STATUS = 'paid' as const;
 

@@ -3,7 +3,6 @@ import { LayoutGrid, QrCode, ShoppingBag, Star, User } from 'lucide-react-native
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { ScreenErrorBoundary } from '@/components/ui/ScreenErrorBoundary';
-import { Palette } from '@/constants/Colors';
 
 function ScanTabIcon() {
   return (
@@ -18,8 +17,8 @@ export default function PartnerTabLayout() {
     <ScreenErrorBoundary fallbackTitle="Something went wrong">
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: Palette.primary,
-          tabBarInactiveTintColor: '#9CA3AF',
+          tabBarActiveTintColor: '#D85A30',
+          tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
           tabBarLabelStyle: styles.tabLabel,
           tabBarStyle: styles.tabBar,
           headerShown: false,
@@ -76,8 +75,8 @@ export default function PartnerTabLayout() {
             href: null,
             lazy: true,
             headerShown: true,
-            headerStyle: { backgroundColor: Palette.white },
-            headerTintColor: Palette.primary,
+            headerStyle: { backgroundColor: '#FFFFFF' },
+            headerTintColor: '#D85A30',
             headerShadowVisible: false,
           }}
         />
@@ -89,16 +88,16 @@ export default function PartnerTabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Palette.white,
+    backgroundColor: '#1A1A1A',
     borderTopWidth: 0,
     height: 84,
     paddingBottom: 24,
-    paddingTop: 8,
+    paddingTop: 10,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
         shadowOffset: { width: 0, height: -4 },
       },
       android: { elevation: 10 },
@@ -125,11 +124,11 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#D85A30',
-        shadowOpacity: 0.35,
-        shadowRadius: 10,
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
       },
-      android: { elevation: 6 },
+      android: { elevation: 10 },
       default: {},
     }),
   },
