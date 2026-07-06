@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/AuthButton';
 import { AuthDivider } from '@/components/auth/AuthDivider';
@@ -87,6 +88,15 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (Constants.appOwnership === 'expo') {
+      Alert.alert(
+        'Sign in with phone or email',
+        'Google Sign-In is available in the full LastBag app. For now please use your phone number or email address.',
+        [{ text: 'Got it', style: 'default' }],
+      );
+      return;
+    }
+
     setSubmitError(null);
     setGoogleLoading(true);
 
@@ -96,7 +106,7 @@ export default function LoginScreen() {
         setSubmitError(t(locale, 'authError'));
       }
     } catch {
-      setSubmitError(t(locale, 'authError'));
+      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
     } finally {
       setGoogleLoading(false);
     }

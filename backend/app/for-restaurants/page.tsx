@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
   return (
@@ -283,10 +284,12 @@ export default function ForRestaurantsPage() {
           <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
             Join LastBag and turn surplus food into rescue bags customers reserve for free.
           </p>
-          <div className="mt-10">
-            <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
+          <div className="mt-10 mx-auto max-w-sm">
+            <ContactTrialCta className="inline-flex w-full items-center justify-center rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
               Start your free trial →
             </ContactTrialCta>
+            <p className="my-4 text-center text-sm text-white/60">Already have an account?</p>
+            <GoogleSignInButton />
           </div>
         </div>
       </section>

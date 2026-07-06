@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { HeroPhoneMockup } from '@/components/HeroPhoneMockup';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
 
@@ -388,6 +389,10 @@ export default function HomeLanding() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <AppStoreButton />
             <GooglePlayButton />
+          </div>
+          <div className="mx-auto mt-8 max-w-sm">
+            <p className="mb-3 text-center text-sm text-[#6B7280]">Or sign in on the web</p>
+            <GoogleSignInButton />
           </div>
         </div>
       </section>

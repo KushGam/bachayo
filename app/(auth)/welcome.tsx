@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/AuthButton';
 import { LastBagLogo } from '@/components/auth/LastBagLogo';
@@ -33,6 +34,15 @@ export default function WelcomeScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (Constants.appOwnership === 'expo') {
+      Alert.alert(
+        'Sign in with phone or email',
+        'Google Sign-In is available in the full LastBag app. For now please use your phone number or email address.',
+        [{ text: 'Got it', style: 'default' }],
+      );
+      return;
+    }
+
     setAuthError(null);
     setGoogleLoading(true);
 
@@ -42,7 +52,7 @@ export default function WelcomeScreen() {
         setAuthError(t(locale, 'authError'));
       }
     } catch {
-      setAuthError(t(locale, 'authError'));
+      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
     } finally {
       setGoogleLoading(false);
     }
