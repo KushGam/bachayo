@@ -283,7 +283,7 @@ export default function PartnerDetailScreen() {
     try {
       const detail = await fetchPartnerDetail(id);
       if (!isPartnerApproved(detail.partner)) {
-        Alert.alert('Not available', 'This restaurant is not yet available on Bachayo.', [
+        Alert.alert('Not available', 'This restaurant is not yet available on LastBag.', [
           { text: 'OK', onPress: () => router.back() },
         ]);
         setData(null);
@@ -438,7 +438,7 @@ export default function PartnerDetailScreen() {
     if (!partner) return;
     const priceLine = lowestPrice ? ` Rescue bags from ${formatNprFromPaisa(lowestPrice)}` : '';
     await Share.share({
-      message: `Check out ${partner.name} on Bachayo!${priceLine} 🛍 bachayo.app`,
+      message: `Check out ${partner.name} on LastBag!${priceLine} 🛍 lastbag.app`,
     });
   };
 

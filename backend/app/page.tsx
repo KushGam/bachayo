@@ -131,9 +131,9 @@ function AboutPreviewSection() {
   return (
     <section id="about" className="bg-[#F5F3EF] py-24">
       <div className="max-w-6xl mx-auto px-6">
-        <h2 className="text-4xl font-bold text-center text-[#1A1A1A]">Why Bachayo exists</h2>
+        <h2 className="text-4xl font-bold text-center text-[#1A1A1A]">Why LastBag exists</h2>
         <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto leading-relaxed">
-          Good food gets thrown away every day in Nepal. Bachayo connects that surplus with people
+          Good food gets thrown away every day in Nepal. LastBag connects that surplus with people
           nearby who want to save money — without commissions eating into partner earnings.
         </p>
 
@@ -167,7 +167,7 @@ function AboutPreviewSection() {
           <Link
             href="/about"
             className="inline-flex items-center justify-center bg-[#D85A30] text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-[#993C1D] transition">
-            Learn more about Bachayo →
+            Learn more about LastBag →
           </Link>
         </div>
       </div>
@@ -188,7 +188,7 @@ function ComparisonSection() {
 
   return (
     <section className="bg-white py-24">
-      <h2 className="text-4xl font-bold text-center">Why Bachayo?</h2>
+      <h2 className="text-4xl font-bold text-center">Why LastBag?</h2>
       <div className="max-w-3xl mx-auto mt-12 px-6 overflow-x-auto hide-scrollbar">
         <table className="w-full min-w-[720px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[#F0EDE8]">
           <thead>
@@ -196,7 +196,7 @@ function ComparisonSection() {
               <th className="py-4 px-6 text-left"> </th>
               <th className="py-4 px-6 text-center">Throwing away</th>
               <th className="py-4 px-6 text-center">Discount apps</th>
-              <th className="py-4 px-6 text-center bg-[#D85A30] text-white font-bold rounded-t-2xl">Bachayo ✓</th>
+              <th className="py-4 px-6 text-center bg-[#D85A30] text-white font-bold rounded-t-2xl">LastBag ✓</th>
             </tr>
           </thead>
           <tbody>
@@ -230,7 +230,7 @@ export default function HomeLanding() {
     {
       id: 'pay',
       q: 'Do I pay in the app?',
-      a: 'No — Bachayo is free to use. You reserve your bag for free and pay at the counter when you pick up. Cash, eSewa, or Khalti — whatever the restaurant accepts.',
+      a: 'No — LastBag is free to use. You reserve your bag for free and pay at the counter when you pick up. Cash, eSewa, or Khalti — whatever the restaurant accepts.',
     },
     {
       id: 'cancel',
@@ -239,7 +239,7 @@ export default function HomeLanding() {
     },
     {
       id: 'city',
-      q: 'Is Bachayo available in my city?',
+      q: 'Is LastBag available in my city?',
       a: 'We are launching in Kathmandu first, with Lalitpur, Pokhara, and Bharatpur following soon. Join the waitlist in the footer to get notified.',
     },
     {
@@ -344,7 +344,7 @@ export default function HomeLanding() {
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-white text-3xl font-bold text-center">Every bag rescued makes a difference</h2>
           <LiveImpactStats />
-          <div className="text-white/50 text-xs text-center mt-8">Numbers update as Bachayo grows 🌱</div>
+          <div className="text-white/50 text-xs text-center mt-8">Numbers update as LastBag grows 🌱</div>
         </div>
       </section>
 
@@ -373,7 +373,7 @@ export default function HomeLanding() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold text-white mt-4">Turn surplus food into revenue</h2>
           <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
-            Join Bachayo as a restaurant partner with a 30-day free trial.
+            Join LastBag as a restaurant partner with a 30-day free trial.
           </p>
           <ContactTrialCta className="mt-10 inline-block rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
             Start free trial →
@@ -383,7 +383,7 @@ export default function HomeLanding() {
 
       <section id="download" className="bg-white py-24">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold">Download Bachayo</h2>
+          <h2 className="text-4xl font-bold">Download LastBag</h2>
           <p className="text-[#6B7280] text-lg mt-4">Free to download. Free to reserve. Pay only at pickup.</p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <AppStoreButton />

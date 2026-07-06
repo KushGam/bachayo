@@ -1,4 +1,4 @@
--- Bachayo food rescue app — initial schema
+-- LastBag food rescue app — initial schema
 
 -- ---------------------------------------------------------------------------
 -- Extensions

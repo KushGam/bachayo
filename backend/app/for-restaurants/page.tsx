@@ -10,7 +10,7 @@ function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
       className={`inline-flex items-center text-2xl font-extrabold tracking-tight ${
         variant === 'light' ? 'text-white' : 'text-[#D85A30]'
       }`}>
-      Bachayo
+      LastBag
     </span>
   );
 }
@@ -19,7 +19,7 @@ export default function ForRestaurantsPage() {
   const faqItems = [
     {
       id: 'signup',
-      q: 'How do I join Bachayo as a partner?',
+      q: 'How do I join LastBag as a partner?',
       a: 'Sign up for a free 30-day trial. We’ll help you list your first rescue bag in minutes — no payment required to get started.',
     },
     {
@@ -35,7 +35,7 @@ export default function ForRestaurantsPage() {
     {
       id: 'payments',
       q: 'When do I get paid?',
-      a: 'You collect payment directly at pickup — cash, eSewa, Khalti, or whatever you accept. Bachayo does not process payments.',
+      a: 'You collect payment directly at pickup — cash, eSewa, Khalti, or whatever you accept. LastBag does not process payments.',
     },
     {
       id: 'subscription',
@@ -117,7 +117,7 @@ export default function ForRestaurantsPage() {
             How it works for restaurants
           </div>
           <h2 className="text-4xl font-bold text-center text-[#1A1A1A] mt-3">
-            How Bachayo works for restaurants
+            How LastBag works for restaurants
           </h2>
 
           <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -228,7 +228,7 @@ export default function ForRestaurantsPage() {
       {/* WHY PARTNER */}
       <section className="bg-[#F5F3EF] py-24">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Why partner with Bachayo</h2>
+          <h2 className="text-4xl font-bold text-center">Why partner with LastBag</h2>
           <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto">
             A straightforward platform built for Nepal&apos;s restaurants — no per-order commissions,
             no complicated setup.
@@ -238,7 +238,7 @@ export default function ForRestaurantsPage() {
               {
                 icon: '💰',
                 title: 'Keep 100% of sales',
-                desc: 'You collect payment directly at pickup. Bachayo charges one flat monthly subscription — nothing per order.',
+                desc: 'You collect payment directly at pickup. LastBag charges one flat monthly subscription — nothing per order.',
               },
               {
                 icon: '⚡',
@@ -281,7 +281,7 @@ export default function ForRestaurantsPage() {
           </div>
           <h2 className="text-4xl font-bold text-white mt-4">Ready to reduce waste and earn more?</h2>
           <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
-            Join Bachayo and turn surplus food into rescue bags customers reserve for free.
+            Join LastBag and turn surplus food into rescue bags customers reserve for free.
           </p>
           <div className="mt-10">
             <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">

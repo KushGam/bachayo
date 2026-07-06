@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/AuthButton';
-import { BachayoLogo } from '@/components/auth/BachayoLogo';
+import { LastBagLogo } from '@/components/auth/LastBagLogo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { LanguageToggle } from '@/components/auth/LanguageToggle';
 import { Screen } from '@/components/Screen';
@@ -57,9 +57,9 @@ export default function WelcomeScreen() {
       <LanguageToggle locale={locale} onChange={setLocale} />
 
       <View style={styles.hero}>
-        <BachayoLogo />
+        <LastBagLogo />
         <Text style={styles.tagline}>{t(locale, 'tagline')}</Text>
-        <Text style={styles.subtagline}>Nepal&apos;s food rescue marketplace</Text>
+        <Text style={styles.subtagline}>Rescue food. Save money.</Text>
         {accountRemoved === '1' ? (
           <View style={styles.removedBanner}>
             <Text style={styles.removedText}>

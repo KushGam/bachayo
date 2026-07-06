@@ -72,7 +72,7 @@ export default function PartnerRejectedScreen() {
         </View>
         <Text style={styles.title}>Application not approved</Text>
         <Text style={styles.subtitle}>
-          Unfortunately we can&apos;t approve your Bachayo partner account right now.
+          Unfortunately we can&apos;t approve your LastBag partner account right now.
         </Text>
         {reason ? (
           <View style={styles.reasonCard}>

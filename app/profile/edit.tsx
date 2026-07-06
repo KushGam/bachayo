@@ -132,7 +132,8 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [hasEmailAuth, setHasEmailAuth] = useState(false);
+  const [hasPasswordAuth, setHasPasswordAuth] = useState(false);
+  const [isGoogleAuth, setIsGoogleAuth] = useState(false);
   const [initial, setInitial] = useState<FormSnapshot | null>(null);
 
   const [fullName, setFullName] = useState('');
@@ -173,7 +174,6 @@ export default function EditProfileScreen() {
     };
     return (
       current.fullName !== initial.fullName ||
-      current.email !== initial.email ||
       current.dobIso !== initial.dobIso ||
       current.cityId !== initial.cityId ||
       current.areaId !== initial.areaId ||
@@ -205,9 +205,8 @@ export default function EditProfileScreen() {
 
     setUserId(sessionUser.id);
     const identities = sessionUser.identities ?? [];
-    setHasEmailAuth(
-      identities.some((identity) => identity.provider === 'email') || Boolean(sessionUser.email),
-    );
+    setHasPasswordAuth(identities.some((identity) => identity.provider === 'email'));
+    setIsGoogleAuth(identities.some((identity) => identity.provider === 'google'));
 
     const { data, error } = await supabase
       .from('profiles')
@@ -368,7 +367,6 @@ export default function EditProfileScreen() {
         .from('profiles')
         .update({
           full_name: trimmedName,
-          email: email.trim() || null,
           date_of_birth: toIsoDate(dob),
           home_area: areaLabel,
           city_id: cityId,
@@ -531,15 +529,20 @@ export default function EditProfileScreen() {
             <Text style={styles.fieldLabel}>Email address</Text>
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              editable={false}
               placeholder="your@email.com"
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
               autoCapitalize="none"
-              style={[styles.input, focusedField === 'email' && styles.inputFocused]}
-              onFocus={() => setFocusedField('email')}
-              onBlur={() => setFocusedField(null)}
+              style={[styles.input, styles.inputReadOnly]}
             />
+            <Text style={styles.fieldSubtext}>
+              {isGoogleAuth
+                ? 'You sign in with Google. This email is managed by your Google account.'
+                : hasPasswordAuth
+                  ? 'To change your login email, use Change email in the Account section below.'
+                  : 'Email is linked to your sign-in method and cannot be edited here.'}
+            </Text>
           </View>
 
           <View style={styles.field}>
@@ -613,7 +616,19 @@ export default function EditProfileScreen() {
             </Pressable>
           </View>
 
-          {hasEmailAuth ? (
+          {hasPasswordAuth ? (
+            <View style={[styles.accountRow, styles.accountRowBorder]}>
+              <View style={styles.accountCopy}>
+                <Text style={styles.accountLabel}>Email</Text>
+                <Text style={styles.accountValue}>{email || 'Not set'}</Text>
+              </View>
+              <Pressable onPress={() => router.push('/(auth)/change-email')}>
+                <Text style={styles.linkAction}>Change →</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {hasPasswordAuth ? (
             <View style={[styles.accountRow, styles.accountRowBorder]}>
               <View style={styles.accountCopy}>
                 <Text style={styles.accountLabel}>Password</Text>
@@ -824,6 +839,10 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: '#D85A30',
     backgroundColor: Palette.white,
+  },
+  inputReadOnly: {
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
   },
   inputError: {
     borderColor: '#E24B4A',

@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEYS = {
-  bagListed: 'bachayo_milestone_bag_listed',
-  orderReceived: 'bachayo_milestone_order_received',
-  pickupConfirmed: 'bachayo_milestone_pickup_confirmed',
+  bagListed: 'lastbag_milestone_bag_listed',
+  orderReceived: 'lastbag_milestone_order_received',
+  pickupConfirmed: 'lastbag_milestone_pickup_confirmed',
 } as const;
 
 export type PartnerMilestone = keyof typeof KEYS;

@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BachayoLogo } from '@/components/auth/BachayoLogo';
+import { LastBagLogo } from '@/components/auth/LastBagLogo';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 
@@ -31,7 +31,7 @@ export function AuthScreenHeader({
       <View style={styles.content}>
         {showLogo ? (
           <View style={styles.logoRow}>
-            <BachayoLogo size="sm" />
+            <LastBagLogo size="sm" />
           </View>
         ) : null}
 

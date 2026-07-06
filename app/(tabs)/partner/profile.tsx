@@ -56,7 +56,7 @@ const COVER_HEIGHT = 200;
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 const SHARE_MESSAGE =
-  "I'm using Bachayo to sell my surplus food and reduce waste! Join me — it's free to try for 30 days. Download at bachayo.app 🛍";
+  "I'm using LastBag to sell my surplus food and reduce waste! Join me — it's free to try for 30 days. Download at lastbag.app 🛍";
 
 function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
@@ -427,7 +427,7 @@ export default function PartnerProfileScreen() {
             onPress={() =>
               Alert.alert(
                 'Change phone',
-                'Phone changes require OTP re-verification. Contact support@bachayo.app for help.',
+                'Phone changes require OTP re-verification. Contact support@lastbag.app for help.',
               )
             }
           />
@@ -503,7 +503,7 @@ export default function PartnerProfileScreen() {
           />
           <ProfileMenuRow
             emoji="ℹ️"
-            label="About Bachayo"
+            label="About LastBag"
             subtitle="Made in Nepal 🇳🇵"
             showChevron={false}
             isLast
@@ -519,7 +519,7 @@ export default function PartnerProfileScreen() {
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
 
-        <Text style={styles.footerTagline}>Bachayo · Rescue food, save money 🛍</Text>
+        <Text style={styles.footerTagline}>LastBag · Rescue food, save money 🛍</Text>
         <Text style={styles.footerVersion}>Version {APP_VERSION} · Nepal 🇳🇵</Text>
       </ScrollView>
 

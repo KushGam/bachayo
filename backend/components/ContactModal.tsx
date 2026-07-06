@@ -3,10 +3,10 @@
 import { Mail, MessageCircle, Phone, X } from 'lucide-react';
 
 const WHATSAPP_URL =
-  'https://wa.me/61405290710?text=Hi%2C%20I%20run%20a%20restaurant%20and%20I%27m%20interested%20in%20joining%20Bachayo%20as%20a%20partner.%20Can%20you%20help%20me%20get%20started%3F';
+  'https://wa.me/61405290710?text=Hi%2C%20I%20run%20a%20restaurant%20and%20I%27m%20interested%20in%20joining%20LastBag%20as%20a%20partner.%20Can%20you%20help%20me%20get%20started%3F';
 
 const EMAIL_URL =
-  'mailto:hello@bachayo.app?subject=I want to join Bachayo as a restaurant partner&body=Hi, I run a restaurant and I\'m interested in joining Bachayo. Please contact me to get started.';
+  'mailto:hello@lastbag.app?subject=I want to join LastBag as a restaurant partner&body=Hi, I run a restaurant and I\'m interested in joining LastBag. Please contact me to get started.';
 
 export function ContactModal({
   isOpen,
@@ -94,14 +94,14 @@ export function ContactModal({
               </div>
               <div className="flex-1">
                 <div className="text-base font-semibold text-[#1A1A1A]">Email us</div>
-                <div className="text-sm text-[#6B7280]">hello@bachayo.app</div>
+                <div className="text-sm text-[#6B7280]">hello@lastbag.app</div>
               </div>
               <div className="text-sm text-[#9CA3AF]">→</div>
             </a>
           </div>
 
           <p className="mt-6 text-center text-xs text-[#9CA3AF]">
-            We&apos;ll walk you through setup and have your restaurant live on Bachayo same day 🚀
+            We&apos;ll walk you through setup and have your restaurant live on LastBag same day 🚀
           </p>
         </div>
       </div>

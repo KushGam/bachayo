@@ -74,7 +74,7 @@ export async function verifyPayment(
 export function parsePaymentCallbackUrl(url: string): PaymentVerifyParams | null {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'bachayo:') return null;
+    if (parsed.protocol !== 'lastbag:') return null;
 
     const gateway = (parsed.searchParams.get('gateway') ?? 'esewa') as PaymentGateway;
     const orderId = parsed.searchParams.get('orderId') ?? '';

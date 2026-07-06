@@ -12,7 +12,7 @@ export default function AboutPage() {
         <div className="relative max-w-4xl mx-auto px-6 text-center">
           <FadeIn delay={0}>
             <p className="text-white/70 text-sm uppercase tracking-widest font-semibold">About us</p>
-            <h1 className="mt-4 text-5xl md:text-6xl font-bold text-white leading-tight">Bachayo</h1>
+            <h1 className="mt-4 text-5xl md:text-6xl font-bold text-white leading-tight">LastBag</h1>
             <p className="mt-6 text-xl text-white/80 leading-relaxed max-w-2xl mx-auto">
               Rescue surplus food. Save money. Reduce waste — built for Nepal.
             </p>
@@ -36,12 +36,12 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* What Bachayo does */}
+      {/* What LastBag does */}
       <section className="py-24 bg-[#F5F3EF]">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center text-[#1A1A1A]">What Bachayo does</h2>
+          <h2 className="text-3xl font-bold text-center text-[#1A1A1A]">What LastBag does</h2>
           <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto leading-relaxed">
-            Bachayo is a food rescue platform that connects businesses with surplus food to customers
+            LastBag is a food rescue platform that connects businesses with surplus food to customers
             who want to save money and reduce waste.
           </p>
 
@@ -120,7 +120,7 @@ export default function AboutPage() {
             surprise is part of the experience.
           </p>
           <p className="mt-4 text-[#6B7280] leading-relaxed">
-            Bachayo is a reservation platform. We don&apos;t prepare, handle, or deliver food. Partners
+            LastBag is a reservation platform. We don&apos;t prepare, handle, or deliver food. Partners
             are responsible for the quality and safety of what they sell. Customers reserve in the app
             and pay directly at pickup.
           </p>
@@ -132,7 +132,7 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-[#1A1A1A]">Where we&apos;re launching</h2>
           <p className="mt-4 text-[#6B7280] max-w-xl mx-auto">
-            Bachayo is rolling out across Nepal, starting with Kathmandu and expanding to more cities.
+            LastBag is rolling out across Nepal, starting with Kathmandu and expanding to more cities.
           </p>
           <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
@@ -158,7 +158,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-white">Join the food rescue movement</h2>
           <p className="mt-4 text-white/70 max-w-xl mx-auto">
-            Whether you want to save on meals or list surplus from your business, Bachayo is here to
+            Whether you want to save on meals or list surplus from your business, LastBag is here to
             help.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">

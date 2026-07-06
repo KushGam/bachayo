@@ -441,7 +441,7 @@ export default function AddBagScreen() {
 
   const shareWhatsApp = async () => {
     if (!successPayload) return;
-    const message = `We just listed a rescue bag on Bachayo! Get ${successPayload.title} for only ${formatRsNpr(successPayload.priceNpr)}. Pick up ${successPayload.pickup}. Download Bachayo!`;
+    const message = `We just listed a rescue bag on LastBag! Get ${successPayload.title} for only ${formatRsNpr(successPayload.priceNpr)}. Pick up ${successPayload.pickup}. Download LastBag!`;
     try {
       await Share.share({ message });
     } catch {

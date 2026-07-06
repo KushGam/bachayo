@@ -57,7 +57,7 @@ type SettingsRowProps = {
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 const SHARE_MESSAGE =
-  "I'm rescuing food with Bachayo! Download it to find discounted meals near you 🛍";
+  "I'm rescuing food with LastBag! Download it to find discounted meals near you 🛍";
 
 function formatFoodPreferences(prefs: string[] | null | undefined) {
   if (!prefs?.length) return 'Not set';
@@ -175,7 +175,7 @@ export default function ProfileScreen() {
           profileRow?.full_name ||
           profileRow?.phone ||
           sessionUser.email?.split('@')[0] ||
-          'Bachayo user',
+          'LastBag user',
         email: sessionUser.email ?? null,
         phone: profileRow?.phone ?? null,
         avatarUrl: profileRow?.avatar_url ?? null,
@@ -253,8 +253,8 @@ export default function ProfileScreen() {
   const handleRate = () => {
     const storeUrl = Platform.select({
       ios: 'https://apps.apple.com/app/id0000000000',
-      android: 'market://details?id=com.bachayo.app',
-      default: 'https://bachayo.com',
+      android: 'market://details?id=com.lastbag.app',
+      default: 'https://lastbag.com',
     });
     if (storeUrl) void Linking.openURL(storeUrl);
   };
@@ -408,15 +408,15 @@ export default function ProfileScreen() {
             <SectionLabel>Support</SectionLabel>
             <SettingsCard>
               <SettingsRow emoji="❓" label="Help & support" onPress={handleHelp} />
-              <SettingsRow emoji="⭐" label="Rate Bachayo" onPress={handleRate} />
-              <SettingsRow emoji="📤" label="Share Bachayo" onPress={handleShare} />
+              <SettingsRow emoji="⭐" label="Rate LastBag" onPress={handleRate} />
+              <SettingsRow emoji="📤" label="Share LastBag" onPress={handleShare} />
               <SettingsRow emoji="📋" label="Terms of Service" onPress={handleTerms} />
               <SettingsRow emoji="🔒" label="Privacy Policy" onPress={handlePrivacy} isLast />
             </SettingsCard>
 
             <SectionLabel>About</SectionLabel>
             <SettingsCard>
-              <SettingsRow emoji="ℹ️" label="About Bachayo" onPress={handleAbout} />
+              <SettingsRow emoji="ℹ️" label="About LastBag" onPress={handleAbout} />
               <SettingsRow
                 emoji="🇳🇵"
                 label="Made in Nepal"
@@ -478,7 +478,7 @@ export default function ProfileScreen() {
           </>
         )}
 
-        <Text style={styles.footerTagline}>Bachayo · Rescue food, save money 🛍</Text>
+        <Text style={styles.footerTagline}>LastBag · Rescue food, save money 🛍</Text>
         <Text style={styles.footerVersion}>Version {APP_VERSION}</Text>
       </ScrollView>
 

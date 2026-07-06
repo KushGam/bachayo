@@ -5,7 +5,7 @@
 export const paymentConfig = {
   esewaMerchantCode: process.env.EXPO_PUBLIC_ESEWA_MERCHANT_CODE ?? 'EPAYTEST',
   khaltiPublicKey: process.env.EXPO_PUBLIC_KHALTI_PUBLIC_KEY ?? '',
-  paymentCallbackUrl: 'bachayo://payment/callback',
+  paymentCallbackUrl: 'lastbag://payment/callback',
 } as const;
 
 export type PaymentGateway = 'esewa' | 'khalti';

@@ -6,7 +6,7 @@ import { HomeMarketDigest } from '@/components/customer/HomeMarketDigest';
 import { HomeNearbyEmpty } from '@/components/customer/HomeNearbyEmpty';
 import { HomeRecentSearches } from '@/components/customer/HomeRecentSearches';
 import { HomeSearchResultRow, HomeSearchResultSkeleton } from '@/components/customer/HomeSearchResultRow';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -161,6 +161,12 @@ export default function HomeScreen() {
     void loadActiveOrder();
     void loadReservedBagIds();
   }, [loadActiveOrder, loadProfile, loadReservedBagIds]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
 
   useEffect(() => {
     void (async () => {

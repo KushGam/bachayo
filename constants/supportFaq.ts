@@ -9,9 +9,9 @@ export const CUSTOMER_FAQ: FaqItem[] = [
   {
     id: 'how-it-works',
     audience: 'customer',
-    question: 'How does Bachayo work?',
+    question: 'How does LastBag work?',
     answer:
-      'Bachayo connects you with restaurants, cafes, bakeries, marts, and hotels that have surplus food at the end of the day. Browse rescue bags near you, reserve one for free, then pick it up during the stated time window and pay at the counter.',
+      'LastBag connects you with restaurants, cafes, bakeries, marts, and hotels that have surplus food at the end of the day. Browse rescue bags near you, reserve one for free, then pick it up during the stated time window and pay at the counter.',
   },
   {
     id: 'cost',
@@ -46,12 +46,12 @@ export const CUSTOMER_FAQ: FaqItem[] = [
     audience: 'customer',
     question: 'What if the food quality is bad?',
     answer:
-      'We\'re sorry to hear that. Please tap "Report an issue" in your order details or contact us at support@bachayo.app. We take food safety seriously and will follow up with the restaurant.',
+      'We\'re sorry to hear that. Please tap "Report an issue" in your order details or contact us at support@lastbag.app. We take food safety seriously and will follow up with the restaurant.',
   },
   {
     id: 'cities',
     audience: 'customer',
-    question: 'Is Bachayo available outside Kathmandu?',
+    question: 'Is LastBag available outside Kathmandu?',
     answer:
       "We're currently launching in Kathmandu, Lalitpur, Pokhara, and Bharatpur. More cities coming soon!",
   },
@@ -66,7 +66,7 @@ export const CUSTOMER_FAQ: FaqItem[] = [
     audience: 'customer',
     question: "I didn't receive my OTP. What do I do?",
     answer:
-      'Check that you entered the correct phone number. OTPs can take up to 60 seconds. If you still don\'t receive it, tap "Resend OTP". If the problem persists, contact us at support@bachayo.app.',
+      'Check that you entered the correct phone number. OTPs can take up to 60 seconds. If you still don\'t receive it, tap "Resend OTP". If the problem persists, contact us at support@lastbag.app.',
   },
 ];
 
@@ -83,14 +83,14 @@ export const PARTNER_FAQ: FaqItem[] = [
     audience: 'partner',
     question: 'When do I get paid?',
     answer:
-      'You collect payment directly from customers at pickup — cash, eSewa, Khalti, or any method you accept. Bachayo does not handle payments.',
+      'You collect payment directly from customers at pickup — cash, eSewa, Khalti, or any method you accept. LastBag does not handle payments.',
   },
   {
     id: 'subscription',
     audience: 'partner',
     question: 'How does the subscription work?',
     answer:
-      'You get 30 days free to try Bachayo. After that, choose a plan based on your business size. Your listings are paused if subscription lapses. Go to Profile → Subscription & billing to manage.',
+      'You get 30 days free to try LastBag. After that, choose a plan based on your business size. Your listings are paused if subscription lapses. Go to Profile → Subscription & billing to manage.',
   },
   {
     id: 'scan-qr',
@@ -126,7 +126,7 @@ export const SUPPORT_SUBJECTS = [
 
 export type SupportSubject = (typeof SUPPORT_SUBJECTS)[number];
 
-export const SUPPORT_EMAIL = 'support@bachayo.app';
+export const SUPPORT_EMAIL = 'support@lastbag.app';
 
 /** Replace with your WhatsApp Business number (country code, no +). */
 export const SUPPORT_WHATSAPP = '9779800000000';

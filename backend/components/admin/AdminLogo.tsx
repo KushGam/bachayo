@@ -12,7 +12,7 @@ export function AdminLogo({ variant = 'dark' }: { variant?: 'dark' | 'light' }) 
         />
         <path d="M11 8.5h6" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
-      <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>Bachayo</span>
+      <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>LastBag</span>
       <span className="ml-1 rounded bg-[#D85A30] px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-white">
         ADMIN
       </span>

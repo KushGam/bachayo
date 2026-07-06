@@ -49,13 +49,13 @@ export async function POST(request: NextRequest) {
     const phone = String(partner.phone ?? '—');
     const createdAt = String(partner.created_at ?? new Date().toISOString());
 
-    const adminEmail = process.env.ADMIN_NOTIFY_EMAIL ?? 'hello@bachayo.app';
+    const adminEmail = process.env.ADMIN_NOTIFY_EMAIL ?? 'hello@lastbag.app';
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
       await resend.emails.send({
-        from: 'Bachayo <noreply@bachayo.app>',
+        from: 'LastBag <noreply@lastbag.app>',
         to: adminEmail,
         subject: `New restaurant signup — ${name}`,
         html: `

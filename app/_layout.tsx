@@ -139,6 +139,7 @@ function RootLayoutNav() {
         <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
         <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
         <Stack.Screen name="admin/subscriptions" options={{ title: 'Subscriptions', headerShown: true }} />
+        <Stack.Screen name="auth/callback" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="payment/callback" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>

@@ -11,7 +11,7 @@ import type { UserRole } from '@/types/database';
 WebBrowser.maybeCompleteAuthSession();
 
 const googleRedirectUri = makeRedirectUri({
-  scheme: 'bachayo',
+  scheme: 'lastbag',
   path: 'auth/callback',
 });
 
@@ -19,7 +19,7 @@ export type GoogleSignInResult =
   | { status: 'cancelled' }
   | { status: 'success'; userId: string; hasProfile: boolean };
 
-async function createSessionFromUrl(url: string) {
+export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url);
 
   if (errorCode) {

@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BachayoLogo } from '@/components/auth/BachayoLogo';
+import { LastBagLogo } from '@/components/auth/LastBagLogo';
 import { Palette } from '@/constants/Colors';
 import { LANDING_STATS } from '@/constants/stats';
 import { Radius } from '@/constants/theme';
@@ -76,7 +76,7 @@ const BENEFITS = [
 ] as const;
 
 const TESTIMONIAL = {
-  quote: 'We sell 8–12 bags every evening. Bachayo turned our leftovers into steady income.',
+  quote: 'We sell 8–12 bags every evening. LastBag turned our leftovers into steady income.',
   name: 'Himalayan Kitchen',
   area: 'Thamel, Kathmandu',
 };
@@ -186,7 +186,7 @@ export default function PartnerWelcomeScreen() {
             <View style={styles.heroTopRow}>
               <BackButton onPress={goBack} />
               <View style={styles.logoChip}>
-                <BachayoLogo size="sm" variant="dark" />
+                <LastBagLogo size="sm" variant="dark" />
               </View>
               <View style={styles.heroSpacer} />
             </View>
@@ -322,7 +322,7 @@ export default function PartnerWelcomeScreen() {
         </Animated.View>
 
         <View style={styles.trustRow}>
-          <BachayoLogo size="sm" />
+          <LastBagLogo size="sm" />
           <Text style={styles.trustText}>
             Join {LANDING_STATS.restaurantCount}+ Kathmandu venues cutting waste every day
           </Text>

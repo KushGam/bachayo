@@ -46,10 +46,10 @@ export async function POST(request: NextRequest) {
     const safeRole = escapeHtml(role ?? '—');
 
     const { error } = await resend.emails.send({
-      from: 'Bachayo Support <noreply@bachayo.app>',
-      to: 'support@bachayo.app',
+      from: 'LastBag Support <noreply@lastbag.app>',
+      to: 'support@lastbag.app',
       replyTo: email.trim(),
-      subject: `[Support] ${subject.trim()}`,
+      subject: `[LastBag Support] ${subject.trim()}`,
       html: `
         <h2>New support message</h2>
         <p><b>From:</b> ${safeEmail}</p>

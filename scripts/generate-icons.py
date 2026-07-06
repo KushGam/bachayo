@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Bachayo app icon assets from assets/images/iconapp.png."""
+"""Generate LastBag app icon assets from assets/images/iconapp.png."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def main() -> None:
     save_monochrome()
     save_splash()
     save_favicon()
-    print("Generated Bachayo icon assets from", SOURCE)
+    print("Generated LastBag icon assets from", SOURCE)
 
 
 if __name__ == "__main__":

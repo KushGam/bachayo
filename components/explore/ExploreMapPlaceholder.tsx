@@ -64,7 +64,7 @@ export function ExploreMapPlaceholder() {
         <Text style={styles.centerTitle}>Map coming soon</Text>
         <Text style={styles.centerSubtitle}>
           Full map view available in the{'\n'}
-          Bachayo app on the App Store
+          LastBag app on the App Store
         </Text>
       </View>
     </View>

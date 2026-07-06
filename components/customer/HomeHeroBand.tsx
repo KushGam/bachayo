@@ -70,7 +70,7 @@ export function HomeHeroBand({
       <StatusBar style="light" />
 
       <View style={styles.topRow}>
-        <Text style={styles.brand}>Bachayo</Text>
+        <Text style={styles.brand}>LastBag</Text>
         <View style={styles.actions}>
           <NotificationBellBadge onPress={() => router.push('/notifications')} />
           <Pressable

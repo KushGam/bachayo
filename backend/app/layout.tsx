@@ -19,18 +19,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Bachayo — Rescue food. Save money. Nepal.',
+  title: 'LastBag — Rescue food. Save money.',
   description:
-    'Find discounted rescue bags from restaurants, cafes, and bakeries in Kathmandu, Pokhara, Lalitpur and Bharatpur. Save up to 70% on great food while reducing waste.',
+    'Find discounted rescue bags from restaurants, cafes, and bakeries near you in Nepal. Save up to 70% on great food.',
   keywords:
-    'food rescue Nepal, discount food Kathmandu, surplus food app, Bachayo',
+    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag',
   metadataBase: new URL('https://bachayo.vercel.app'),
   openGraph: {
-    title: 'Bachayo — Rescue food. Save money.',
+    title: 'LastBag — Rescue food. Save money.',
     description:
       "Surplus rescue bags from Nepal's best restaurants at 50-70% off.",
     url: 'https://bachayo.vercel.app',
-    siteName: 'Bachayo',
+    siteName: 'LastBag',
     images: [
       {
         url: '/og-image.png',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bachayo — Rescue food. Save money.',
+    title: 'LastBag — Rescue food. Save money.',
     description: 'Find rescue bags near you in Nepal.',
     images: ['/og-image.png'],
   },

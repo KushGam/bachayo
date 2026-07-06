@@ -48,7 +48,7 @@ type TranslationKey =
 
 const translations: Record<Locale, Record<TranslationKey, string>> = {
   en: {
-    tagline: 'Save food. Save money.',
+    tagline: 'Rescue food. Save money.',
     customerCta: "I'm a customer",
     partnerCta: "I'm a restaurant / bakery",
     googleCta: 'Continue with Google',

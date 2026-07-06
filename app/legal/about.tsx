@@ -24,7 +24,7 @@ export default function AboutScreen() {
             <ChevronLeft size={20} color={Palette.primary} strokeWidth={2.5} />
           </Pressable>
         </View>
-        <Text style={styles.title}>About Bachayo</Text>
+        <Text style={styles.title}>About LastBag</Text>
       </View>
 
       <View style={styles.body}>
@@ -35,7 +35,7 @@ export default function AboutScreen() {
           Rescue surplus food. Save money. Reduce waste.
         </Text>
         <Text style={styles.description}>
-          Bachayo connects you with restaurants, cafes, bakeries, and marts selling surplus food at
+          LastBag connects you with restaurants, cafes, bakeries, and marts selling surplus food at
           rescue prices — helping you save money while keeping good food out of the bin.
         </Text>
         <Text style={styles.version}>Version {APP_VERSION}</Text>

@@ -73,7 +73,7 @@ export function LandingNavbar() {
             className={`text-2xl font-extrabold tracking-tight ${
               onHero ? 'text-white' : 'text-[#D85A30]'
             }`}>
-            Bachayo
+            LastBag
           </span>
         </Link>
 

@@ -166,7 +166,7 @@ export default function PartnerSubscriptionScreen() {
         </Text>
         <SubscriptionStatusBadge status={status} />
         {planSubtitle ? <Text style={styles.planMeta}>{planSubtitle}</Text> : null}
-        <Text style={styles.zeroCommission}>You keep 100% of every sale — Bachayo takes no commission.</Text>
+        <Text style={styles.zeroCommission}>You keep 100% of every sale — LastBag takes no commission.</Text>
         <Button label="Change plan" variant="secondary" size="md" onPress={() => setTierSheetOpen(true)} />
       </View>
 

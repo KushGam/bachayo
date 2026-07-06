@@ -30,7 +30,7 @@ export async function GET() {
             }}>
             🛍
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -0.5 }}>Bachayo</div>
+          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: -0.5 }}>LastBag</div>
         </div>
 
         <div style={{ marginTop: 44, fontSize: 58, fontWeight: 900, lineHeight: 1.02 }}>

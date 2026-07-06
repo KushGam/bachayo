@@ -78,7 +78,7 @@ export default function OrderConfirmedScreen() {
     const start = order.bag.pickup_start.slice(0, 5);
     const end = order.bag.pickup_end.slice(0, 5);
     openWhatsAppShare(
-      `I reserved a rescue bag at ${order.partner.name} on Bachayo! Picking up ${start}–${end} today 🛍`,
+      `I reserved a rescue bag at ${order.partner.name} on LastBag! Picking up ${start}–${end} today 🛍`,
     );
   };
 

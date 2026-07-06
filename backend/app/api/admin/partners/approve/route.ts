@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     await sendNotificationPayload(partner.user_id, {
       title: "You're approved! 🎉",
-      body: 'Welcome to Bachayo! Your dashboard is now unlocked. List your first rescue bag today!',
+      body: 'Welcome to LastBag! Your dashboard is now unlocked. List your first rescue bag today!',
       type: 'approval',
       data: { partner_id: partnerId },
     });

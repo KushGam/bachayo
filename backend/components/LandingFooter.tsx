@@ -7,7 +7,7 @@ import { WaitlistSignup } from '@/components/WaitlistSignup';
 function LogoMark() {
   return (
     <Link href="/" className="inline-flex items-center">
-      <span className="text-2xl font-extrabold tracking-tight text-white">Bachayo</span>
+      <span className="text-2xl font-extrabold tracking-tight text-white">LastBag</span>
     </Link>
   );
 }
@@ -92,7 +92,7 @@ export function LandingFooter() {
             <div className="text-white font-semibold mb-4">Company</div>
             <div className="space-y-2">
               <Link className="text-white/50 hover:text-white transition text-sm" href="/about">
-                About Bachayo
+                About LastBag
               </Link>
               <a className="text-white/50 hover:text-white transition text-sm" href="#">
                 Contact us
@@ -108,8 +108,8 @@ export function LandingFooter() {
         </div>
 
         <div className="border-t border-white/10 mt-12 pt-8 flex justify-between items-center">
-          <div className="text-white/30 text-xs">© 2026 Bachayo. Made with ❤️ in Nepal 🇳🇵</div>
-          <div className="text-white/30 text-xs">Rescue food. Save money. Zero waste.</div>
+          <div className="text-white/30 text-xs">© 2026 LastBag. Made with ❤️ in Nepal 🇳🇵</div>
+          <div className="text-white/30 text-xs">LastBag · Rescue food, save money 🛍</div>
         </div>
       </div>
     </footer>

@@ -183,7 +183,7 @@ export function partnerTrialEnding(input: {
 }): NotificationPayload {
   return {
     title: `Trial ends in ${input.daysLeft} days ⚠️`,
-    body: 'Add a payment method to keep your Bachayo listings live after your trial.',
+    body: 'Add a payment method to keep your LastBag listings live after your trial.',
     type: 'subscription',
     data: {
       partner_id: input.partnerId,

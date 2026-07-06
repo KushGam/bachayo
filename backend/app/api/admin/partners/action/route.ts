@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
         await notifyPartner(partnerId, {
           title: "You're approved! 🎉",
-          body: 'Your Bachayo dashboard is now unlocked. List your first bag today!',
+          body: 'Your LastBag dashboard is now unlocked. List your first bag today!',
         });
         break;
       }
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
 
         await notifyPartner(partnerId, {
           title: 'Account suspended',
-          body: `Your Bachayo account has been suspended. Reason: ${trimmedReason}. Call 0405290710 for support.`,
+          body: `Your LastBag account has been suspended. Reason: ${trimmedReason}. Call 0405290710 for support.`,
           type: 'approval',
           data: { status: 'suspended' },
         });
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 
         await notifyPartner(partnerId, {
           title: 'Account reactivated ✓',
-          body: 'Your Bachayo account is active again. Welcome back!',
+          body: 'Your LastBag account is active again. Welcome back!',
           type: 'approval',
           data: { status: 'approved' },
         });

@@ -2,7 +2,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { Palette } from '@/constants/Colors';
 
-type BachayoLeafIconProps = {
+type LastBagLeafIconProps = {
   size?: number;
   color?: string;
 };
@@ -10,10 +10,10 @@ type BachayoLeafIconProps = {
 /**
  * Leaf + rescue-bag mark — matches generated app icon assets.
  */
-export function BachayoLeafIcon({
+export function LastBagLeafIcon({
   size = 24,
   color = Palette.white,
-}: BachayoLeafIconProps) {
+}: LastBagLeafIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100" fill="none">
       <Path

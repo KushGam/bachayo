@@ -161,7 +161,7 @@ export default function CustomerBasicsScreen() {
 
       <SignupFieldGroup
         label="Sign-in details"
-        hint="How you'll log in to Bachayo"
+        hint="How you'll log in to LastBag"
         required>
         <AuthFormCard style={styles.cardCompact}>
           {authMethod === 'email' ? (

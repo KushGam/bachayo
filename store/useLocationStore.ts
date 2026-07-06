@@ -18,7 +18,7 @@ export const useLocationStore = create<LocationStore>()(
       setLocation: (cityId, areaId) => set({ cityId, areaId }),
     }),
     {
-      name: 'bachayo-location',
+      name: 'lastbag-location',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ cityId: state.cityId, areaId: state.areaId }),
     },

@@ -34,7 +34,7 @@ export function AppMark({ size = 'lg', onDark = false, style }: AppMarkProps) {
           borderRadius: onDark ? 0 : dimension * 0.22,
         }}
         resizeMode="contain"
-        accessibilityLabel="Bachayo"
+        accessibilityLabel="LastBag"
       />
     </View>
   );

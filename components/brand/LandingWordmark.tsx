@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BachayoLeafIcon } from '@/components/brand/BachayoLeafIcon';
+import { LastBagLeafIcon } from '@/components/brand/LastBagLeafIcon';
 import { Palette } from '@/constants/Colors';
 
 type LandingWordmarkProps = {
@@ -14,8 +14,8 @@ export function LandingWordmark({ height = 28 }: LandingWordmarkProps) {
 
   return (
     <View style={styles.row}>
-      <BachayoLeafIcon size={iconSize} color={Palette.white} />
-      <Text style={[styles.wordmark, { fontSize, lineHeight: height }]}>Bachayo</Text>
+      <LastBagLeafIcon size={iconSize} color={Palette.white} />
+      <Text style={[styles.wordmark, { fontSize, lineHeight: height }]}>LastBag</Text>
     </View>
   );
 }

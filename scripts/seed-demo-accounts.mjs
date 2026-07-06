@@ -3,7 +3,7 @@
  * ⚠️  NOT SQL — do not paste this file into the Supabase SQL editor.
  *     Run from your terminal:  node scripts/seed-demo-accounts.mjs
  *
- * Seed Bachayo demo accounts (run once per Supabase project).
+ * Seed LastBag demo accounts (run once per Supabase project).
  *
  *   Customer: 9846195558 / gautamkushal34@gmail.com
  *   Partner:  9846195557 / gautamkushal304@gmail.com

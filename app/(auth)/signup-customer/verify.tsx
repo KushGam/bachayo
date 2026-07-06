@@ -95,7 +95,7 @@ export default function CustomerVerifyScreen() {
         <Animated.View entering={ZoomIn.duration(400)} style={styles.successCard}>
           <Text style={styles.successEmoji}>🎉</Text>
           <Text style={styles.successTitle}>
-            Welcome to Bachayo, {customer.fullName.split(' ')[0]}!
+            Welcome to LastBag, {customer.fullName.split(' ')[0]}!
           </Text>
           <Text style={styles.successSubtitle}>Finding rescue bags near you…</Text>
         </Animated.View>
@@ -124,7 +124,7 @@ export default function CustomerVerifyScreen() {
       />
 
       <Text style={styles.copy}>
-        Tap finish to create your Bachayo account. You can log in with
+        Tap finish to create your LastBag account. You can log in with
         {customerAuthMethod === 'email' ? ' this email' : ' this phone number'} and your password
         next time.
       </Text>

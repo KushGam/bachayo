@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       const message = `total_amount=${totalAmount},transaction_uuid=${transactionUuid},product_code=${merchantCode}`;
       const signature = await hmacSha256Base64(message, secretKey);
 
-      const callbackBase = 'bachayo://payment/callback';
+      const callbackBase = 'lastbag://payment/callback';
       const successUrl = `${callbackBase}?gateway=esewa&status=success&orderId=${orderId}&transaction_uuid=${encodeURIComponent(transactionUuid)}`;
       const failureUrl = `${callbackBase}?gateway=esewa&status=failure&orderId=${orderId}&transaction_uuid=${encodeURIComponent(transactionUuid)}`;
 
@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'KHALTI_SECRET_KEY not configured' }, 500);
       }
 
-      const returnUrl = `bachayo://payment/callback?gateway=khalti&status=success&orderId=${orderId}`;
-      const websiteUrl = Deno.env.get('APP_WEBSITE_URL') ?? 'https://bachayo.app';
+      const returnUrl = `lastbag://payment/callback?gateway=khalti&status=success&orderId=${orderId}`;
+      const websiteUrl = Deno.env.get('APP_WEBSITE_URL') ?? 'https://lastbag.app';
 
       const response = await fetch(KHALTI_TEST_INITIATE_URL, {
         method: 'POST',
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
           website_url: websiteUrl,
           amount: amountPaisa ?? order.total_price,
           purchase_order_id: orderId,
-          purchase_order_name: 'Bachayo rescue bag',
+          purchase_order_name: 'LastBag rescue bag',
         }),
       });
 
