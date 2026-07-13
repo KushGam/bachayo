@@ -29,6 +29,15 @@ export function PartnerDetailReviewCard({ review }: PartnerDetailReviewCardProps
         <StarRating rating={review.rating} size={12} />
       </View>
       {review.comment ? <Text style={styles.comment}>{review.comment}</Text> : null}
+      {review.partner_reply ? (
+        <View style={styles.replyBox}>
+          <Text style={styles.replyLabel}>Response from restaurant</Text>
+          <Text style={styles.replyText}>{review.partner_reply}</Text>
+          {review.partner_replied_at ? (
+            <Text style={styles.replyTime}>{formatRelativeTime(review.partner_replied_at)}</Text>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.bagPill}>
         <ShoppingBag size={11} color={Palette.textTertiary} strokeWidth={2} />
         <Text style={styles.bagPillText}>{bagTitle}</Text>
@@ -99,5 +108,30 @@ const styles = StyleSheet.create({
     ...Type.label,
     color: Palette.textTertiary,
     fontWeight: '600',
+  },
+  replyBox: {
+    backgroundColor: '#F5F3EF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: Palette.primary,
+  },
+  replyLabel: {
+    fontSize: 11,
+    color: Palette.primary,
+    fontWeight: '600',
+  },
+  replyText: {
+    fontSize: 13,
+    color: '#374151',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  replyTime: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
   },
 });

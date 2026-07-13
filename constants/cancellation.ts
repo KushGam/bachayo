@@ -45,13 +45,7 @@ export function getCancellationEligibility(
 
   const minutesUntilPickup = (pickupStartAt.getTime() - now) / 60000;
 
-  console.log('pickup_start:', pickupStart);
-  console.log('now:', new Date());
-  console.log('available_date:', availableDate);
-  console.log('pickupDate used:', pickupDate);
-  console.log('pickupStart combined:', pickupStartAt);
-  console.log('minutesUntilPickup:', minutesUntilPickup);
-
+  // Spec: pickup < 30 min away → block ("Cannot cancel now")
   if (minutesUntilPickup > CANCELLATION_POLICY.freeCancel) {
     return 'free';
   }
@@ -60,6 +54,9 @@ export function getCancellationEligibility(
   }
   return 'blocked';
 }
+
+export const CANCELLATION_BLOCKED_MESSAGE =
+  'Cannot cancel now — pickup starts in less than 30 minutes. Contact the restaurant if you need help.';
 
 export const CANCELLATION_REASONS = [
   "Can't make it",

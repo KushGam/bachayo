@@ -6,6 +6,7 @@ import {
   Check,
   Clock,
   CreditCard,
+  BarChart3,
   FileText,
   Globe,
   HelpCircle,
@@ -340,6 +341,17 @@ export default function PartnerProfileScreen() {
         />
 
         {partner ? <SubscriptionStatusCard partner={partner} /> : null}
+
+        <SectionLabel>Insights</SectionLabel>
+        <SettingsCard>
+          <ProfileMenuRow
+            icon={BarChart3}
+            label="Reports"
+            subtitle="Today, week, and month performance"
+            onPress={() => router.push('/partner/reports')}
+            isLast
+          />
+        </SettingsCard>
 
         <SectionLabel>Business</SectionLabel>
         <SettingsCard>

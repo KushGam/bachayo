@@ -49,6 +49,7 @@ import {
   type PartnerSubscriptionFields,
 } from '@/lib/subscriptions';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
+import { fetchUnreadCountsByOrder } from '@/lib/orderMessages';
 import { supabase } from '@/lib/supabase';
 import { usePartnerStore } from '@/store/usePartnerStore';
 import type { PartnerOrderWithCustomer } from '@/types/app';
@@ -77,6 +78,7 @@ export default function PartnerDashboardScreen() {
   const [bagOrdersMap, setBagOrdersMap] = useState<Record<string, PartnerBagOrder[] | null>>({});
   const [bagOrdersLoading, setBagOrdersLoading] = useState<string | null>(null);
   const [markingPickup, setMarkingPickup] = useState<string | null>(null);
+  const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
   const lastPickupTime = useRef(0);
   const pendingPickupIds = useRef(new Set<string>());
 
@@ -123,9 +125,13 @@ export default function PartnerDashboardScreen() {
       );
 
       setBags(visibleBags);
-      setOrders((prev) =>
-        applyFetchedOrdersWithPickupGuard(orderRows, pendingPickupIds.current, prev),
+      const nextOrders = applyFetchedOrdersWithPickupGuard(orderRows, pendingPickupIds.current, []);
+      setOrders(nextOrders);
+      const counts = await fetchUnreadCountsByOrder(
+        nextOrders.map((row) => row.id),
+        userId,
       );
+      setUnreadByOrder(counts);
       if (!isPickupFetchBlocked(lastPickupTime.current)) {
         setTodayStats(statsToday);
         setYesterdayStats(statsYesterday);
@@ -273,6 +279,21 @@ export default function PartnerDashboardScreen() {
                       : bag,
                   ),
                 );
+              },
+            },
+            {
+              event: '*',
+              table: 'order_messages',
+              callback: () => {
+                const ids = orders.map((row) => row.id);
+                if (!ids.length) return;
+                void (async () => {
+                  const { data: sessionData } = await supabase.auth.getSession();
+                  const userId = sessionData.session?.user?.id;
+                  if (!userId) return;
+                  const counts = await fetchUnreadCountsByOrder(ids, userId);
+                  setUnreadByOrder(counts);
+                })();
               },
             },
           ],
@@ -616,6 +637,8 @@ export default function PartnerDashboardScreen() {
               partnerName={partner?.name}
               onMarkPickedUp={markAsPickedUp}
               onScan={() => router.push('/(tabs)/partner/scan')}
+              onOpenChat={(id) => router.push(`/order/chat/${id}`)}
+              unreadMessages={unreadByOrder[order.id] ?? 0}
             />
           ))}
         </View>

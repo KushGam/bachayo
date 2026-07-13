@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/Colors';
 import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
+import { useAppStore } from '@/store/useAppStore';
 
 type TabConfig = {
   name: string;
@@ -24,6 +25,7 @@ const TABS: TabConfig[] = [
 export function CustomerTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 8 : 12);
+  const unreadMessages = useAppStore((s) => s.unreadMessages);
 
   return (
     <View style={[styles.shell, { paddingBottom: bottomPad }]}>
@@ -71,6 +73,9 @@ export function CustomerTabBar({ state, navigation }: BottomTabBarProps) {
                 />
               </View>
               <Text style={[styles.label, focused && styles.labelActive]}>{tab.label}</Text>
+              {tab.name === 'my-bags' && unreadMessages > 0 ? (
+                <View style={styles.unreadDot} />
+              ) : null}
               {focused ? <View style={styles.activeDot} /> : <View style={styles.dotSpacer} />}
             </Pressable>
           );
@@ -140,5 +145,14 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     marginTop: 1,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 8,
+    right: '34%',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626',
   },
 });

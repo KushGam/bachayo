@@ -19,5 +19,8 @@ verify_jwt = false
 [functions.cron-expiring-bags]
 verify_jwt = false
 
+[functions.cron-missed-orders]
+verify_jwt = false
+
 [functions.cron-process-scheduled]
 verify_jwt = false

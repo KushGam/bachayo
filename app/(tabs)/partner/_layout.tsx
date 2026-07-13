@@ -3,6 +3,7 @@ import { LayoutGrid, QrCode, ShoppingBag, Star, User } from 'lucide-react-native
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { ScreenErrorBoundary } from '@/components/ui/ScreenErrorBoundary';
+import { useAppStore } from '@/store/useAppStore';
 
 function ScanTabIcon() {
   return (
@@ -13,6 +14,7 @@ function ScanTabIcon() {
 }
 
 export default function PartnerTabLayout() {
+  const unreadMessages = useAppStore((s) => s.unreadMessages);
   return (
     <ScreenErrorBoundary fallbackTitle="Something went wrong">
       <Tabs
@@ -29,6 +31,8 @@ export default function PartnerTabLayout() {
             title: 'Dashboard',
             headerShown: false,
             tabBarIcon: ({ color }) => <LayoutGrid size={24} color={color} strokeWidth={2} />,
+            tabBarBadge: unreadMessages > 0 ? '' : undefined,
+            tabBarBadgeStyle: styles.tabBadge,
           }}
         />
         <Tabs.Screen
@@ -131,5 +135,12 @@ const styles = StyleSheet.create({
       android: { elevation: 10 },
       default: {},
     }),
+  },
+  tabBadge: {
+    backgroundColor: '#DC2626',
+    minWidth: 8,
+    height: 8,
+    borderRadius: 4,
+    top: 8,
   },
 });

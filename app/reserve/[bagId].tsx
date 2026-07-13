@@ -30,9 +30,12 @@ import {
   formatNprPaisa,
   formatTodayPickupWindow,
   formatTime12h,
+  getBagDineInExtraPaisa,
+  getBagServiceType,
 } from '@/lib/helpers';
 import { getRescueBagImageUrl } from '@/lib/images';
 import { createReservation, findActiveReservationForBag } from '@/lib/reservations';
+import { dismissModalsAndReplace } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import type { RescueBagWithPartner } from '@/types/app';
 
@@ -41,7 +44,11 @@ const NOTE_MAX = 100;
 export default function ReserveBagScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { bagId } = useLocalSearchParams<{ bagId: string }>();
+  const { bagId, qty: qtyParam, service: serviceParam } = useLocalSearchParams<{
+    bagId: string;
+    qty?: string;
+    service?: string;
+  }>();
 
   const [bag, setBag] = useState<RescueBagWithPartner | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +57,13 @@ export default function ReserveBagScreen() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(() => {
+    const parsed = Number(qtyParam);
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.min(3, Math.floor(parsed)) : 1;
+  });
+  const [selectedServiceType, setSelectedServiceType] = useState<'takeaway' | 'dinein'>(() =>
+    serviceParam === 'dinein' ? 'dinein' : 'takeaway',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [soldOutVisible, setSoldOutVisible] = useState(false);
   const duplicateAlertShown = useRef(false);
@@ -95,7 +108,28 @@ export default function ReserveBagScreen() {
 
       const bagRow = bagData as unknown as RescueBagWithPartner;
       const [withStock] = await enrichBagsWithLiveStock([bagRow]);
-      setBag({ ...bagRow, ...withStock });
+      const mergedBag = { ...bagRow, ...withStock };
+      setBag(mergedBag);
+      const serviceType = getBagServiceType(mergedBag);
+      if (serviceParam === 'dinein' || serviceParam === 'takeaway') {
+        if (serviceType === 'both' || serviceType === serviceParam) {
+          setSelectedServiceType(serviceParam);
+        } else if (serviceType === 'dinein') {
+          setSelectedServiceType('dinein');
+        } else {
+          setSelectedServiceType('takeaway');
+        }
+      } else if (serviceType === 'dinein') {
+        setSelectedServiceType('dinein');
+      } else {
+        setSelectedServiceType('takeaway');
+      }
+
+      const parsedQty = Number(qtyParam);
+      if (Number.isFinite(parsedQty) && parsedQty >= 1) {
+        const left = Math.max(0, mergedBag.quantity_available - mergedBag.quantity_reserved);
+        setQuantity(Math.min(3, Math.max(1, Math.floor(parsedQty)), Math.max(1, left)));
+      }
 
       const userId = sessionData.session?.user?.id;
       if (userId) {
@@ -115,7 +149,7 @@ export default function ReserveBagScreen() {
 
       setLoading(false);
     })();
-  }, [bagId, router, reloadKey]);
+  }, [bagId, qtyParam, router, reloadKey, serviceParam]);
 
   const remaining = useMemo(() => {
     if (!bag) return 0;
@@ -137,8 +171,11 @@ export default function ReserveBagScreen() {
 
   const totalPrice = useMemo(() => {
     if (!bag) return 0;
-    return bag.rescue_price * quantity;
-  }, [bag, quantity]);
+    const dineInExtra = getBagDineInExtraPaisa(bag);
+    const unit =
+      selectedServiceType === 'dinein' ? bag.rescue_price + dineInExtra : bag.rescue_price;
+    return unit * quantity;
+  }, [bag, quantity, selectedServiceType]);
 
   const canSubmit =
     fullName.trim().length > 0 && phone.trim().length > 0 && !submitting && remaining > 0;
@@ -154,6 +191,7 @@ export default function ReserveBagScreen() {
       customerName: fullName,
       customerPhone: phone,
       customerNote: note,
+      serviceType: selectedServiceType,
     });
     setSubmitting(false);
 
@@ -200,7 +238,7 @@ export default function ReserveBagScreen() {
       return;
     }
 
-    router.replace(`/order/confirmed/${result.orderId}`);
+    dismissModalsAndReplace(router, `/order/confirmed/${result.orderId}`);
   };
 
   if (loading) {
@@ -228,6 +266,10 @@ export default function ReserveBagScreen() {
   const pickupWindow = formatTodayPickupWindow(bag.pickup_start, bag.pickup_end);
   const pickupShort = `${formatTime12h(bag.pickup_start)} – ${formatTime12h(bag.pickup_end)}`;
   const soldOut = remaining <= 0;
+  const bagServiceType = getBagServiceType(bag);
+  const dineInExtra = getBagDineInExtraPaisa(bag);
+  const showServiceChooser = bagServiceType === 'both';
+  const canChooseDineIn = bagServiceType !== 'takeaway';
 
   return (
     <DismissKeyboardView style={styles.screen}>
@@ -313,7 +355,7 @@ export default function ReserveBagScreen() {
               <Text style={styles.soldOutBody}>Try another rescue bag nearby — new ones drop daily.</Text>
               <Button
                 label="Browse bags"
-                onPress={() => router.replace('/(tabs)/customer/home')}
+                onPress={() => dismissModalsAndReplace(router, '/(tabs)/customer/home')}
                 size="md"
                 style={styles.soldOutBtn}
               />
@@ -379,6 +421,53 @@ export default function ReserveBagScreen() {
                   </Text>
                 </View>
               </View>
+              {showServiceChooser ? (
+                <View style={styles.card}>
+                  <Text style={styles.serviceTitle}>How would you like to enjoy your bag?</Text>
+                  <View style={styles.serviceRow}>
+                    <Pressable
+                      onPress={() => {
+                        void hapticButtonPress();
+                        setSelectedServiceType('takeaway');
+                      }}
+                      style={[
+                        styles.serviceCard,
+                        selectedServiceType === 'takeaway' && styles.serviceCardActive,
+                      ]}>
+                      <Text style={styles.serviceEmoji}>🛍</Text>
+                      <Text style={styles.serviceName}>Takeaway</Text>
+                      <Text style={styles.serviceHint}>Collect and take away</Text>
+                      <Text style={styles.servicePrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        void hapticButtonPress();
+                        if (!canChooseDineIn) return;
+                        setSelectedServiceType('dinein');
+                      }}
+                      style={[
+                        styles.serviceCard,
+                        selectedServiceType === 'dinein' && styles.serviceCardActive,
+                      ]}>
+                      <Text style={styles.serviceEmoji}>🪑</Text>
+                      <Text style={styles.serviceName}>Dine-in</Text>
+                      <Text style={styles.serviceHint}>Eat at the restaurant</Text>
+                      <Text style={styles.servicePrice}>
+                        {formatNprPaisa(bag.rescue_price + dineInExtra)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.serviceSubHint,
+                          dineInExtra === 0 && styles.serviceSubHintPositive,
+                        ]}>
+                        {dineInExtra > 0
+                          ? `Includes ${formatNprPaisa(dineInExtra)} dine-in charge`
+                          : 'Same price'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
 
               <View style={styles.reminderCard}>
                 <Text style={styles.reminderEmoji}>🕐</Text>
@@ -387,6 +476,9 @@ export default function ReserveBagScreen() {
                   <Text style={styles.reminderText}>
                     Come between {pickupShort}. Pay {formatNprPaisa(totalPrice)} at the counter — no upfront
                     payment needed.
+                  </Text>
+                  <Text style={styles.reminderService}>
+                    Service: {selectedServiceType === 'dinein' ? 'Dine-in' : 'Takeaway'}
                   </Text>
                 </View>
               </View>
@@ -400,7 +492,8 @@ export default function ReserveBagScreen() {
               <Text style={styles.stickyLabel}>Pay at pickup</Text>
               <Text style={styles.stickyPrice}>{formatNprPaisa(totalPrice)}</Text>
               <Text style={styles.stickyHint}>
-                {quantity} bag{quantity === 1 ? '' : 's'} · Free reservation
+                {quantity} bag{quantity === 1 ? '' : 's'} ·{' '}
+                {selectedServiceType === 'dinein' ? 'Dine-in' : 'Takeaway'}
               </Text>
             </View>
             <Pressable
@@ -430,7 +523,7 @@ export default function ReserveBagScreen() {
                 label="Browse other bags"
                 onPress={() => {
                   setSoldOutVisible(false);
-                  router.replace('/(tabs)/customer/home');
+                  dismissModalsAndReplace(router, '/(tabs)/customer/home');
                 }}
               />
             </View>
@@ -738,6 +831,62 @@ const styles = StyleSheet.create({
     color: Palette.primaryDark,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  reminderService: {
+    ...Type.label,
+    color: Palette.primaryDark,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  serviceTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 10,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  serviceCard: {
+    flex: 1,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+    backgroundColor: Palette.background,
+    padding: 12,
+  },
+  serviceCardActive: {
+    borderColor: Palette.primary,
+    backgroundColor: '#FAECE7',
+  },
+  serviceEmoji: {
+    fontSize: 28,
+  },
+  serviceName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginTop: 8,
+  },
+  serviceHint: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+  servicePrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Palette.primary,
+    marginTop: 6,
+  },
+  serviceSubHint: {
+    ...Type.label,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
+  serviceSubHintPositive: {
+    color: Palette.success,
   },
   stickyBar: {
     position: 'absolute',

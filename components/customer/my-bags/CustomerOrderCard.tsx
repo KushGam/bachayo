@@ -22,6 +22,7 @@ import type { CancellationEligibility } from '@/constants/cancellation';
 import { formatNprPaisa } from '@/lib/helpers';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
 import type { CustomerOrderWithDetails } from '@/types/app';
+import type { OrderServiceType } from '@/types/database';
 
 import { OrderStatusBadge } from './OrderStatusBadge';
 import type { CustomerMyBagsTab } from './CustomerMyBagsHeader';
@@ -40,6 +41,8 @@ type CustomerOrderCardProps = {
   onReview: () => void;
   onHelp: () => void;
   onViewRestaurant: () => void;
+  onChat: () => void;
+  unreadMessages: number;
 };
 
 export function CustomerOrderCard({
@@ -56,11 +59,14 @@ export function CustomerOrderCard({
   onReview,
   onHelp,
   onViewRestaurant,
+  onChat,
+  unreadMessages,
 }: CustomerOrderCardProps) {
   const status = normalizeOrderStatus(order.status);
   const isActiveOrder = status === 'confirmed' || status === 'pending';
   const isPast = tab === 'past';
   const isCancelBlocked = cancelEligibility === 'blocked' || cancelEligibility === 'expired';
+  const serviceType = (order.service_type ?? 'takeaway') as OrderServiceType;
 
   return (
     <View style={[styles.card, isPast && styles.cardPast]}>
@@ -99,7 +105,8 @@ export function CustomerOrderCard({
           ) : null}
 
           <Text style={[styles.priceLine, isPast && styles.muted]}>
-            {formatNprPaisa(order.total_price)} · Pay at pickup
+            {formatNprPaisa(order.total_price)} · {serviceType === 'dinein' ? 'Dine-in' : 'Takeaway'} · Pay
+            at pickup
           </Text>
 
           <OrderStatusBadge status={order.status} />
@@ -121,10 +128,18 @@ export function CustomerOrderCard({
           </View>
           <OrderShortCode qrCode={order.qr_code} />
           <Text style={styles.scanHint}>Show this QR at pickup</Text>
-          <Pressable onPress={onDirections} style={({ pressed }) => [styles.directionsBtn, pressed && styles.pressed]}>
-            <MapPin size={15} color={Palette.primary} strokeWidth={2.2} />
-            <Text style={styles.directionsText}>Get directions</Text>
-          </Pressable>
+          <View style={styles.chatRow}>
+            <Pressable onPress={onChat} style={({ pressed }) => [styles.chatBtn, pressed && styles.pressed]}>
+              <Text style={styles.chatBtnText}>💬 Message restaurant</Text>
+              {unreadMessages > 0 ? <View style={styles.chatDot} /> : null}
+            </Pressable>
+            <Pressable
+              onPress={onDirections}
+              style={({ pressed }) => [styles.chatBtn, styles.chatBtnSecondary, pressed && styles.pressed]}>
+              <MapPin size={14} color="#374151" strokeWidth={2.2} />
+              <Text style={styles.chatBtnTextSecondary}>Get directions</Text>
+            </Pressable>
+          </View>
         </Animated.View>
       ) : null}
 
@@ -176,9 +191,20 @@ export function CustomerOrderCard({
       ) : null}
 
       {tab === 'past' && status === 'picked_up' && order.review ? (
-        <View style={styles.reviewedPill}>
-          <Check size={12} color={Palette.success} strokeWidth={2.5} />
-          <Text style={styles.reviewedText}>Reviewed</Text>
+        <View style={styles.reviewBlock}>
+          <View style={styles.reviewedPill}>
+            <Check size={12} color={Palette.success} strokeWidth={2.5} />
+            <Text style={styles.reviewedText}>
+              You rated {order.review.rating}★
+              {order.review.comment ? ` · “${order.review.comment.slice(0, 48)}${order.review.comment.length > 48 ? '…' : ''}”` : ''}
+            </Text>
+          </View>
+          {order.review.partner_reply ? (
+            <View style={styles.partnerReplyBox}>
+              <Text style={styles.partnerReplyLabel}>Reply from {order.partner.name}</Text>
+              <Text style={styles.partnerReplyText}>{order.review.partner_reply}</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -284,16 +310,45 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     fontWeight: '600',
   },
-  directionsBtn: {
+  chatRow: {
+    width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: Spacing.xs,
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: '#F0EDE8',
   },
-  directionsText: {
-    ...Type.caption,
-    color: Palette.primary,
-    fontWeight: '700',
+  chatBtn: {
+    flex: 1,
+    backgroundColor: '#F5F3EF',
+    borderRadius: Radius.pill,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  chatBtnSecondary: {
+    backgroundColor: Palette.background,
+  },
+  chatBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  chatBtnTextSecondary: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  chatDot: {
+    position: 'absolute',
+    top: 8,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626',
   },
   cancelRow: {
     marginHorizontal: Spacing.md,
@@ -376,11 +431,9 @@ const styles = StyleSheet.create({
   },
   reviewedPill: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 4,
-    alignSelf: 'flex-start',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    alignSelf: 'stretch',
     backgroundColor: Palette.successBg,
     borderRadius: Radius.pill,
     paddingHorizontal: 10,
@@ -389,8 +442,33 @@ const styles = StyleSheet.create({
     borderColor: '#C5D9CB',
   },
   reviewedText: {
+    flex: 1,
     ...Type.label,
     fontWeight: '700',
     color: Palette.success,
+  },
+  reviewBlock: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 8,
+  },
+  partnerReplyBox: {
+    backgroundColor: Palette.background,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Palette.primary,
+  },
+  partnerReplyLabel: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.primary,
+    marginBottom: 4,
+  },
+  partnerReplyText: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    lineHeight: 20,
   },
 });

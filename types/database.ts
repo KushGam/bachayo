@@ -17,7 +17,11 @@ export type PartnerCategory =
 
 export type RescueBagStatus = 'active' | 'sold_out' | 'expired' | 'cancelled';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'picked_up' | 'cancelled';
+export type BagServiceType = 'takeaway' | 'dinein' | 'both';
+
+export type OrderServiceType = 'takeaway' | 'dinein';
+
+export type OrderStatus = 'pending' | 'confirmed' | 'picked_up' | 'cancelled' | 'missed';
 
 export type PaymentMethod = 'esewa' | 'khalti' | 'cash';
 
@@ -132,6 +136,8 @@ export type Database = {
           available_date: string;
           status: RescueBagStatus;
           image_url: string | null;
+          service_type: BagServiceType;
+          dinein_extra_charge: number;
           created_at: string;
         };
         Insert: {
@@ -149,6 +155,8 @@ export type Database = {
           available_date: string;
           status?: RescueBagStatus;
           image_url?: string | null;
+          service_type?: BagServiceType;
+          dinein_extra_charge?: number;
           created_at?: string;
         };
         Update: {
@@ -166,6 +174,8 @@ export type Database = {
           available_date?: string;
           status?: RescueBagStatus;
           image_url?: string | null;
+          service_type?: BagServiceType;
+          dinein_extra_charge?: number;
           created_at?: string;
         };
         Relationships: [
@@ -191,6 +201,7 @@ export type Database = {
           customer_name: string | null;
           customer_phone: string | null;
           customer_note: string | null;
+          service_type: OrderServiceType;
           picked_up_at: string | null;
           created_at: string;
         };
@@ -206,6 +217,7 @@ export type Database = {
           customer_name?: string | null;
           customer_phone?: string | null;
           customer_note?: string | null;
+          service_type?: OrderServiceType;
           picked_up_at?: string | null;
           created_at?: string;
         };
@@ -221,6 +233,7 @@ export type Database = {
           customer_name?: string | null;
           customer_phone?: string | null;
           customer_note?: string | null;
+          service_type?: OrderServiceType;
           picked_up_at?: string | null;
           created_at?: string;
         };
@@ -260,6 +273,8 @@ export type Database = {
           value_feedback: string | null;
           would_return: string | null;
           photo_url: string | null;
+          partner_reply: string | null;
+          partner_replied_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -273,6 +288,8 @@ export type Database = {
           value_feedback?: string | null;
           would_return?: string | null;
           photo_url?: string | null;
+          partner_reply?: string | null;
+          partner_replied_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -286,6 +303,8 @@ export type Database = {
           value_feedback?: string | null;
           would_return?: string | null;
           photo_url?: string | null;
+          partner_reply?: string | null;
+          partner_replied_at?: string | null;
           created_at?: string;
         };
         Relationships: [

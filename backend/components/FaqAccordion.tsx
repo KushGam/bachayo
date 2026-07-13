@@ -8,28 +8,28 @@ export function FaqAccordion({
   items: Array<{ id: string; q: string; a: string }>;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-
   const safeItems = useMemo(() => items ?? [], [items]);
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden">
-      {safeItems.map((item, idx) => {
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      {safeItems.map((item) => {
         const expanded = openId === item.id;
         return (
-          <div key={item.id} className="border-b border-gray-200 last:border-b-0">
+          <div key={item.id} className="border-b border-[var(--border)] last:border-b-0">
             <button
               type="button"
-              className="w-full flex justify-between items-center px-6 py-5 text-left"
-              onClick={() => setOpenId((current) => (current === item.id ? null : item.id))}>
-              <div className="text-[#1A1A1A] font-semibold text-base">{item.q}</div>
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#FAECE7] text-[#D85A30] font-bold">
+              className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+              onClick={() => setOpenId((current) => (current === item.id ? null : item.id))}
+              aria-expanded={expanded}>
+              <span className="font-display text-base font-semibold text-[var(--ink)]">{item.q}</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--primary-light)] text-lg font-bold text-[var(--primary)]">
                 {expanded ? '−' : '+'}
-              </div>
+              </span>
             </button>
             <div
-              className="px-6 pb-5 overflow-hidden transition-all duration-500 ease-out"
-              style={{ maxHeight: expanded ? 420 : 0, opacity: expanded ? 1 : 0 }}>
-              <div className="text-[#6B7280] text-sm leading-relaxed mt-1">{item.a}</div>
+              className="overflow-hidden px-6 transition-all duration-400 ease-out"
+              style={{ maxHeight: expanded ? 480 : 0, opacity: expanded ? 1 : 0 }}>
+              <p className="pb-5 text-sm leading-relaxed text-[var(--text-secondary)]">{item.a}</p>
             </div>
           </div>
         );
@@ -37,4 +37,3 @@ export function FaqAccordion({
     </div>
   );
 }
-

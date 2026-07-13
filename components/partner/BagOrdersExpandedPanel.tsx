@@ -94,37 +94,71 @@ function OrderSkeletonRow() {
 type BagExpandedOrderRowProps = {
   order: PartnerBagOrder;
   isLast: boolean;
+  historyMode?: boolean;
   markingPickup?: string | null;
   onMarkPickedUp?: (orderId: string) => void;
+  onOpenChat?: (orderId: string) => void;
+  unreadMessages?: number;
 };
 
 export function BagExpandedOrderRow({
   order,
   isLast,
+  historyMode = false,
   markingPickup,
   onMarkPickedUp,
+  onOpenChat,
+  unreadMessages = 0,
 }: BagExpandedOrderRowProps) {
   const customerName = order.customer?.full_name || 'Customer';
   const phone = order.customer?.phone;
   const normalizedStatus = normalizeOrderStatus(order.status);
   const isPickedUp = normalizedStatus === 'picked_up';
+  const isCancelled = normalizedStatus === 'cancelled';
   const isConfirmed = isConfirmedOrderStatus(order.status);
   const isLoading = markingPickup === order.id;
   const quantity = order.quantity ?? 1;
+  const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
+    'takeaway') as 'takeaway' | 'dinein';
+
+  const statusLabel = isPickedUp
+    ? 'Picked up'
+    : isCancelled
+      ? 'Cancelled'
+      : `Reserved ${formatRelativeTime(order.created_at)}`;
 
   return (
-    <View style={[styles.orderRow, isLast && styles.orderRowLast]}>
+    <View style={[styles.orderRow, isLast && styles.orderRowLast, isCancelled && styles.orderRowCancelled]}>
       <View style={styles.initialsCircle}>
         <Text style={styles.initialsText}>{getInitials(customerName)}</Text>
       </View>
 
       <View style={styles.orderCenter}>
-        <Text style={styles.customerName}>{customerName}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.customerName}>{customerName}</Text>
+          <View
+            style={[
+              styles.serviceBadge,
+              serviceType === 'dinein' ? styles.serviceBadgeDinein : styles.serviceBadgeTakeaway,
+            ]}>
+            <Text
+              style={[
+                styles.serviceBadgeText,
+                serviceType === 'dinein'
+                  ? styles.serviceBadgeTextDinein
+                  : styles.serviceBadgeTextTakeaway,
+              ]}>
+              {serviceType === 'dinein' ? 'Prepare: Dine-in' : 'Prepare: Takeaway'}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.quantityReserved}>
-          × {quantity} bag{quantity === 1 ? '' : 's'} reserved
+          × {quantity} bag{quantity === 1 ? '' : 's'}
+          {historyMode ? '' : ' reserved'}
         </Text>
         <Text style={styles.revenueToCollect}>
-          {formatNprFromPaisa(order.total_price || 0)} to collect
+          {formatNprFromPaisa(order.total_price || 0)}
+          {isPickedUp ? ' collected' : isCancelled ? '' : ' to collect'}
         </Text>
         {phone ? (
           <Pressable
@@ -138,10 +172,10 @@ export function BagExpandedOrderRow({
           <Text style={styles.orderNote}>&quot;{order.customer_note}&quot;</Text>
         ) : null}
         <View style={styles.orderFooter}>
-          <Text style={styles.reservedTime}>
-            {isPickedUp ? 'Picked up' : `Reserved ${formatRelativeTime(order.created_at)}`}
+          <Text style={[styles.reservedTime, isCancelled && styles.cancelledTime]}>
+            {statusLabel}
           </Text>
-          {isConfirmed && onMarkPickedUp ? (
+          {!historyMode && isConfirmed && onMarkPickedUp ? (
             <Pressable
               onPress={() => onMarkPickedUp(order.id)}
               disabled={isLoading}
@@ -153,10 +187,24 @@ export function BagExpandedOrderRow({
             </Pressable>
           ) : isPickedUp ? (
             <View style={styles.pickedUpPill}>
-              <Text style={styles.pickedUpPillText}>✓</Text>
+              <Text style={styles.pickedUpPillText}>✓ Done</Text>
+            </View>
+          ) : isCancelled ? (
+            <View style={styles.cancelledPill}>
+              <Text style={styles.cancelledPillText}>Cancelled</Text>
             </View>
           ) : null}
         </View>
+        {onOpenChat && !isCancelled ? (
+          <Pressable onPress={() => onOpenChat(order.id)} style={styles.chatBtn}>
+            <Text style={styles.chatBtnText}>💬 Message customer</Text>
+            {unreadMessages > 0 ? (
+              <View style={styles.chatBadge}>
+                <Text style={styles.chatBadgeText}>{unreadMessages}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -165,33 +213,46 @@ export function BagExpandedOrderRow({
 type BagOrdersExpandedPanelProps = {
   orders: PartnerBagOrder[] | null;
   loading: boolean;
+  /** When true, show picked up + cancelled history instead of only active confirmed orders. */
+  historyMode?: boolean;
   markingPickup?: string | null;
   onMarkPickedUp?: (orderId: string) => void;
+  onOpenChat?: (orderId: string) => void;
+  unreadByOrder?: Record<string, number>;
 };
 
 export function BagOrdersExpandedPanel({
   orders,
   loading,
+  historyMode = false,
   markingPickup,
   onMarkPickedUp,
+  onOpenChat,
+  unreadByOrder,
 }: BagOrdersExpandedPanelProps) {
-  const displayOrders =
-    orders?.filter((order) => isConfirmedOrderStatus(order.status)) ?? [];
+  const displayOrders = historyMode
+    ? (orders ?? [])
+    : (orders?.filter((order) => isConfirmedOrderStatus(order.status)) ?? []);
 
   return (
     <View style={styles.panel}>
       {loading ? (
         <OrderSkeletonRow />
       ) : displayOrders.length === 0 ? (
-        <Text style={styles.emptyText}>No active orders yet</Text>
+        <Text style={styles.emptyText}>
+          {historyMode ? 'No orders for this bag' : 'No active orders yet'}
+        </Text>
       ) : (
         displayOrders.map((order, index) => (
           <BagExpandedOrderRow
             key={order.id}
             order={order}
             isLast={index === displayOrders.length - 1}
+            historyMode={historyMode}
             markingPickup={markingPickup}
             onMarkPickedUp={onMarkPickedUp}
+            onOpenChat={onOpenChat}
+            unreadMessages={unreadByOrder?.[order.id] ?? 0}
           />
         ))
       )}
@@ -249,6 +310,9 @@ const styles = StyleSheet.create({
   orderRowLast: {
     borderBottomWidth: 0,
   },
+  orderRowCancelled: {
+    opacity: 0.65,
+  },
   initialsCircle: {
     width: 40,
     height: 40,
@@ -267,11 +331,38 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
   customerName: {
     fontSize: 15,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 2,
+  },
+  serviceBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  serviceBadgeTakeaway: {
+    backgroundColor: '#F5F3EF',
+  },
+  serviceBadgeDinein: {
+    backgroundColor: '#FAECE7',
+  },
+  serviceBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  serviceBadgeTextTakeaway: {
+    color: '#6B7280',
+  },
+  serviceBadgeTextDinein: {
+    color: '#993C1D',
   },
   quantityReserved: {
     fontSize: 13,
@@ -311,6 +402,10 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     flex: 1,
   },
+  cancelledTime: {
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
   markPickedUpBtn: {
     backgroundColor: '#10B981',
     borderRadius: 8,
@@ -331,6 +426,49 @@ const styles = StyleSheet.create({
   pickedUpPillText: {
     color: '#065F46',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  cancelledPill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  cancelledPillText: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chatBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#D85A30',
+    borderRadius: 999,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  chatBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D85A30',
+  },
+  chatBadge: {
+    position: 'absolute',
+    right: 10,
+    top: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  chatBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '700',
   },
 });

@@ -62,3 +62,19 @@ export function goBackOr(router: Router, fallback: Href) {
   }
   router.replace(fallback);
 }
+
+/**
+ * Leave any modal presentation (bag/reserve sheets) before navigating.
+ * Without this, replace() can render the next screen *inside* the modal,
+ * causing a "screen under screen" stack (home sheet over home tabs).
+ */
+export function dismissModalsAndReplace(router: Router, href: Href) {
+  try {
+    if (typeof router.canDismiss === 'function' && router.canDismiss()) {
+      router.dismissAll();
+    }
+  } catch {
+    // Older / web runtimes may not support dismiss APIs.
+  }
+  router.replace(href);
+}

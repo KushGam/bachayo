@@ -5,17 +5,6 @@ import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
-function LogoMark({ variant }: { variant: 'light' | 'dark' }) {
-  return (
-    <span
-      className={`inline-flex items-center text-2xl font-extrabold tracking-tight ${
-        variant === 'light' ? 'text-white' : 'text-[#D85A30]'
-      }`}>
-      LastBag
-    </span>
-  );
-}
-
 export default function ForRestaurantsPage() {
   const faqItems = [
     {
@@ -26,17 +15,22 @@ export default function ForRestaurantsPage() {
     {
       id: 'list',
       q: 'How do I list a rescue bag?',
-      a: 'Pick the bag name, what’s inside, set rescue/original prices, choose quantity, and publish the pickup window. Your listing goes live immediately.',
+      a: 'Pick the bag name, what’s inside, set rescue/original prices, choose takeaway or dine-in, set quantity, and publish the pickup window. Your listing goes live immediately.',
     },
     {
       id: 'pickup',
       q: 'How does pickup work for customers?',
-      a: 'Customers reserve for free and then pick up during the stated window. You confirm pickup on the app and collect the agreed payment directly.',
+      a: 'Customers reserve for free and pick up during the stated window. You confirm pickup in the app (QR or manual) and collect payment directly.',
     },
     {
       id: 'payments',
       q: 'When do I get paid?',
-      a: 'You collect payment directly at pickup — cash, eSewa, Khalti, or whatever you accept. LastBag does not process payments.',
+      a: 'You collect payment directly at pickup — cash, eSewa, Khalti, or whatever you accept. LastBag does not process payments and takes no commission.',
+    },
+    {
+      id: 'cancel',
+      q: 'What if a customer cancels?',
+      a: 'Customers can cancel until 30 minutes before pickup starts. After that, cancellation is blocked so your kitchen can prepare with confidence.',
     },
     {
       id: 'subscription',
@@ -47,94 +41,77 @@ export default function ForRestaurantsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* HERO */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#065F46] via-[#D85A30] to-[#993C1D]" />
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_20%_20%,white,transparent_45%),radial-gradient(circle_at_80%_60%,white,transparent_50%)]" />
+      {/* Hero — brand + one headline + support + CTAs */}
+      <section className="grain relative overflow-hidden pb-24 pt-32 md:pb-28 md:pt-36">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#d85a30] via-[#993c1d] to-[#3d1a0c]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(255,255,255,0.16),transparent_48%),radial-gradient(ellipse_at_85%_80%,rgba(61,107,79,0.25),transparent_45%)]" />
 
-        <div className="relative max-w-6xl mx-auto px-6">
-          <div className="grid gap-10 items-center lg:grid-cols-2">
-            <FadeIn delay={0}>
-              <div className="bg-white/10 rounded-3xl border border-white/20 p-8">
-                <div className="inline-flex items-center gap-2 bg-white/10 text-white/90 text-xs font-semibold rounded-full px-3 py-1">
-                  🏪 Restaurant owners
-                </div>
-                <h1 className="mt-4 text-5xl md:text-6xl font-bold text-white leading-tight">
-                  Turn tonight&apos;s surplus into revenue
-                </h1>
-                <p className="mt-6 text-xl text-white/80">
-                  List surplus food, reach nearby customers, and keep every rupee you earn.
-                </p>
-
-                <div className="mt-10 flex flex-col sm:flex-row gap-4">
-                  <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-[#D85A30] px-8 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
-                    Start your free 30-day trial →
-                  </ContactTrialCta>
-                  <Link
-                    href="/for-restaurants#how-it-works"
-                    className="inline-flex items-center justify-center border border-white/30 text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white/10 transition">
-                    See how it works
-                  </Link>
-                </div>
-              </div>
-            </FadeIn>
-
-            <FadeIn delay={140}>
-              <div className="rounded-3xl border border-white/20 bg-white/10 p-8">
-                <div className="flex items-center gap-3">
-                  <LogoMark variant="light" />
-                </div>
-                <div className="mt-6 space-y-4">
-                  {[
-                    { e: '📝', t: 'Sign up in 5 minutes' },
-                    { e: '🛍', t: 'List your rescue bag daily' },
-                    { e: '💰', t: 'Customers reserve, pick up, and pay you' },
-                  ].map((s, idx) => (
-                    <div key={s.t} className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-2xl">
-                        {s.e}
-                      </div>
-                      <div className="text-white text-base font-semibold">
-                        {s.t}
-                        {idx === 0 ? <div className="text-white/70 text-sm mt-1">No card required for trial</div> : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-8 text-white/70 text-sm">
-                  Reduce waste. Reach nearby customers. Make surplus food a win-win.
-                </div>
-              </div>
-            </FadeIn>
-          </div>
+        <div className="relative mx-auto max-w-4xl px-6 text-center">
+          <FadeIn delay={0}>
+            <p className="font-display text-sm font-semibold uppercase tracking-[0.22em] text-white/70">
+              For restaurants & cafés
+            </p>
+            <h1 className="mt-5 font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl">
+              Turn tonight&apos;s surplus
+              <span className="mt-2 block text-white/85">into revenue.</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+              List rescue bags in minutes. Reach nearby customers. Keep 100% of every sale — flat
+              monthly pricing, zero commission.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-[var(--primary)] shadow-xl shadow-black/20 transition hover:bg-[#fff7f3]">
+                Start free 30-day trial
+              </ContactTrialCta>
+              <Link
+                href="#how-it-works"
+                className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                See how it works
+              </Link>
+            </div>
+          </FadeIn>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <section id="how-it-works" className="bg-[#F5F3EF] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-[#D85A30] font-semibold text-sm uppercase tracking-widest text-center">
-            How it works for restaurants
-          </div>
-          <h2 className="text-4xl font-bold text-center text-[#1A1A1A] mt-3">
-            How LastBag works for restaurants
+      {/* How it works — editorial numbered rows */}
+      <section id="how-it-works" className="bg-[var(--surface)] py-24 md:py-28">
+        <div className="mx-auto max-w-4xl px-6">
+          <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+            Partner flow
+          </p>
+          <h2 className="mt-3 text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
+            Live in three steps
           </h2>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="mt-16 space-y-0 divide-y divide-[var(--border)] border-y border-[var(--border)]">
             {[
-              { n: '1', e: '📝', t: 'Sign up in 5 minutes', d: 'Create your partner profile and choose your subscription tier.' },
-              { n: '2', e: '🛍', t: 'List your rescue bag daily', d: 'Add the bag details, set quantity, and publish your pickup window.' },
-              { n: '3', e: '💰', t: 'Customers reserve, pick up, and pay you', d: 'Confirm pickup and collect payment directly at pickup.' },
-            ].map((s, idx) => (
-              <FadeIn key={s.n} delay={idx * 120}>
-                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
-                  <div className="w-12 h-12 rounded-full bg-[#FAECE7] text-[#D85A30] font-bold text-xl flex items-center justify-center mx-auto">
-                    {s.n}
+              {
+                n: '01',
+                t: 'Sign up in minutes',
+                d: 'Create your partner profile, set your location, and start a free 30-day trial — no card required.',
+              },
+              {
+                n: '02',
+                t: 'List your rescue bag',
+                d: 'Name the bag, describe what’s inside, set prices and quantity, choose takeaway or dine-in, and publish the pickup window.',
+              },
+              {
+                n: '03',
+                t: 'Confirm pickup & collect payment',
+                d: 'Customers reserve for free. You get notified, confirm with QR or tap, and collect cash or digital payment at the counter.',
+              },
+            ].map((step, idx) => (
+              <FadeIn key={step.n} delay={idx * 80}>
+                <div className="grid gap-4 py-10 sm:grid-cols-[5rem_1fr] sm:gap-8">
+                  <p className="font-display text-3xl font-extrabold text-[var(--primary)]">{step.n}</p>
+                  <div>
+                    <h3 className="font-display text-xl font-bold text-[var(--ink)] md:text-2xl">
+                      {step.t}
+                    </h3>
+                    <p className="mt-2 max-w-xl leading-relaxed text-[var(--text-secondary)]">
+                      {step.d}
+                    </p>
                   </div>
-                  <div className="text-5xl mt-6">{s.e}</div>
-                  <div className="text-xl font-bold mt-4 text-[#1A1A1A]">{s.t}</div>
-                  <p className="text-[#6B7280] mt-3 leading-relaxed text-sm">{s.d}</p>
                 </div>
               </FadeIn>
             ))}
@@ -142,19 +119,56 @@ export default function ForRestaurantsPage() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section id="pricing" className="bg-white py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Pricing that scales with you</h2>
-          <p className="text-[#6B7280] text-lg mt-4 text-center max-w-2xl mx-auto">
+      {/* Why partner */}
+      <section className="bg-[var(--bg)] py-24">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
+            Built for Nepal&apos;s kitchens
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center leading-relaxed text-[var(--text-secondary)]">
+            No per-order fees. No complicated setup. Just surplus sold before it becomes waste.
+          </p>
+
+          <div className="mt-16 grid gap-12 md:grid-cols-3">
+            {[
+              {
+                title: 'Keep 100% of sales',
+                desc: 'You collect payment at pickup. LastBag charges one flat monthly subscription — nothing per order.',
+              },
+              {
+                title: 'List in minutes',
+                desc: 'Add your bag, set quantity and pickup window, and go live. Staff can manage orders from the partner app.',
+              },
+              {
+                title: 'Simple pickup flow',
+                desc: 'Reservations, chat, QR confirm, and reviews — designed for busy counters, not desk work.',
+              },
+            ].map((item) => (
+              <div key={item.title}>
+                <div className="h-px w-10 bg-[var(--primary)]" />
+                <h3 className="mt-5 font-display text-xl font-bold text-[var(--ink)]">{item.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="bg-[var(--surface)] py-24 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <h2 className="text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
+            Pricing that scales with you
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center leading-relaxed text-[var(--text-secondary)]">
             Start with a 30-day free trial. After that, pick the tier that fits your business size.
           </p>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="mt-14 grid gap-5 md:grid-cols-3">
             {[
               {
                 tier: 'Small',
-                price: 'NPR 800/mo',
+                price: 'NPR 800',
                 active: false,
                 features: [
                   'List daily rescue bags',
@@ -166,7 +180,7 @@ export default function ForRestaurantsPage() {
               },
               {
                 tier: 'Medium',
-                price: 'NPR 1,800/mo',
+                price: 'NPR 1,800',
                 active: true,
                 features: [
                   'Everything in Small',
@@ -178,7 +192,7 @@ export default function ForRestaurantsPage() {
               },
               {
                 tier: 'Large',
-                price: 'NPR 3,500/mo',
+                price: 'NPR 3,500',
                 active: false,
                 features: [
                   'Everything in Medium',
@@ -191,33 +205,41 @@ export default function ForRestaurantsPage() {
             ].map((tier) => (
               <FadeIn key={tier.tier}>
                 <div
-                  className={`rounded-3xl border p-8 ${
+                  className={`flex h-full flex-col rounded-3xl border p-8 ${
                     tier.active
-                      ? 'border-[#D85A30] bg-[#FAECE7]'
-                      : 'border-gray-200 bg-[#F5F3EF]'
+                      ? 'border-[var(--primary)] bg-[var(--primary-light)] shadow-lg shadow-[var(--primary)]/10'
+                      : 'border-[var(--border)] bg-[var(--bg)]'
                   }`}>
-                  <div className="text-sm font-semibold text-[#D85A30] uppercase tracking-widest">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
                     {tier.tier}
-                  </div>
-                  <div className="mt-4 text-4xl font-bold text-[#1A1A1A]">{tier.price}</div>
-                  <div className="mt-2 text-sm text-[#6B7280]">30-day free trial</div>
+                    {tier.active ? ' · Popular' : ''}
+                  </p>
+                  <p className="mt-4 font-display text-4xl font-extrabold tracking-tight text-[var(--ink)]">
+                    {tier.price}
+                    <span className="ml-1 text-base font-semibold text-[var(--text-secondary)]">
+                      /mo
+                    </span>
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--text-secondary)]">30-day free trial</p>
 
-                  <ul className="mt-6 space-y-3">
+                  <ul className="mt-8 flex-1 space-y-3">
                     {tier.features.map((f) => (
-                      <li key={f} className="flex items-start gap-3 text-[#4B5563] text-sm">
-                        <span className="mt-0.5">✓</span>
+                      <li
+                        key={f}
+                        className="flex items-start gap-3 text-sm text-[var(--text-secondary)]">
+                        <span className="mt-0.5 font-bold text-[var(--primary)]">✓</span>
                         <span>{f}</span>
                       </li>
                     ))}
                   </ul>
 
                   <ContactTrialCta
-                    className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-base font-bold transition ${
+                    className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-6 py-3.5 text-base font-semibold transition ${
                       tier.active
-                        ? 'bg-[#D85A30] text-white hover:bg-[#993C1D]'
-                        : 'bg-[#1A1A1A] text-white hover:bg-[#374151]'
+                        ? 'bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)]'
+                        : 'bg-[var(--ink)] text-white hover:bg-[#2a2420]'
                     }`}>
-                    Start free trial →
+                    Start free trial
                   </ContactTrialCta>
                 </div>
               </FadeIn>
@@ -226,69 +248,33 @@ export default function ForRestaurantsPage() {
         </div>
       </section>
 
-      {/* WHY PARTNER */}
-      <section className="bg-[#F5F3EF] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Why partner with LastBag</h2>
-          <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto">
-            A straightforward platform built for Nepal&apos;s restaurants — no per-order commissions,
-            no complicated setup.
-          </p>
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: '💰',
-                title: 'Keep 100% of sales',
-                desc: 'You collect payment directly at pickup. LastBag charges one flat monthly subscription — nothing per order.',
-              },
-              {
-                icon: '⚡',
-                title: 'List in minutes',
-                desc: 'Add your rescue bag, set quantity and pickup window, and go live. No lengthy onboarding process.',
-              },
-              {
-                icon: '📱',
-                title: 'Simple pickup flow',
-                desc: 'Customers reserve in the app. You confirm with a QR scan or manual mark. Staff-friendly and fast.',
-              },
-            ].map((item) => (
-              <FadeIn key={item.title}>
-                <div className="bg-white rounded-3xl p-8 border border-gray-100">
-                  <div className="text-4xl">{item.icon}</div>
-                  <h3 className="mt-4 text-lg font-bold text-[#1A1A1A]">{item.title}</h3>
-                  <p className="mt-2 text-sm text-[#6B7280] leading-relaxed">{item.desc}</p>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* RESTAURANT FAQ */}
-      <section id="faq" className="bg-white py-24">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Restaurant FAQ</h2>
+      {/* FAQ */}
+      <section id="faq" className="bg-[var(--bg)] py-24">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
+            Partner FAQ
+          </h2>
           <div className="mt-12">
-            <FaqAccordion items={faqItems.map((x) => ({ id: x.id, q: x.q, a: x.a }))} />
+            <FaqAccordion items={faqItems} />
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="bg-[#1A1A1A] py-24">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 text-white/80 text-xs rounded-full px-3 py-1">
-            🥗 Reduce waste, earn more
-          </div>
-          <h2 className="text-4xl font-bold text-white mt-4">Ready to reduce waste and earn more?</h2>
-          <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
-            Join LastBag and turn surplus food into rescue bags customers reserve for free.
+      <section className="bg-[var(--ink)] py-24">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h2 className="font-display text-3xl font-bold text-white md:text-4xl">
+            Ready to rescue surplus?
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-white/65">
+            Join LastBag and turn end-of-day food into reserved bags customers pick up the same
+            evening.
           </p>
-          <div className="mt-10 mx-auto max-w-sm">
-            <ContactTrialCta className="inline-flex w-full items-center justify-center rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
-              Start your free trial →
+          <div className="mx-auto mt-10 max-w-sm space-y-4">
+            <ContactTrialCta className="inline-flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-10 py-4 text-lg font-semibold text-white transition hover:bg-[var(--primary-dark)]">
+              Start your free trial
             </ContactTrialCta>
-            <p className="my-4 text-center text-sm text-white/60">Already have an account?</p>
+            <p className="text-sm text-white/50">Already have an account?</p>
             <GoogleSignInButton />
           </div>
         </div>
@@ -296,4 +282,3 @@ export default function ForRestaurantsPage() {
     </main>
   );
 }
-

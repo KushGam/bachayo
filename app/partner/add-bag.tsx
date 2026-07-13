@@ -183,6 +183,8 @@ export default function AddBagScreen() {
   const [martBagType, setMartBagType] = useState<MartBagType>('Mixed');
   const [showCo2Impact, setShowCo2Impact] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [serviceType, setServiceType] = useState<'takeaway' | 'dinein' | 'both'>('both');
+  const [dineInExtraCharge, setDineInExtraCharge] = useState('0');
 
   const config = CATEGORY_BAG_CONFIG[partnerCategory] ?? CATEGORY_BAG_CONFIG.restaurant;
   const quantityDefaults = getCategoryQuantityDefaults(partnerCategory);
@@ -293,6 +295,8 @@ export default function AddBagScreen() {
       setImageMimeType(null);
       setValue('image_url', prefill.image_url);
     }
+    if (prefill.service_type) setServiceType(prefill.service_type);
+    setDineInExtraCharge(String(Math.round((prefill.dinein_extra_charge ?? 0) / 100)));
   }, [loadingPartner, setValue]);
 
   const applyPickupPreset = (start: string, end: string, label?: string) => {
@@ -404,6 +408,8 @@ export default function AddBagScreen() {
         pickup_end: formatTimeForDb(values.pickup_end),
         image_url: imageUrl,
         status: 'active' as const,
+        service_type: serviceType,
+        dinein_extra_charge: Math.max(0, Number(dineInExtraCharge) || 0) * 100,
       };
 
       const { error } = editingBagId
@@ -942,6 +948,56 @@ export default function AddBagScreen() {
               <Text style={styles.hint}>No photo? We&apos;ll use your cover photo</Text>
             ) : null}
           </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.serviceHeader}>How can customers enjoy this bag?</Text>
+            <View style={styles.serviceOptionsRow}>
+              {[
+                { key: 'takeaway', emoji: '🛍', title: 'Takeaway', subtitle: 'Customers collect' },
+                { key: 'dinein', emoji: '🪑', title: 'Dine-in', subtitle: 'Eat here' },
+                { key: 'both', emoji: '🍽', title: 'Both', subtitle: 'Customer chooses' },
+              ].map((option) => {
+                const active = serviceType === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => {
+                      void hapticButtonPress();
+                      setServiceType(option.key as 'takeaway' | 'dinein' | 'both');
+                    }}
+                    style={[styles.serviceOption, active && styles.serviceOptionActive]}>
+                    <Text style={styles.serviceOptionEmoji}>{option.emoji}</Text>
+                    <Text style={styles.serviceOptionTitle}>{option.title}</Text>
+                    <Text style={styles.serviceOptionSubtitle}>{option.subtitle}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {serviceType !== 'takeaway' ? (
+              <View style={styles.dineInChargeWrap}>
+                <Text style={styles.dineInChargeLabel}>Extra charge for dine-in? (optional)</Text>
+                <View style={styles.dineInChargeRow}>
+                  <Text style={styles.dineInCurrency}>₨</Text>
+                  <TextInput
+                    value={dineInExtraCharge}
+                    onChangeText={(text) => setDineInExtraCharge(text.replace(/[^\d]/g, ''))}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.dineInInput}
+                  />
+                  <Text style={styles.dineInHelper}>
+                    + this amount added to rescue price for dine-in customers
+                  </Text>
+                </View>
+                <View style={styles.dineInPreview}>
+                  <Text style={styles.dineInPreviewText}>
+                    Takeaway: {formatRsNpr(Number(rescuePrice) || 0)} · Dine-in:{' '}
+                    {formatRsNpr((Number(rescuePrice) || 0) + (Number(dineInExtraCharge) || 0))}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
 
           <View style={styles.previewSection}>
             <Text style={styles.previewLabel}>Preview</Text>
@@ -1198,6 +1254,90 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 6,
+  },
+  serviceHeader: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 10,
+  },
+  serviceOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  serviceOption: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    backgroundColor: Palette.white,
+    alignItems: 'center',
+  },
+  serviceOptionActive: {
+    borderColor: Palette.primary,
+    backgroundColor: '#FAECE7',
+  },
+  serviceOptionEmoji: {
+    fontSize: 24,
+  },
+  serviceOptionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginTop: 6,
+  },
+  serviceOptionSubtitle: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  dineInChargeWrap: {
+    marginTop: 12,
+  },
+  dineInChargeLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 6,
+  },
+  dineInChargeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dineInCurrency: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Palette.primary,
+  },
+  dineInInput: {
+    width: 100,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: '#1A1A1A',
+    backgroundColor: '#FAFAFA',
+  },
+  dineInHelper: {
+    flex: 1,
+    fontSize: 11,
+    color: '#9CA3AF',
+    lineHeight: 16,
+  },
+  dineInPreview: {
+    marginTop: 8,
+    backgroundColor: '#F5F3EF',
+    borderRadius: 8,
+    padding: 8,
+  },
+  dineInPreviewText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
   },
   hint: {
     fontSize: 12,

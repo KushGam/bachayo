@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase';
-import { getCancellationEligibility } from '@/constants/cancellation';
+import {
+  CANCELLATION_BLOCKED_MESSAGE,
+  getCancellationEligibility,
+} from '@/constants/cancellation';
 import {
   isPartnerPickupEligibleDbStatus,
   isRevenueOrderStatus,
@@ -15,7 +18,27 @@ const ORDER_SELECT = `
   review:reviews(*)
 `;
 
+/** Mark no-shows after pickup_end and expire closed bags (Nepal time). Safe to call often. */
+export async function reconcileMissedOrders() {
+  const { error } = await (
+    supabase as unknown as {
+      rpc: (fn: string) => Promise<{ error: { message: string } | null }>;
+    }
+  ).rpc('mark_missed_orders_after_pickup');
+  if (error) throw error;
+}
+
+async function reconcileMissedOrdersQuietly() {
+  try {
+    await reconcileMissedOrders();
+  } catch {
+    // Cron / next open will catch up if RPC is unavailable.
+  }
+}
+
 export async function fetchCustomerOrders(userId: string) {
+  await reconcileMissedOrdersQuietly();
+
   const { data, error } = await supabase
     .from('orders')
     .select(ORDER_SELECT)
@@ -32,9 +55,11 @@ export async function fetchCustomerOrders(userId: string) {
 }
 
 export async function fetchPartnerOrders(partnerId: string, today: string) {
+  await reconcileMissedOrdersQuietly();
+
   const [{ data, error }, { data: todayBags }] = await Promise.all([
     supabase
-      .from('orders')
+    .from('orders')
       .select(`
       *,
       bag:rescue_bags(*),
@@ -44,8 +69,7 @@ export async function fetchPartnerOrders(partnerId: string, today: string) {
       .order('created_at', { ascending: false }),
     supabase
       .from('rescue_bags')
-      .select('id')
-      .eq('partner_id', partnerId)
+      .select('id')      .eq('partner_id', partnerId)
       .eq('available_date', today),
   ]);
 
@@ -368,12 +392,20 @@ export async function cancelReservation(orderId: string, reason?: string | null)
     .single();
 
   if (fetchError || !orderRow) {
-    return { error: fetchError ?? new Error('Order not found'), bagReactivated: false };
+    return { error: fetchError ?? new Error('Order not found'), bagReactivated: false, bagId: null };
   }
 
   const order = orderRow as unknown as CustomerOrderWithDetails & {
     partner: { user_id: string; name: string };
   };
+
+  if (order.status === 'cancelled') {
+    return { error: null, bagReactivated: false, bagId: order.bag_id };
+  }
+
+  if (order.status === 'picked_up') {
+    return { error: new Error('This bag was already picked up'), bagReactivated: false, bagId: order.bag_id };
+  }
 
   const eligibility = getCancellationEligibility(
     order.bag.available_date,
@@ -382,7 +414,11 @@ export async function cancelReservation(orderId: string, reason?: string | null)
   );
 
   if (eligibility === 'blocked' || eligibility === 'expired') {
-    return { error: new Error('Cancellation window has passed'), bagReactivated: false };
+    return {
+      error: new Error(CANCELLATION_BLOCKED_MESSAGE),
+      bagReactivated: false,
+      bagId: order.bag_id,
+    };
   }
 
   const bag = order.bag;
@@ -397,11 +433,19 @@ export async function cancelReservation(orderId: string, reason?: string | null)
       cancellation_reason: reason?.trim() || null,
       cancelled_at: new Date().toISOString(),
     } as never)
-    .eq('id', orderId);
+    .eq('id', orderId)
+    .in('status', ['pending', 'confirmed']);
 
   if (orderError) {
-    return { error: orderError, bagReactivated: false };
+    return { error: orderError, bagReactivated: false, bagId: order.bag_id };
   }
+
+  // Trigger syncs quantity_reserved + sold_out → active. Refresh bag for client stock.
+  const { data: refreshedBag } = await supabase
+    .from('rescue_bags')
+    .select('id, quantity_reserved, quantity_available, status')
+    .eq('id', order.bag_id)
+    .maybeSingle();
 
   if (order.partner.user_id) {
     try {
@@ -409,7 +453,7 @@ export async function cancelReservation(orderId: string, reason?: string | null)
       await supabase.functions.invoke('send-notification', {
         body: {
           user_id: order.partner.user_id,
-          title: 'Reservation cancelled',
+          title: 'Customer cancelled',
           body: `${customerName} cancelled their ${bag.title} reservation. Slot is now free.`,
           type: 'cancellation',
           data: {
@@ -446,7 +490,22 @@ export async function cancelReservation(orderId: string, reason?: string | null)
     console.warn('[cancelReservation] customer notification failed:', notifyError);
   }
 
-  return { error: null, bagReactivated: shouldReactivate };
+  return {
+    error: null,
+    bagReactivated: shouldReactivate || (refreshedBag?.status === 'active' && wasSoldOut),
+    bagId: order.bag_id,
+    bagStock: refreshedBag
+      ? {
+          quantity_reserved: refreshedBag.quantity_reserved,
+          quantity_available: refreshedBag.quantity_available,
+          status: refreshedBag.status,
+        }
+      : {
+          quantity_reserved: nextReserved,
+          quantity_available: bag.quantity_available,
+          status: shouldReactivate ? ('active' as const) : bag.status,
+        },
+  };
 }
 
 export async function submitReview(input: {

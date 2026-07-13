@@ -7,212 +7,20 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { HeroPhoneMockup } from '@/components/HeroPhoneMockup';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
 
-function AppStoreButton() {
+function StoreButton({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string;
+  title: string;
+}) {
   return (
     <a
-      href="#"
-      className="group flex items-center justify-center gap-3 rounded-2xl bg-[#1A1A1A] px-8 py-4 text-white transition hover:bg-[#374151]">
-      <span className="text-xs text-white/70 transition group-hover:text-white/80">Download on the</span>
-      <span className="text-lg font-bold">App Store</span>
+      href="#download"
+      className="group flex min-w-[180px] flex-col items-start rounded-2xl bg-[var(--ink)] px-6 py-4 text-left text-white transition hover:bg-[#2a2420]">
+      <span className="text-[11px] text-white/55 transition group-hover:text-white/75">{eyebrow}</span>
+      <span className="mt-0.5 font-display text-lg font-bold tracking-tight">{title}</span>
     </a>
-  );
-}
-
-function GooglePlayButton() {
-  return (
-    <a
-      href="#"
-      className="group flex items-center justify-center gap-3 rounded-2xl bg-[#1A1A1A] px-8 py-4 text-white transition hover:bg-[#374151]">
-      <span className="text-xs text-white/70 transition group-hover:text-white/80">Get it on</span>
-      <span className="text-lg font-bold">Google Play</span>
-    </a>
-  );
-}
-
-function LaunchCitiesStrip() {
-  const cities = ['Kathmandu', 'Lalitpur', 'Pokhara', 'Bharatpur'];
-
-  return (
-    <section className="bg-white border-y border-[#F0EDE8] py-4 overflow-hidden">
-      <div className="text-center text-xs uppercase tracking-widest text-[#9CA3AF] font-medium">
-        Launching across Nepal
-      </div>
-      <div className="mt-3 whitespace-nowrap">
-        <div className="marquee-track inline-flex min-w-[200%]">
-          {[...cities, ...cities, ...cities, ...cities].map((city, idx) => (
-            <div key={`${city}-${idx}`} className="mx-8 inline-flex items-center text-sm font-medium text-[#6B7280]">
-              <span>📍 {city}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function BentoFeatures() {
-  return (
-    <section className="bg-white py-24">
-      <div className="text-4xl font-bold text-center text-[#1A1A1A]">Everything you need to rescue food</div>
-      <div className="text-[#6B7280] text-center mt-3">Built for Nepal&apos;s food scene</div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-16 max-w-6xl mx-auto px-6">
-        <div className="md:col-span-2 bg-[#FAECE7] rounded-3xl p-8 relative min-h-[280px] overflow-hidden">
-          <h3 className="text-xl font-bold text-[#1A1A1A]">Reserve in seconds</h3>
-          <p className="text-[#6B7280] text-sm mt-2 max-w-xs">
-            No account needed to browse. Reserve a bag with just your name and phone.
-          </p>
-          <div className="absolute bottom-5 right-5 w-64 rotate-[-6deg] rounded-2xl bg-white p-4 shadow-lg">
-            <div className="h-8 rounded-lg bg-[#F5F3EF] px-3 text-xs text-[#9CA3AF] flex items-center">Name</div>
-            <div className="mt-2 h-8 rounded-lg bg-[#F5F3EF] px-3 text-xs text-[#9CA3AF] flex items-center">
-              Phone
-            </div>
-            <div className="mt-3 rounded-lg bg-[#D85A30] py-2 text-center text-xs font-semibold text-white">
-              Confirm reservation
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-[#1A1A1A] rounded-3xl p-8 min-h-[280px]">
-          <h3 className="text-xl font-bold text-white">QR pickup</h3>
-          <p className="text-white/60 text-sm mt-2">Show your QR, pay at counter, done.</p>
-          <div className="mt-6 mx-auto w-40 rounded-2xl bg-white p-3">
-            <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: 49 }).map((_, index) => (
-                <div key={index} className={index % 3 === 0 ? 'h-3 w-3 bg-[#1A1A1A]' : 'h-3 w-3 bg-[#F5F3EF]'} />
-              ))}
-            </div>
-          </div>
-          <div className="mt-3 text-center font-mono text-sm text-white/40">Order #A3F2</div>
-        </div>
-
-        <div className="bg-[#F5F3EF] rounded-3xl p-8 min-h-[280px]">
-          <h3 className="text-xl font-bold text-[#1A1A1A]">Live notifications</h3>
-          <p className="text-[#6B7280] text-sm mt-2">Partners notified instantly when someone reserves their bag.</p>
-          <div className="mt-6 space-y-3">
-            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">🛍 New reservation received</div>
-            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">⭐ New review posted</div>
-            <div className="rounded-xl bg-white p-3 shadow-sm text-sm">⏰ Pickup reminder sent</div>
-          </div>
-        </div>
-
-        <div className="bg-[#D85A30] rounded-3xl p-8 min-h-[280px] relative overflow-hidden">
-          <h3 className="text-xl font-bold text-white">Zero commission</h3>
-          <p className="text-white/70 text-sm mt-2">Keep 100% of every sale. One flat monthly fee, nothing more.</p>
-          <div className="absolute bottom-4 right-4 text-8xl font-black text-white/20">100%</div>
-        </div>
-
-        <div className="md:col-span-2 bg-[#F5F3EF] rounded-3xl p-8 min-h-[280px] relative overflow-hidden">
-          <h3 className="text-xl font-bold text-[#1A1A1A]">Built for Nepal</h3>
-          <p className="text-[#6B7280] text-sm mt-2 max-w-md">
-            eSewa, Khalti, cash - customers pay how they want. Available in Kathmandu, Pokhara,
-            Lalitpur and Bharatpur.
-          </p>
-          <svg
-            viewBox="0 0 460 180"
-            className="absolute bottom-4 right-4 w-72 h-28 text-[#D85A30]/60"
-            fill="none"
-            aria-hidden="true">
-            <path
-              d="M18 110C78 72 131 87 178 66C230 42 285 34 342 49C378 58 409 80 442 86L426 130C389 121 369 106 339 104C289 100 241 116 186 132C131 149 74 150 20 135Z"
-              stroke="currentColor"
-              strokeWidth="3"
-            />
-            {[{ cx: 132, cy: 100 }, { cx: 174, cy: 107 }, { cx: 232, cy: 93 }, { cx: 316, cy: 92 }].map((dot, i) => (
-              <circle key={i} cx={dot.cx} cy={dot.cy} r="5" fill="#D85A30" className="animate-pulse" />
-            ))}
-          </svg>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AboutPreviewSection() {
-  return (
-    <section id="about" className="bg-[#F5F3EF] py-24">
-      <div className="max-w-6xl mx-auto px-6">
-        <h2 className="text-4xl font-bold text-center text-[#1A1A1A]">Why LastBag exists</h2>
-        <p className="mt-4 text-[#6B7280] text-center max-w-2xl mx-auto leading-relaxed">
-          Good food gets thrown away every day in Nepal. LastBag connects that surplus with people
-          nearby who want to save money — without commissions eating into partner earnings.
-        </p>
-
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              icon: '🌱',
-              title: 'Less waste',
-              desc: 'Surplus meals, pastries, and groceries find a home instead of the bin.',
-            },
-            {
-              icon: '💰',
-              title: 'Real savings',
-              desc: 'Customers get great food at 50–70% off. Partners earn from food they would have discarded.',
-            },
-            {
-              icon: '🇳🇵',
-              title: 'Made for Nepal',
-              desc: 'Cash, eSewa, Khalti at pickup. Built for Kathmandu, Lalitpur, Pokhara, and Bharatpur.',
-            },
-          ].map((item) => (
-            <div key={item.title} className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-              <div className="text-3xl">{item.icon}</div>
-              <h3 className="mt-4 text-lg font-bold text-[#1A1A1A]">{item.title}</h3>
-              <p className="mt-2 text-sm text-[#6B7280] leading-relaxed">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-10 text-center">
-          <Link
-            href="/about"
-            className="inline-flex items-center justify-center bg-[#D85A30] text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-[#993C1D] transition">
-            Learn more about LastBag →
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ComparisonSection() {
-  const rows = [
-    ['Revenue from surplus', '❌', '⚠️ (after commission)', '✅ Full price'],
-    ['Commission per sale', '-', '15-30%', '✅ Zero'],
-    ['Setup time', '-', 'Days', '✅ 5 minutes'],
-    ['Simple pickup process', '-', '❌ Complex', '✅ QR code scan'],
-    ['Nepal payment methods', '-', '❌', '✅ Cash, eSewa, Khalti'],
-    ['Customer notifications', '-', '❌', '✅ Instant push'],
-    ['Free trial', '-', '❌', '✅ 30 days'],
-  ];
-
-  return (
-    <section className="bg-white py-24">
-      <h2 className="text-4xl font-bold text-center">Why LastBag?</h2>
-      <div className="max-w-3xl mx-auto mt-12 px-6 overflow-x-auto hide-scrollbar">
-        <table className="w-full min-w-[720px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[#F0EDE8]">
-          <thead>
-            <tr className="bg-[#F5F3EF] text-sm">
-              <th className="py-4 px-6 text-left"> </th>
-              <th className="py-4 px-6 text-center">Throwing away</th>
-              <th className="py-4 px-6 text-center">Discount apps</th>
-              <th className="py-4 px-6 text-center bg-[#D85A30] text-white font-bold rounded-t-2xl">LastBag ✓</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={row[0]} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-[#F5F3EF]'}>
-                <td className="py-4 px-6 text-sm font-medium">{row[0]}</td>
-                <td className="py-4 px-6 text-sm text-center text-[#E24B4A]">{row[1]}</td>
-                <td className="py-4 px-6 text-sm text-center text-[#EF9F27]">{row[2]}</td>
-                <td className="py-4 px-6 text-sm text-center text-[#10B981] font-bold">{row[3]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }
 
@@ -221,89 +29,79 @@ export default function HomeLanding() {
     {
       id: 'bag',
       q: 'What is a rescue bag?',
-      a: 'A rescue bag is a discounted bag of surplus food from a restaurant, cafe, bakery, or mart that would otherwise go to waste. Contents vary — partners describe what to expect, and the surprise is part of the fun.',
+      a: 'A discounted surprise bag of surplus food from a restaurant, café, bakery, hotel, or mart that would otherwise go to waste. Partners describe the kind of food to expect; exact contents change day to day.',
     },
     {
       id: 'save',
       q: 'How much do I save?',
-      a: 'Typically 50–70% off the original price. A meal that costs ₨ 500 normally might be available as a rescue bag for ₨ 150–200.',
+      a: 'Typically 50–70% off the original price. A meal that usually costs ₨ 500 might be available as a rescue bag for ₨ 150–200.',
     },
     {
       id: 'pay',
       q: 'Do I pay in the app?',
-      a: 'No — LastBag is free to use. You reserve your bag for free and pay at the counter when you pick up. Cash, eSewa, or Khalti — whatever the restaurant accepts.',
+      a: 'No. LastBag is free to download and free to reserve. You pay at the counter when you pick up — cash, eSewa, or Khalti, depending on what the partner accepts.',
     },
     {
       id: 'cancel',
       q: 'Can I cancel a reservation?',
-      a: 'Yes, you can cancel for free up to 1 hour before the pickup window starts.',
+      a: 'Yes. Open My Bags and tap Cancel. You can cancel until 30 minutes before pickup starts. After that, cancellation is blocked so the restaurant can prepare.',
+    },
+    {
+      id: 'service',
+      q: 'Can I dine in or take away?',
+      a: 'Many partners offer takeaway, dine-in, or both. When both are available, you choose before reserving — and the partner sees your choice on the order.',
     },
     {
       id: 'city',
       q: 'Is LastBag available in my city?',
-      a: 'We are launching in Kathmandu first, with Lalitpur, Pokhara, and Bharatpur following soon. Join the waitlist in the footer to get notified.',
+      a: 'We are live-building across Kathmandu, with Lalitpur, Pokhara, and Bharatpur next. Join the waitlist in the footer to get launch updates.',
     },
     {
       id: 'partner',
       q: 'I run a restaurant. How do I join?',
-      a: 'Visit our restaurant partner page and sign up for a free 30-day trial. No payment required to get started.',
+      a: 'Visit the restaurant partner page and start a free 30-day trial. List bags in minutes, keep 100% of each sale, and pay one flat monthly fee after trial.',
     },
   ];
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#D85A30] via-[#993C1D] to-[#712B13] pt-28 pb-24 md:pt-32 md:pb-32">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,rgba(255,255,255,0.2),transparent_42%),radial-gradient(circle_at_85%_15%,rgba(250,236,215,0.18),transparent_38%)]" />
-        <div className="absolute -right-32 top-20 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -left-24 bottom-10 h-80 w-80 rounded-full bg-black/10 blur-3xl" />
+      {/* Hero — one composition: brand, headline, support, CTAs, product visual */}
+      <section className="grain relative min-h-[100svh] overflow-hidden bg-gradient-to-br from-[#d85a30] via-[#993c1d] to-[#4a1f10] pt-28 pb-20 md:pt-32 md:pb-28">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_20%,rgba(255,255,255,0.18),transparent_50%),radial-gradient(ellipse_at_90%_10%,rgba(250,236,215,0.16),transparent_40%)]" />
+        <div className="absolute -right-40 top-24 h-[28rem] w-[28rem] rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute -left-32 bottom-0 h-80 w-80 rounded-full bg-black/20 blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 lg:grid-cols-2 lg:gap-12">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-16 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           <FadeIn delay={0}>
             <div className="text-center lg:text-left">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
-                🇳🇵 First food rescue app in Nepal
-              </span>
-
-              <h1 className="mt-5 text-5xl font-black leading-[1.05] tracking-tight text-white sm:text-6xl">
-                Rescue great food.
-                <br />
-                Save up to 70%.
-              </h1>
-
-              <p className="mx-auto mt-6 max-w-md text-xl leading-relaxed text-white/75 lg:mx-0">
-                Find surplus rescue bags from restaurants, cafes and bakeries near you — at a
-                fraction of the price.
+              <p className="font-display text-sm font-semibold uppercase tracking-[0.22em] text-white/70">
+                LastBag
               </p>
 
-              <div className="mt-10 flex flex-wrap justify-center gap-4 lg:justify-start">
+              <h1 className="mt-5 font-display text-5xl font-extrabold leading-[1.02] tracking-tight text-white sm:text-6xl lg:text-[4.25rem]">
+                Rescue great food.
+                <span className="mt-2 block text-white/85">Save up to 70%.</span>
+              </h1>
+
+              <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-white/75 lg:mx-0">
+                Surplus rescue bags from restaurants, cafés, and bakeries near you — reserve free,
+                pick up, pay at the counter.
+              </p>
+
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                 <a
                   href="#download"
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-8 py-4 text-base font-bold text-[#D85A30] shadow-xl shadow-black/20 transition hover:bg-[#FFF5F2]">
-                  Download the app →
+                  className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-[#d85a30] shadow-xl shadow-black/20 transition hover:bg-[#fff7f3]">
+                  Download the app
                 </a>
-                <ContactTrialCta className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur transition hover:bg-white/15">
-                  I run a restaurant →
+                <ContactTrialCta className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                  Partner with us
                 </ContactTrialCta>
-              </div>
-
-              <div className="mt-14 flex flex-wrap justify-center gap-8 lg:justify-start">
-                {[
-                  { value: '4', label: 'Cities' },
-                  { value: '70%', label: 'Max savings' },
-                  { value: 'Free', label: 'To reserve' },
-                ].map((stat, index) => (
-                  <div
-                    key={stat.label}
-                    className={index < 2 ? 'border-r border-white/15 pr-8' : ''}>
-                    <div className="text-3xl font-black text-white">{stat.value}</div>
-                    <div className="mt-1 text-sm text-white/60">{stat.label}</div>
-                  </div>
-                ))}
               </div>
             </div>
           </FadeIn>
 
-          <FadeIn delay={120}>
+          <FadeIn delay={140}>
             <div className="flex justify-center lg:justify-end">
               <HeroPhoneMockup />
             </div>
@@ -311,95 +109,318 @@ export default function HomeLanding() {
         </div>
       </section>
 
-      <LaunchCitiesStrip />
-
-      <section id="how-it-works" className="bg-[#F5F3EF] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-[#D85A30] font-semibold text-sm uppercase tracking-widest text-center">
-            How it works
+      {/* Trust strip — single job */}
+      <section className="border-y border-[var(--border)] bg-[var(--surface)] py-5 overflow-hidden">
+        <div className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          Launching across Nepal
+        </div>
+        <div className="mt-3 whitespace-nowrap">
+          <div className="marquee-track inline-flex min-w-[200%]">
+            {Array.from({ length: 4 }).flatMap((_, loop) =>
+              ['Kathmandu', 'Lalitpur', 'Pokhara', 'Bharatpur'].map((city) => (
+                <span
+                  key={`${city}-${loop}`}
+                  className="mx-10 inline-flex items-center text-sm font-medium text-[var(--text-secondary)]">
+                  {city}
+                </span>
+              )),
+            )}
           </div>
-          <h2 className="text-4xl font-bold text-center text-[#1A1A1A] mt-3">Rescue food in 3 simple steps</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how-it-works" className="bg-[var(--bg)] py-24 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <FadeIn>
+            <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+              How it works
+            </p>
+            <h2 className="mt-3 text-center font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+              Three steps to a better meal
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-center text-[var(--text-secondary)]">
+              No upfront payment. No complicated checkout. Just reserve, arrive, and enjoy.
+            </p>
+          </FadeIn>
+
+          <div className="mt-16 grid gap-10 md:grid-cols-3 md:gap-8">
             {[
-              { n: '1', e: '🔍', t: 'Browse nearby', d: 'Find rescue bags from partners near you.' },
-              { n: '2', e: '📱', t: 'Reserve for free', d: 'Reserve in seconds with your name and phone.' },
-              { n: '3', e: '🛍', t: 'Pick up & pay', d: 'Show QR, pay at counter, and enjoy.' },
-            ].map((step) => (
-              <div key={step.n} className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
-                <div className="w-12 h-12 rounded-full bg-[#FAECE7] text-[#D85A30] font-bold text-xl flex items-center justify-center mx-auto">
-                  {step.n}
+              {
+                n: '01',
+                title: 'Browse nearby',
+                body: 'See today’s rescue bags from partners around you — with pickup windows, prices, and how many are left.',
+              },
+              {
+                n: '02',
+                title: 'Reserve for free',
+                body: 'Hold your bag with your name and phone. Choose takeaway or dine-in when the partner offers both.',
+              },
+              {
+                n: '03',
+                title: 'Pick up & pay',
+                body: 'Show your QR at the counter, pay how the restaurant prefers, and take home food that almost went to waste.',
+              },
+            ].map((step, index) => (
+              <FadeIn key={step.n} delay={index * 80}>
+                <div className="relative border-t border-[var(--border)] pt-8">
+                  <span className="font-display text-sm font-bold tracking-[0.16em] text-[var(--primary)]">
+                    {step.n}
+                  </span>
+                  <h3 className="mt-4 font-display text-2xl font-bold text-[var(--ink)]">{step.title}</h3>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">{step.body}</p>
                 </div>
-                <div className="text-5xl mt-6">{step.e}</div>
-                <div className="text-xl font-bold mt-4 text-[#1A1A1A]">{step.t}</div>
-                <p className="text-[#6B7280] mt-3 leading-relaxed text-sm">{step.d}</p>
-              </div>
+              </FadeIn>
             ))}
           </div>
         </div>
       </section>
 
-      <BentoFeatures />
-      <AboutPreviewSection />
+      {/* Product story */}
+      <section className="bg-[var(--surface)] py-24 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid items-end gap-10 lg:grid-cols-[1fr_1.1fr]">
+            <FadeIn>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+                Built for Nepal
+              </p>
+              <h2 className="mt-3 font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+                Food rescue that fits how Nepal eats and pays
+              </h2>
+            </FadeIn>
+            <FadeIn delay={100}>
+              <p className="max-w-xl text-lg leading-relaxed text-[var(--text-secondary)] lg:justify-self-end">
+                LastBag is designed around local habits — cash and wallets at pickup, short evening
+                windows, and partners who need a simple way to sell surplus without losing margin to
+                commission apps.
+              </p>
+            </FadeIn>
+          </div>
 
-      <section id="impact" className="bg-[#D85A30] py-20">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-white text-3xl font-bold text-center">Every bag rescued makes a difference</h2>
-          <LiveImpactStats />
-          <div className="text-white/50 text-xs text-center mt-8">Numbers update as LastBag grows 🌱</div>
-        </div>
-      </section>
-
-      <section id="cities" className="bg-[#F5F3EF] py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Launching across Nepal</h2>
-          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="mt-16 grid gap-px overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--border)] md:grid-cols-2">
             {[
-              { name: 'Kathmandu', np: 'काठमाडौं' },
-              { name: 'Lalitpur', np: 'ललितपुर' },
-              { name: 'Pokhara', np: 'पोखरा' },
-              { name: 'Bharatpur', np: 'भरतपुर' },
-            ].map((city) => (
-              <div key={city.name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
-                <div className="text-xl font-bold mt-3">{city.name}</div>
-                <div className="text-[#6B7280] text-sm mt-1">{city.np}</div>
+              {
+                title: 'Reserve in seconds',
+                body: 'Browse without friction. Reserve with name and phone — then manage everything in My Bags, including chat with the partner.',
+              },
+              {
+                title: 'QR pickup that just works',
+                body: 'Customers show a QR or short code. Partners confirm in one tap. Stock updates live so “X left” stays honest.',
+              },
+              {
+                title: 'Zero commission for partners',
+                body: 'Restaurants keep 100% of every sale. One flat monthly subscription after a 30-day free trial — no cut per order.',
+              },
+              {
+                title: 'Takeaway or dine-in',
+                body: 'Partners set the options. Customers choose. Orders show “Prepare: Takeaway” or “Prepare: Dine-in” so the kitchen knows what to do.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="bg-[var(--surface)] p-8 md:p-10">
+                <h3 className="font-display text-xl font-bold text-[var(--ink)]">{item.title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">{item.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <ComparisonSection />
+      {/* Why it matters */}
+      <section id="about" className="bg-[var(--bg)] py-24 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <FadeIn>
+            <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+              Why LastBag exists
+            </p>
+            <h2 className="mt-3 text-center font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+              Good food shouldn&apos;t end in the bin
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-center text-lg leading-relaxed text-[var(--text-secondary)]">
+              Every evening, kitchens have surplus that never gets sold. Nearby people would buy it
+              at a fair discount — if they knew. LastBag closes that gap.
+            </p>
+          </FadeIn>
 
-      <section className="bg-[#1A1A1A] py-24">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-white mt-4">Turn surplus food into revenue</h2>
-          <p className="text-white/70 text-lg mt-4 max-w-2xl mx-auto">
-            Join LastBag as a restaurant partner with a 30-day free trial.
-          </p>
-          <ContactTrialCta className="mt-10 inline-block rounded-full bg-[#D85A30] px-10 py-4 text-lg font-bold text-white transition hover:bg-[#993C1D]">
-            Start free trial →
-          </ContactTrialCta>
+          <div className="mt-16 grid gap-12 md:grid-cols-3">
+            {[
+              {
+                title: 'Less waste',
+                body: 'Meals, pastries, and groceries find a home instead of becoming landfill.',
+              },
+              {
+                title: 'Real savings',
+                body: 'Customers save 50–70%. Partners earn from food they would have discarded.',
+              },
+              {
+                title: 'Fair for kitchens',
+                body: 'No commission games. Flat pricing, clear orders, and tools built for busy service.',
+              },
+            ].map((item, index) => (
+              <FadeIn key={item.title} delay={index * 70}>
+                <div>
+                  <div className="h-px w-12 bg-[var(--primary)]" />
+                  <h3 className="mt-6 font-display text-2xl font-bold text-[var(--ink)]">{item.title}</h3>
+                  <p className="mt-3 leading-relaxed text-[var(--text-secondary)]">{item.body}</p>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/about"
+              className="inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-8 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-dark)]">
+              Read our story
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section id="download" className="bg-white py-24">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold">Download LastBag</h2>
-          <p className="text-[#6B7280] text-lg mt-4">Free to download. Free to reserve. Pay only at pickup.</p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <AppStoreButton />
-            <GooglePlayButton />
+      {/* Impact */}
+      <section id="impact" className="grain relative overflow-hidden bg-gradient-to-br from-[#d85a30] to-[#712b13] py-20 md:py-24">
+        <div className="relative mx-auto max-w-6xl px-6">
+          <h2 className="text-center font-display text-3xl font-bold text-white md:text-4xl">
+            Every bag rescued makes a difference
+          </h2>
+          <LiveImpactStats />
+          <p className="mt-8 text-center text-xs text-white/50">Live totals as LastBag grows</p>
+        </div>
+      </section>
+
+      {/* Cities */}
+      <section id="cities" className="bg-[var(--surface)] py-24 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+                Cities
+              </p>
+              <h2 className="mt-3 font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+                Starting where Nepal eats out
+              </h2>
+              <p className="mt-5 max-w-md leading-relaxed text-[var(--text-secondary)]">
+                We&apos;re opening city by city with restaurants, cafés, bakeries, hotels, and marts
+                that want surplus to mean revenue — not waste.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:gap-5">
+              {[
+                { name: 'Kathmandu', np: 'काठमाडौं', note: 'First city' },
+                { name: 'Lalitpur', np: 'ललितपुर', note: 'Opening soon' },
+                { name: 'Pokhara', np: 'पोखरा', note: 'Opening soon' },
+                { name: 'Bharatpur', np: 'भरतपुर', note: 'Opening soon' },
+              ].map((city) => (
+                <div
+                  key={city.name}
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] px-5 py-6">
+                  <p className="font-display text-xl font-bold text-[var(--ink)]">{city.name}</p>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
+                    {city.note}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="mx-auto mt-8 max-w-sm">
-            <p className="mb-3 text-center text-sm text-[#6B7280]">Or sign in on the web</p>
+        </div>
+      </section>
+
+      {/* Comparison */}
+      <section className="bg-[var(--bg)] py-24 md:py-28">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-center font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+            Why partners choose LastBag
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-center text-[var(--text-secondary)]">
+            Compared with throwing food away — or apps that take a cut of every order.
+          </p>
+
+          <div className="mt-12 overflow-x-auto hide-scrollbar">
+            <table className="w-full min-w-[680px] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+              <thead>
+                <tr className="bg-[var(--bg-deep)] text-left text-sm">
+                  <th className="px-5 py-4 font-medium text-[var(--text-muted)]"> </th>
+                  <th className="px-5 py-4 font-medium text-[var(--text-secondary)]">Throwing away</th>
+                  <th className="px-5 py-4 font-medium text-[var(--text-secondary)]">Commission apps</th>
+                  <th className="bg-[var(--primary)] px-5 py-4 font-semibold text-white">LastBag</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {[
+                  ['Revenue from surplus', 'None', 'After commission', 'Full sale price'],
+                  ['Commission per sale', '—', '15–30%', 'Zero'],
+                  ['Setup', '—', 'Days', 'About 5 minutes'],
+                  ['Pickup', '—', 'Often complex', 'QR or short code'],
+                  ['Nepal payments', '—', 'Limited', 'Cash, eSewa, Khalti'],
+                  ['Trial', '—', 'Rare', '30 days free'],
+                ].map((row, i) => (
+                  <tr key={row[0]} className={i % 2 === 0 ? 'bg-[var(--surface)]' : 'bg-[var(--bg)]'}>
+                    <td className="px-5 py-4 font-medium text-[var(--ink)]">{row[0]}</td>
+                    <td className="px-5 py-4 text-[var(--text-secondary)]">{row[1]}</td>
+                    <td className="px-5 py-4 text-[var(--text-secondary)]">{row[2]}</td>
+                    <td className="px-5 py-4 font-semibold text-[var(--primary-dark)]">{row[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Partner CTA */}
+      <section className="bg-[var(--ink)] py-24">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary-mid)]">
+            For restaurants
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-bold text-white md:text-5xl">
+            Turn tonight&apos;s surplus into revenue
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-white/65">
+            List a bag in minutes. Get notified on every reservation. Keep 100% of what customers
+            pay — with a free 30-day trial.
+          </p>
+          <ContactTrialCta className="mt-10 inline-flex rounded-full bg-[var(--primary)] px-10 py-4 text-base font-semibold text-white transition hover:bg-[var(--primary-dark)]">
+            Start free trial
+          </ContactTrialCta>
+          <div className="mt-4">
+            <Link href="/for-restaurants" className="text-sm font-medium text-white/55 transition hover:text-white">
+              See partner pricing and details →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Download */}
+      <section id="download" className="bg-[var(--surface)] py-24 md:py-28">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <h2 className="font-display text-4xl font-bold text-[var(--ink)] md:text-5xl">
+            Download LastBag
+          </h2>
+          <p className="mt-4 text-lg text-[var(--text-secondary)]">
+            Free to download. Free to reserve. Pay only when you pick up.
+          </p>
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <StoreButton eyebrow="Download on the" title="App Store" />
+            <StoreButton eyebrow="Get it on" title="Google Play" />
+          </div>
+          <div className="mx-auto mt-10 max-w-sm">
+            <p className="mb-3 text-sm text-[var(--text-muted)]">Or continue on the web</p>
             <GoogleSignInButton />
           </div>
         </div>
       </section>
 
-      <section id="faq" className="bg-[#F5F3EF] py-24">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center">Common questions</h2>
+      {/* FAQ */}
+      <section id="faq" className="bg-[var(--bg)] py-24 md:py-28">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="text-center font-display text-4xl font-bold text-[var(--ink)]">
+            Common questions
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-center text-[var(--text-secondary)]">
+            Straight answers for customers and partners getting started with LastBag.
+          </p>
           <div className="mt-12">
             <FaqAccordion items={faqItems} />
           </div>
@@ -408,4 +429,3 @@ export default function HomeLanding() {
     </main>
   );
 }
-

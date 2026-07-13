@@ -19,6 +19,7 @@ import {
   openWhatsAppShare,
 } from '@/lib/helpers';
 import { supabase } from '@/lib/supabase';
+import { dismissModalsAndReplace } from '@/lib/navigation';
 
 type ConfirmedOrder = {
   id: string;
@@ -161,7 +162,9 @@ export default function OrderConfirmedScreen() {
           <Text style={styles.whatsappText}>Share via WhatsApp</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.replace('/(tabs)/customer/home')} style={styles.homeLink}>
+        <Pressable
+          onPress={() => dismissModalsAndReplace(router, '/(tabs)/customer/home')}
+          style={styles.homeLink}>
           <Text style={styles.homeLinkText}>Back to home</Text>
         </Pressable>
 

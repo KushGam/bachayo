@@ -11,6 +11,8 @@ export type BagPrefillData = {
   pickup_start: string;
   pickup_end: string;
   image_url?: string | null;
+  service_type?: 'takeaway' | 'dinein' | 'both';
+  dinein_extra_charge?: number;
 };
 
 type BagPrefillState = {

@@ -1,34 +1,35 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { DM_Sans, Syne } from 'next/font/google';
 import type { ReactNode } from 'react';
-import type { Viewport } from 'next';
 
 import '@/app/globals.css';
 
 import { LandingFooter } from '@/components/LandingFooter';
 import { LandingNavbar } from '@/components/LandingNavbar';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const syne = Syne({
+  variable: '--font-syne',
   subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const dmSans = DM_Sans({
+  variable: '--font-dm-sans',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
   title: 'LastBag — Rescue food. Save money.',
   description:
-    'Find discounted rescue bags from restaurants, cafes, and bakeries near you in Nepal. Save up to 70% on great food.',
+    'Nepal’s food rescue app. Reserve surplus bags from restaurants, cafés, and bakeries near you — save up to 70%, waste less, pay at pickup.',
   keywords:
-    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag',
+    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur',
   metadataBase: new URL('https://bachayo.vercel.app'),
   openGraph: {
     title: 'LastBag — Rescue food. Save money.',
     description:
-      "Surplus rescue bags from Nepal's best restaurants at 50-70% off.",
+      "Surplus rescue bags from Nepal's restaurants at 50–70% off. Free to reserve. Pay at pickup.",
     url: 'https://bachayo.vercel.app',
     siteName: 'LastBag',
     images: [
@@ -59,10 +60,8 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)]">
+    <html lang="en" className={`${syne.variable} ${dmSans.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col bg-[var(--bg)] text-[var(--text-primary)]">
         <LandingNavbar />
         <div className="flex-1">{children}</div>
         <LandingFooter />
@@ -70,4 +69,3 @@ export default function RootLayout({
     </html>
   );
 }
-

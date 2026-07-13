@@ -114,6 +114,7 @@ export type NotificationData = {
   order_id?: string;
   bagId?: string;
   bag_id?: string;
+  review_id?: string;
 };
 
 export function getRouteFromNotificationData(data: NotificationData) {
@@ -138,6 +139,15 @@ export function getRouteFromNotificationData(data: NotificationData) {
   }
   if ((type === 'review_request' || type === 'review') && orderId) {
     return `/review/${orderId}` as const;
+  }
+  if (type === 'order_message' && orderId) {
+    return `/order/chat/${orderId}` as const;
+  }
+  if (type === 'review_reply') {
+    if (typeof data.partner_id === 'string' && data.partner_id) {
+      return `/partner/${data.partner_id}` as const;
+    }
+    return '/(tabs)/customer/my-bags' as const;
   }
   if (type === 'bag_expiring') {
     return '/(tabs)/partner/my-bags' as const;

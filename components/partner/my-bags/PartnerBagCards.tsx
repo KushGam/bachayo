@@ -36,11 +36,12 @@ import {
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
-import { formatTime12h } from '@/lib/helpers';
+import { formatBagServiceBadge, formatTime12h } from '@/lib/helpers';
 import {
   type CountdownState,
   type PartnerBagOrder,
   type PartnerBagWithStats,
+  deletePartnerBagListing,
   fetchPartnerBagOrders,
   formatBagDateLabel,
   formatNprFromPaisa,
@@ -55,6 +56,8 @@ import { confirmPartnerPickup } from '@/lib/orders';
 import { applyFetchedOrdersWithPickupGuard, protectPendingPickup } from '@/lib/pendingPickups';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
 import { supabase } from '@/lib/supabase';
+import { usePartnerStore } from '@/store/usePartnerStore';
+import { useBagsStore } from '@/store/useBagsStore';
 
 const BAG_STATUS_STYLES = {
   active: { bg: Palette.successBg, text: Palette.success, label: 'Active' },
@@ -176,6 +179,9 @@ type PartnerTodayBagCardProps = {
   onRelist?: () => void;
   onSoldOut?: () => void;
   onDeleted?: (bagId: string) => void;
+  onOpenChat?: (orderId: string) => void;
+  unreadByOrder?: Record<string, number>;
+  ordersRefreshKey?: number;
 };
 
 export function PartnerTodayBagCard({
@@ -190,6 +196,9 @@ export function PartnerTodayBagCard({
   onRelist,
   onSoldOut,
   onDeleted,
+  onOpenChat,
+  unreadByOrder,
+  ordersRefreshKey = 0,
 }: PartnerTodayBagCardProps) {
   const router = useRouter();
   const swipeRef = useRef<Swipeable>(null);
@@ -213,9 +222,32 @@ export function PartnerTodayBagCard({
     return () => clearInterval(id);
   }, [bag.available_date, bag.pickup_start, bag.pickup_end]);
 
+  useEffect(() => {
+    if (!isOrdersExpanded) return;
+    let cancelled = false;
+    void (async () => {
+      setOrdersLoading(true);
+      try {
+        const rows = await fetchPartnerBagOrders(bag.id);
+        if (cancelled) return;
+        setOrders((prev) =>
+          applyFetchedOrdersWithPickupGuard(rows, pendingPickupIds.current, prev ?? []),
+        );
+      } catch {
+        if (!cancelled) setOrders([]);
+      } finally {
+        if (!cancelled) setOrdersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bag.id, isOrdersExpanded, ordersRefreshKey, pendingPickupIds]);
+
   const displayStatus = getBagDisplayStatus(bag);
   const statusStyle = BAG_STATUS_STYLES[displayStatus === 'active' ? 'active' : displayStatus];
   const savings = getSavingsPct(bag.original_price, bag.rescue_price);
+  const serviceBadge = formatBagServiceBadge(bag);
   const reserved = bag.quantity_reserved;
   const capacity = bag.quantity_available;
   const fullyReserved = reserved >= capacity && capacity > 0;
@@ -246,59 +278,59 @@ export function PartnerTodayBagCard({
   };
 
   const confirmDeleteBag = () => {
-    // Bags with ANY orders cannot be deleted due to `orders.bag_id` FK.
-    // If there are active reservations, prefer "Sold out" to stop new reservations.
-    if (bag.total_orders > 0) {
-      const activeReserved = bag.quantity_reserved > 0 || bag.reserved_orders > 0;
+    const reservedGuess = Math.max(bag.quantity_reserved, bag.reserved_orders);
+    if (reservedGuess > 0) {
       Alert.alert(
         "Can't delete",
-        activeReserved
-          ? 'This bag already has reservations. You can’t delete it — mark it as sold out instead.'
-          : 'This bag has orders linked to it. You can’t delete it — cancel it instead.',
-        activeReserved
-          ? [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
-            ]
-          : [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Cancel bag', onPress: () => void updateStatus('cancelled') },
-            ],
+        `${reservedGuess} customer${reservedGuess === 1 ? '' : 's'} reserved — mark as sold out instead`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
+        ],
       );
       return;
     }
 
-    Alert.alert('Delete this bag?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            await hapticWarning();
-            const { error } = await supabase.from('rescue_bags').delete().eq('id', bag.id);
-            if (error) {
-              const msg = error.message ?? 'Could not delete bag';
-              if (msg.toLowerCase().includes('foreign key') || msg.includes('orders_bag_id_fkey')) {
-                Alert.alert(
-                  "Can't delete",
-                  'This bag already has orders linked to it. Mark it as cancelled instead.',
-                  [
-                    { text: 'OK', style: 'cancel' },
-                    { text: 'Cancel bag', onPress: () => void updateStatus('cancelled') },
-                  ],
-                );
+    Alert.alert(
+      'Delete this bag?',
+      'This removes the listing from customers. Past pickups stay in your history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              await hapticWarning();
+              const partnerName = usePartnerStore.getState().partner?.name ?? 'The restaurant';
+              const result = await deletePartnerBagListing({
+                bagId: bag.id,
+                partnerName,
+              });
+
+              if (!result.ok) {
+                if (result.reason === 'has_reservations') {
+                  Alert.alert("Can't delete", result.message, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
+                  ]);
+                  return;
+                }
+                Alert.alert('Error', result.message);
                 return;
               }
-              Alert.alert('Error', msg);
-              return;
-            }
-            onDeleted?.(bag.id);
-            onRefresh();
-          })();
+
+              useBagsStore.getState().applyBagStock(bag.id, {
+                status: 'cancelled',
+                quantity_reserved: 0,
+              });
+              onDeleted?.(bag.id);
+              onRefresh();
+            })();
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const deleteBag = () => {
@@ -308,22 +340,7 @@ export function PartnerTodayBagCard({
 
   const toggleOrders = async () => {
     void hapticButtonPress();
-    const willExpand = !isOrdersExpanded;
     onToggleOrders(bag.id);
-
-    if (!willExpand) return;
-
-    setOrdersLoading(true);
-    try {
-      const rows = await fetchPartnerBagOrders(bag.id);
-      setOrders((prev) =>
-        applyFetchedOrdersWithPickupGuard(rows, pendingPickupIds.current, prev ?? []),
-      );
-    } catch {
-      setOrders([]);
-    } finally {
-      setOrdersLoading(false);
-    }
   };
 
   const markAsPickedUp = async (orderId: string) => {
@@ -434,6 +451,11 @@ export function PartnerTodayBagCard({
             {formatPickupRange(bag.pickup_start, bag.pickup_end)}
           </Text>
         </View>
+        {serviceBadge ? (
+          <View style={styles.serviceBadge}>
+            <Text style={styles.serviceBadgeText}>{serviceBadge}</Text>
+          </View>
+        ) : null}
         {savings > 0 ? (
           <View style={styles.savingsBadge}>
             <Text style={styles.savingsText}>{savings}% off</Text>
@@ -497,6 +519,8 @@ export function PartnerTodayBagCard({
           loading={ordersLoading}
           markingPickup={markingPickup}
           onMarkPickedUp={(orderId) => void markAsPickedUp(orderId)}
+          onOpenChat={onOpenChat}
+          unreadByOrder={unreadByOrder}
         />
       </ExpandableOrders>
     </View>
@@ -553,10 +577,19 @@ export function PartnerTodayBagCard({
 export function PartnerPastBagCard({
   bag,
   onRelist,
+  isOrdersExpanded = false,
+  onToggleOrders,
+  ordersRefreshKey = 0,
 }: {
   bag: PartnerBagWithStats;
   onRelist: () => void;
+  isOrdersExpanded?: boolean;
+  onToggleOrders?: (bagId: string) => void;
+  ordersRefreshKey?: number;
 }) {
+  const [orders, setOrders] = useState<PartnerBagOrder[] | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
   const badge = (() => {
     if (bag.quantity_available > 0 && bag.picked_up_orders >= bag.quantity_available) {
       return { kind: 'sold_out' as const };
@@ -574,48 +607,108 @@ export function PartnerPastBagCard({
     month: 'long',
   });
 
+  const orderCount = bag.total_orders;
+  const canExpand = orderCount > 0;
+
+  useEffect(() => {
+    if (!isOrdersExpanded) return;
+    let cancelled = false;
+    void (async () => {
+      setOrdersLoading(true);
+      try {
+        const rows = await fetchPartnerBagOrders(bag.id, { includeCancelled: true });
+        if (!cancelled) setOrders(rows);
+      } catch {
+        if (!cancelled) setOrders([]);
+      } finally {
+        if (!cancelled) setOrdersLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bag.id, isOrdersExpanded, ordersRefreshKey]);
+
+  const toggleOrders = () => {
+    if (!canExpand || !onToggleOrders) return;
+    void hapticButtonPress();
+    onToggleOrders(bag.id);
+  };
+
   return (
-    <View style={styles.pastCard}>
-      <View
-        style={[
-          styles.perfBadge,
-          badge.kind === 'sold_out' && styles.perfSoldOut,
-          badge.kind === 'partial' && styles.perfPartial,
-          badge.kind === 'none' && styles.perfNone,
-        ]}>
-        <Text
+    <View style={styles.pastCardWrap}>
+      <Pressable
+        onPress={toggleOrders}
+        disabled={!canExpand}
+        style={({ pressed }) => [styles.pastCard, pressed && canExpand && { opacity: 0.96 }]}>
+        <View
           style={[
-            styles.perfBadgeText,
-            badge.kind === 'sold_out' && styles.perfSoldOutText,
-            badge.kind === 'partial' && styles.perfPartialText,
-            badge.kind === 'none' && styles.perfNoneText,
+            styles.perfBadge,
+            badge.kind === 'sold_out' && styles.perfSoldOut,
+            badge.kind === 'partial' && styles.perfPartial,
+            badge.kind === 'none' && styles.perfNone,
           ]}>
-          {badge.kind === 'sold_out' ? '✓' : badge.kind === 'partial' ? badge.label : '0'}
-        </Text>
-      </View>
-
-      <View style={styles.pastCenter}>
-        <Text style={styles.pastTitle} numberOfLines={2}>
-          {bag.title}
-        </Text>
-        <Text style={styles.pastDate}>{dateStr}</Text>
-        <View style={styles.pastRevenueRow}>
-          <Text style={styles.pastRevenue}>{formatNprFromPaisa(bag.revenue_earned)} earned</Text>
-          <Text style={styles.pastPickups}> · {bag.picked_up_bags} bags picked up</Text>
+          <Text
+            style={[
+              styles.perfBadgeText,
+              badge.kind === 'sold_out' && styles.perfSoldOutText,
+              badge.kind === 'partial' && styles.perfPartialText,
+              badge.kind === 'none' && styles.perfNoneText,
+            ]}>
+            {badge.kind === 'sold_out' ? '✓' : badge.kind === 'partial' ? badge.label : '0'}
+          </Text>
         </View>
-      </View>
 
-      <View style={styles.pastRight}>
-        {bag.avg_rating != null ? (
-          <View style={styles.pastRatingRow}>
-            <Star size={12} color={Palette.primary} fill={Palette.primary} strokeWidth={2} />
-            <Text style={styles.pastRating}>{bag.avg_rating}</Text>
+        <View style={styles.pastCenter}>
+          <Text style={styles.pastTitle} numberOfLines={2}>
+            {bag.title}
+          </Text>
+          <Text style={styles.pastDate}>{dateStr}</Text>
+          <View style={styles.pastRevenueRow}>
+            <Text style={styles.pastRevenue}>{formatNprFromPaisa(bag.revenue_earned)} earned</Text>
+            <Text style={styles.pastPickups}> · {bag.picked_up_bags} bags picked up</Text>
           </View>
-        ) : null}
-        <Pressable onPress={onRelist} hitSlop={8}>
-          <Text style={styles.relistLink}>Relist →</Text>
-        </Pressable>
-      </View>
+          {canExpand ? (
+            <Text style={styles.pastOrdersHint}>
+              {orderCount} order{orderCount === 1 ? '' : 's'} · tap to view
+            </Text>
+          ) : (
+            <Text style={styles.pastOrdersHint}>No orders</Text>
+          )}
+        </View>
+
+        <View style={styles.pastRight}>
+          {bag.avg_rating != null ? (
+            <View style={styles.pastRatingRow}>
+              <Star size={12} color={Palette.primary} fill={Palette.primary} strokeWidth={2} />
+              <Text style={styles.pastRating}>{bag.avg_rating}</Text>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onRelist();
+            }}
+            hitSlop={8}>
+            <Text style={styles.relistLink}>Relist →</Text>
+          </Pressable>
+          {canExpand ? (
+            isOrdersExpanded ? (
+              <ChevronUp size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+            ) : (
+              <ChevronDown size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+            )
+          ) : null}
+        </View>
+      </Pressable>
+
+      {isOrdersExpanded ? (
+        <BagOrdersExpandedPanel
+          orders={orders}
+          loading={ordersLoading}
+          historyMode
+        />
+      ) : null}
     </View>
   );
 }
@@ -633,6 +726,7 @@ export function RelistCard({ bag, onRelist }: { bag: PartnerBagWithStats; onReli
     }
     return { label: 'No orders', style: styles.relistBadgeGray };
   })();
+  const serviceBadge = formatBagServiceBadge(bag);
 
   return (
     <View style={styles.relistCard}>
@@ -644,6 +738,11 @@ export function RelistCard({ bag, onRelist }: { bag: PartnerBagWithStats; onReli
           ? `${formatNprFromPaisa(bag.revenue_earned)} earned`
           : formatNprFromPaisa(bag.rescue_price)}
       </Text>
+      {serviceBadge ? (
+        <Text style={styles.relistService} numberOfLines={1}>
+          {serviceBadge}
+        </Text>
+      ) : null}
       <View style={[styles.relistBadge, badge.style]}>
         <Text style={styles.relistBadgeText}>{badge.label}</Text>
       </View>
@@ -749,6 +848,17 @@ const styles = StyleSheet.create({
     ...Type.label,
     fontWeight: '700',
     color: Palette.warning,
+  },
+  serviceBadge: {
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  serviceBadgeText: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.primaryDark,
   },
   statusBadge: {
     borderRadius: Radius.pill,
@@ -860,10 +970,13 @@ const styles = StyleSheet.create({
     color: Palette.white,
     textAlign: 'center',
   },
-  pastCard: {
-    ...CardChrome,
+  pastCardWrap: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
+    ...CardChrome,
+    overflow: 'hidden',
+  },
+  pastCard: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md + 2,
     flexDirection: 'row',
@@ -891,6 +1004,12 @@ const styles = StyleSheet.create({
   pastRevenueRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   pastRevenue: { ...Type.caption, fontWeight: '600', color: Palette.success },
   pastPickups: { ...Type.label, color: Palette.textSecondary },
+  pastOrdersHint: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    marginTop: 2,
+    fontWeight: '500',
+  },
   pastRight: { alignItems: 'flex-end', gap: 6 },
   pastRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pastRating: { ...Type.caption, fontWeight: '600', color: Palette.primary },
@@ -912,6 +1031,12 @@ const styles = StyleSheet.create({
     ...Type.caption,
     fontWeight: '700',
     color: Palette.primary,
+    marginTop: 4,
+  },
+  relistService: {
+    ...Type.label,
+    fontWeight: '600',
+    color: Palette.textSecondary,
     marginTop: 4,
   },
   relistBadge: {

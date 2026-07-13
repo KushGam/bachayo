@@ -1,5 +1,6 @@
 import { ShoppingBag } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { StarRating } from '@/components/partner/reviews/StarRating';
 import { Palette } from '@/constants/Colors';
@@ -13,16 +14,31 @@ export type PartnerReviewItem = {
   created_at: string;
   customer: { full_name: string | null; phone: string | null } | null;
   order: { bag: { title: string } | null } | null;
+  customer_id?: string;
+  partner_id?: string;
+  partner_reply?: string | null;
+  partner_replied_at?: string | null;
 };
 
 type ReviewCardProps = {
   review: PartnerReviewItem;
+  draftReply?: string;
+  onDraftReplyChange?: (reviewId: string, value: string) => void;
+  onPostReply?: (review: PartnerReviewItem, reply: string) => void;
 };
 
-export function ReviewCard({ review }: ReviewCardProps) {
+const REPLY_MAX = 280;
+
+export function ReviewCard({ review, draftReply, onDraftReplyChange, onPostReply }: ReviewCardProps) {
   const name = review.customer?.full_name || review.customer?.phone || 'Customer';
   const firstName = name.split(' ')[0] ?? name;
   const bagTitle = review.order?.bag?.title ?? 'Rescue bag';
+  const [isEditing, setIsEditing] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  const draft = draftReply ?? '';
+  const canPost = draft.trim().length > 0;
+  const showComposer = !review.partner_reply || isEditing;
 
   return (
     <View style={styles.card}>
@@ -58,6 +74,73 @@ export function ReviewCard({ review }: ReviewCardProps) {
           {bagTitle}
         </Text>
       </View>
+
+      {showComposer ? (
+        <View style={styles.replyComposer}>
+          <Text style={styles.replyHint}>
+            {isEditing ? 'Edit your reply' : 'Reply to this review'}
+          </Text>
+          <TextInput
+            value={draft}
+            onChangeText={(text) => onDraftReplyChange?.(review.id, text.slice(0, REPLY_MAX))}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Thank you for your feedback…"
+            placeholderTextColor={Palette.textTertiary}
+            multiline
+            scrollEnabled
+            textAlignVertical="top"
+            underlineColorAndroid="transparent"
+            autoCorrect
+            autoCapitalize="sentences"
+            style={[styles.replyInput, focused && styles.replyInputFocused]}
+          />
+          <View style={styles.composerFooter}>
+            <Text style={styles.charCount}>
+              {draft.length}/{REPLY_MAX}
+            </Text>
+            <View style={styles.composerActions}>
+              {isEditing ? (
+                <Pressable
+                  onPress={() => {
+                    setIsEditing(false);
+                    onDraftReplyChange?.(review.id, '');
+                  }}
+                  style={styles.cancelBtn}
+                  hitSlop={6}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  if (!canPost) return;
+                  onPostReply?.(review, draft);
+                  setIsEditing(false);
+                }}
+                disabled={!canPost}
+                style={[styles.postReplyBtn, !canPost && styles.postReplyBtnDisabled]}>
+                <Text style={styles.postReplyText}>{isEditing ? 'Update' : 'Post reply'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.replyWrap}>
+          <Text style={styles.replyLabel}>Your reply</Text>
+          <Text style={styles.replyText}>{review.partner_reply}</Text>
+          {review.partner_replied_at ? (
+            <Text style={styles.replyTime}>{formatRelativeTime(review.partner_replied_at)}</Text>
+          ) : null}
+          <Pressable
+            onPress={() => {
+              onDraftReplyChange?.(review.id, review.partner_reply ?? '');
+              setIsEditing(true);
+            }}
+            hitSlop={6}>
+            <Text style={styles.editReply}>Edit reply</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -153,5 +236,104 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     fontWeight: '500',
     flexShrink: 1,
+  },
+  replyWrap: {
+    backgroundColor: Palette.surfaceMuted,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Palette.primary,
+  },
+  replyLabel: {
+    fontSize: 11,
+    color: Palette.primary,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  replyText: {
+    fontSize: 14,
+    color: Palette.textPrimary,
+    marginTop: 6,
+    lineHeight: 21,
+  },
+  replyTime: {
+    fontSize: 11,
+    color: Palette.textTertiary,
+    marginTop: 6,
+  },
+  editReply: {
+    fontSize: 12,
+    color: Palette.primary,
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  replyComposer: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  replyHint: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+  replyInput: {
+    minHeight: 96,
+    maxHeight: 160,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+    borderRadius: Radius.md,
+    backgroundColor: Palette.surface,
+    paddingHorizontal: 14,
+    // Explicit padding avoids iOS multiline jump while typing spaces
+    paddingTop: Platform.OS === 'ios' ? 12 : 12,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 12,
+    fontSize: 16,
+    lineHeight: 22,
+    color: Palette.textPrimary,
+    textAlignVertical: 'top',
+  },
+  replyInputFocused: {
+    borderColor: Palette.primary,
+    backgroundColor: Palette.white,
+  },
+  composerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  charCount: {
+    ...Type.label,
+    color: Palette.textTertiary,
+  },
+  composerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  cancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cancelBtnText: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+  postReplyBtn: {
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  postReplyBtnDisabled: {
+    opacity: 0.4,
+  },
+  postReplyText: {
+    color: Palette.white,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

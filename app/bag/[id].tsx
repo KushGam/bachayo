@@ -20,7 +20,7 @@ import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme
 import { track } from '@/lib/analytics';
 import { getRescueBagImageUrl } from '@/lib/images';
 import { enrichBagsWithLiveStock } from '@/lib/bagStock';
-import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
+import { formatNprPaisa, formatTime12h, getBagDineInExtraPaisa, getBagServiceType } from '@/lib/helpers';
 import { findActiveReservationForBag } from '@/lib/reservations';
 import { supabase } from '@/lib/supabase';
 import type { RescueBagWithPartner } from '@/types/app';
@@ -55,6 +55,7 @@ export default function RescueBagDetailScreen() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedServiceType, setSelectedServiceType] = useState<'takeaway' | 'dinein'>('takeaway');
   const [existingOrder, setExistingOrder] = useState<ExistingReservation | null>(null);
 
   const remaining = useMemo(() => {
@@ -70,6 +71,13 @@ export default function RescueBagDetailScreen() {
   useEffect(() => {
     setQuantity((q) => Math.min(q, maxQty));
   }, [maxQty]);
+
+  useEffect(() => {
+    if (!bag) return;
+    const type = getBagServiceType(bag);
+    if (type === 'dinein') setSelectedServiceType('dinein');
+    else setSelectedServiceType('takeaway');
+  }, [bag?.id]);
 
   useEffect(() => {
     (async () => {
@@ -144,6 +152,12 @@ export default function RescueBagDetailScreen() {
   const pickupEnd = bag.pickup_end.slice(0, 5);
   const pickupLabel = `Pickup ${formatTime12h(bag.pickup_start)}–${formatTime12h(bag.pickup_end)} today`;
   const soldOut = remaining <= 0;
+  const bagServiceType = getBagServiceType(bag);
+  const dineInExtra = getBagDineInExtraPaisa(bag);
+  const canChooseService = bagServiceType === 'both';
+  const unitPrice =
+    selectedServiceType === 'dinein' ? bag.rescue_price + dineInExtra : bag.rescue_price;
+  const stickyTotal = unitPrice * quantity;
 
   return (
     <View style={styles.screen}>
@@ -229,7 +243,78 @@ export default function RescueBagDetailScreen() {
               </View>
             ) : null}
           </View>
-          <Text style={styles.rescuePrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+          <Text style={styles.rescuePrice}>{formatNprPaisa(unitPrice)}</Text>
+          {canChooseService ? (
+            <View style={styles.serviceWrap}>
+              <Text style={styles.serviceChooserLabel}>How do you want it?</Text>
+              <View style={styles.serviceChooserRow}>
+                <Pressable
+                  onPress={() => setSelectedServiceType('takeaway')}
+                  style={[
+                    styles.serviceChoice,
+                    selectedServiceType === 'takeaway' && styles.serviceChoiceActive,
+                  ]}>
+                  <Text style={styles.serviceChoiceEmoji}>🛍</Text>
+                  <Text
+                    style={[
+                      styles.serviceChoiceTitle,
+                      selectedServiceType === 'takeaway' && styles.serviceChoiceTitleActive,
+                    ]}>
+                    Takeaway
+                  </Text>
+                  <Text
+                    style={[
+                      styles.serviceChoicePrice,
+                      selectedServiceType === 'takeaway' && styles.serviceChoicePriceActive,
+                    ]}>
+                    {formatNprPaisa(bag.rescue_price)}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setSelectedServiceType('dinein')}
+                  style={[
+                    styles.serviceChoice,
+                    selectedServiceType === 'dinein' && styles.serviceChoiceActive,
+                  ]}>
+                  <Text style={styles.serviceChoiceEmoji}>🍽</Text>
+                  <Text
+                    style={[
+                      styles.serviceChoiceTitle,
+                      selectedServiceType === 'dinein' && styles.serviceChoiceTitleActive,
+                    ]}>
+                    Dine-in
+                  </Text>
+                  <Text
+                    style={[
+                      styles.serviceChoicePrice,
+                      selectedServiceType === 'dinein' && styles.serviceChoicePriceActive,
+                    ]}>
+                    {formatNprPaisa(bag.rescue_price + dineInExtra)}
+                  </Text>
+                  {dineInExtra > 0 ? (
+                    <Text style={styles.serviceChoiceHint}>
+                      +{formatNprPaisa(dineInExtra)} dine-in
+                    </Text>
+                  ) : null}
+                </Pressable>
+              </View>
+            </View>
+          ) : bagServiceType === 'takeaway' ? (
+            <View style={styles.serviceWrap}>
+              <View style={styles.servicePillMuted}>
+                <Text style={styles.servicePillMutedText}>🛍 Takeaway only</Text>
+              </View>
+            </View>
+          ) : bagServiceType === 'dinein' ? (
+            <View style={styles.serviceWrap}>
+              <View style={styles.servicePillDinein}>
+                <Text style={styles.servicePillDineinText}>
+                  🍽 Dine-in
+                  {dineInExtra > 0 ? ` · ${formatNprPaisa(bag.rescue_price + dineInExtra)}` : ' only'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -277,7 +362,15 @@ export default function RescueBagDetailScreen() {
       </ScrollView>
 
       <View style={styles.stickyBar}>
-        <Text style={styles.stickyPrice}>{formatNprPaisa(bag.rescue_price)}</Text>
+        <View style={styles.stickyLeft}>
+          <Text style={styles.stickyPrice}>{formatNprPaisa(stickyTotal)}</Text>
+          {!soldOut && !existingOrder ? (
+            <Text style={styles.stickyHint}>
+              {selectedServiceType === 'dinein' ? 'Dine-in' : 'Takeaway'}
+              {quantity > 1 ? ` · ×${quantity}` : ''}
+            </Text>
+          ) : null}
+        </View>
         {existingOrder ? (
           <Pressable
             onPress={() => router.push(`/order/${existingOrder.id}`)}
@@ -297,7 +390,16 @@ export default function RescueBagDetailScreen() {
           </View>
         ) : (
           <Pressable
-            onPress={() => router.push(`/reserve/${bag.id}`)}
+            onPress={() =>
+              router.push({
+                pathname: '/reserve/[bagId]',
+                params: {
+                  bagId: bag.id,
+                  qty: String(quantity),
+                  service: selectedServiceType,
+                },
+              })
+            }
             style={({ pressed }) => [styles.reserveBtn, pressed && { opacity: 0.92 }]}>
             <Text style={styles.reserveBtnText}>Reserve this bag →</Text>
           </Pressable>
@@ -587,6 +689,14 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     ...FloatingShadow,
   },
+  stickyLeft: {
+    flexShrink: 0,
+  },
+  stickyHint: {
+    ...Type.label,
+    color: Palette.textSecondary,
+    marginTop: 2,
+  },
   reservedCard: {
     flex: 1,
     flexDirection: 'row',
@@ -658,5 +768,83 @@ const styles = StyleSheet.create({
     ...Type.bodyMedium,
     fontWeight: '700',
     color: Palette.white,
+  },
+  serviceWrap: {
+    marginTop: Spacing.md,
+  },
+  serviceChooserLabel: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  serviceChooserRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  serviceChoice: {
+    flex: 1,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    alignItems: 'center',
+    gap: 2,
+  },
+  serviceChoiceActive: {
+    borderColor: Palette.primary,
+    backgroundColor: Palette.primaryLight,
+  },
+  serviceChoiceEmoji: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  serviceChoiceTitle: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+  serviceChoiceTitleActive: {
+    color: Palette.primaryDark,
+  },
+  serviceChoicePrice: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+    marginTop: 2,
+  },
+  serviceChoicePriceActive: {
+    color: Palette.primary,
+  },
+  serviceChoiceHint: {
+    fontSize: 10,
+    color: Palette.textTertiary,
+    marginTop: 2,
+  },
+  servicePillMuted: {
+    backgroundColor: Palette.surfaceMuted,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  servicePillMutedText: {
+    fontSize: 12,
+    color: Palette.textSecondary,
+    fontWeight: '600',
+  },
+  servicePillDinein: {
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  servicePillDineinText: {
+    fontSize: 12,
+    color: Palette.primaryDark,
+    fontWeight: '600',
   },
 });

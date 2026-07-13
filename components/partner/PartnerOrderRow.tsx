@@ -27,6 +27,8 @@ type PartnerOrderRowProps = {
   onOrderPickedUp?: (orderId: string) => void;
   onPickupReverted?: (orderId: string) => void;
   onScan?: () => void;
+  onOpenChat?: (orderId: string) => void;
+  unreadMessages?: number;
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -34,6 +36,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   confirmed: 'Ready',
   picked_up: 'Picked up',
   cancelled: 'Cancelled',
+  missed: 'Missed',
 };
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
@@ -41,6 +44,7 @@ const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
   confirmed: { bg: Palette.warningBg, text: Palette.warning },
   picked_up: { bg: Palette.successBg, text: Palette.success },
   cancelled: { bg: Palette.surfaceMuted, text: Palette.textSecondary },
+  missed: { bg: Palette.surfaceMuted, text: Palette.textSecondary },
 };
 
 function formatPickedUpTime(iso: string | null) {
@@ -56,6 +60,8 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   onOrderPickedUp,
   onPickupReverted,
   onScan,
+  onOpenChat,
+  unreadMessages = 0,
 }: PartnerOrderRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,9 +85,11 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const phone = order.customer_phone || order.customer.phone;
   const normalizedStatus = normalizeOrderStatus(localStatus);
   const statusStyle = STATUS_STYLES[normalizedStatus] ?? STATUS_STYLES.pending;
-  const isCancelled = normalizedStatus === 'cancelled';
+  const isCancelled = normalizedStatus === 'cancelled' || normalizedStatus === 'missed';
   const isPickedUp = normalizedStatus === 'picked_up';
   const canExpand = !isCancelled && !isPickedUp && normalizedStatus === 'confirmed';
+  const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
+    'takeaway') as 'takeaway' | 'dinein';
 
   const runConfirm = async () => {
     if (isPickedUp) return;
@@ -158,6 +166,21 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
             <Text numberOfLines={1} style={styles.customerName}>
               {customerName}
             </Text>
+            <View
+              style={[
+                styles.serviceBadge,
+                serviceType === 'dinein' ? styles.serviceBadgeDinein : styles.serviceBadgeTakeaway,
+              ]}>
+              <Text
+                style={[
+                  styles.serviceBadgeText,
+                  serviceType === 'dinein'
+                    ? styles.serviceBadgeTextDinein
+                    : styles.serviceBadgeTextTakeaway,
+                ]}>
+                {serviceType === 'dinein' ? 'Prepare: Dine-in' : 'Prepare: Takeaway'}
+              </Text>
+            </View>
             <Text numberOfLines={1} style={styles.bagTitle}>
               {order.bag.title} · {pickupWindow}
             </Text>
@@ -235,6 +258,18 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
                 </Text>
               </Pressable>
             </View>
+            {onOpenChat ? (
+              <Pressable
+                onPress={() => onOpenChat(order.id)}
+                style={({ pressed }) => [styles.chatBtn, pressed && { opacity: 0.9 }]}>
+                <Text style={styles.chatBtnText}>💬 Message customer</Text>
+                {unreadMessages > 0 ? (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>{unreadMessages}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </Pressable>
@@ -303,6 +338,29 @@ const styles = StyleSheet.create({
     color: Palette.textTertiary,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  serviceBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+  serviceBadgeTakeaway: {
+    backgroundColor: '#F5F3EF',
+  },
+  serviceBadgeDinein: {
+    backgroundColor: '#FAECE7',
+  },
+  serviceBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  serviceBadgeTextTakeaway: {
+    color: Palette.textSecondary,
+  },
+  serviceBadgeTextDinein: {
+    color: '#993C1D',
   },
   right: {
     alignItems: 'flex-end',
@@ -418,5 +476,37 @@ const styles = StyleSheet.create({
     ...Type.caption,
     fontWeight: '600',
     color: Palette.white,
+  },
+  chatBtn: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: Palette.primary,
+    borderRadius: Radius.pill,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  chatBtnText: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primary,
+  },
+  chatBadge: {
+    position: 'absolute',
+    right: 10,
+    top: 8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  chatBadgeText: {
+    color: Palette.white,
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

@@ -25,7 +25,7 @@ import { SuccessToast } from '@/components/ui/SuccessToast';
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
-import { getCancellationEligibility } from '@/constants/cancellation';
+import { getCancellationEligibility, CANCELLATION_BLOCKED_MESSAGE } from '@/constants/cancellation';
 import { Spacing } from '@/constants/theme';
 import {
   getPickupCountdownLabel,
@@ -36,7 +36,9 @@ import { normalizeOrderStatus } from '@/lib/orderStatus';
 import { cancelReservation, fetchCustomerOrders } from '@/lib/orders';
 import { hapticSuccess } from '@/lib/haptics';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
+import { fetchUnreadCountsByOrder } from '@/lib/orderMessages';
 import { supabase } from '@/lib/supabase';
+import { useBagsStore } from '@/store/useBagsStore';
 import type { CustomerOrderWithDetails } from '@/types/app';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -69,6 +71,7 @@ export default function MyBagsScreen() {
   const [showPickupToast, setShowPickupToast] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
   const [, tick] = useState(0);
   const refreshOrdersRef = useRef<() => Promise<void>>(async () => {});
   const isFirstLoad = useRef(true);
@@ -100,6 +103,11 @@ export default function MyBagsScreen() {
       const rows = await fetchCustomerOrders(userId);
       ordersCacheRef.current = rows;
       setOrders(rows);
+      const counts = await fetchUnreadCountsByOrder(
+        rows.map((row) => row.id),
+        userId,
+      );
+      setUnreadByOrder(counts);
     } catch (err) {
       if (!ordersCacheRef.current) {
         setOrders([]);
@@ -175,6 +183,18 @@ export default function MyBagsScreen() {
                 void refreshOrdersRef.current();
               },
             },
+            {
+              event: '*',
+              table: 'order_messages',
+              callback: () => {
+                const ids = ordersCacheRef.current?.map((row) => row.id) ?? [];
+                if (!ids.length) return;
+                void (async () => {
+                  const counts = await fetchUnreadCountsByOrder(ids, customerId);
+                  setUnreadByOrder(counts);
+                })();
+              },
+            },
           ],
           () => cancelled,
         );
@@ -221,7 +241,10 @@ export default function MyBagsScreen() {
       order.bag.pickup_start,
       order.bag.pickup_end,
     );
-    if (eligibility === 'blocked' || eligibility === 'expired') return;
+    if (eligibility === 'blocked' || eligibility === 'expired') {
+      Alert.alert('Cannot cancel now', CANCELLATION_BLOCKED_MESSAGE);
+      return;
+    }
     setCancelOrder(order);
   };
 
@@ -229,12 +252,16 @@ export default function MyBagsScreen() {
     if (!cancelOrder) return;
 
     setCancelSubmitting(true);
-    const { error } = await cancelReservation(cancelOrder.id, reason);
+    const result = await cancelReservation(cancelOrder.id, reason);
     setCancelSubmitting(false);
 
-    if (error) {
-      Alert.alert('Could not cancel', error.message);
+    if (result.error) {
+      Alert.alert('Could not cancel', result.error.message);
       return;
+    }
+
+    if (result.bagId && result.bagStock) {
+      useBagsStore.getState().applyBagStock(result.bagId, result.bagStock);
     }
 
     setOrders((prev) =>
@@ -244,6 +271,7 @@ export default function MyBagsScreen() {
     );
     setExpandedId((prev) => (prev === cancelOrder.id ? null : prev));
     setCancelOrder(null);
+    void hapticSuccess();
     setShowCancelToast(true);
   };
 
@@ -285,10 +313,12 @@ export default function MyBagsScreen() {
           onReview={() => router.push(`/review/${item.id}`)}
           onHelp={() => router.push('/support/help')}
           onViewRestaurant={() => router.push(`/partner/${item.partner_id}`)}
+          onChat={() => router.push(`/order/chat/${item.id}`)}
+          unreadMessages={unreadByOrder[item.id] ?? 0}
         />
       );
     },
-    [expandedId, router, tab],
+    [expandedId, router, tab, unreadByOrder],
   );
 
   return (

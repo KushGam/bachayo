@@ -44,28 +44,28 @@ export function LiveImpactStats() {
   }, []);
 
   return (
-    <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-8">
+    <div className="mt-14 grid grid-cols-2 gap-10 md:grid-cols-4 md:gap-8">
       <div className="text-center">
-        <div className="text-5xl font-bold text-white">
+        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
           <AnimatedCountUp target={stats.partners} suffix="+" />
         </div>
-        <div className="text-white/70 text-sm mt-2 font-medium">Restaurants onboarded</div>
+        <div className="mt-2 text-sm font-medium text-white/65">Restaurants onboarded</div>
       </div>
       <div className="text-center">
-        <div className="text-5xl font-bold text-white">70%</div>
-        <div className="text-white/70 text-sm mt-2 font-medium">Average savings per bag</div>
+        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">70%</div>
+        <div className="mt-2 text-sm font-medium text-white/65">Average savings per bag</div>
       </div>
       <div className="text-center">
-        <div className="text-5xl font-bold text-white">
+        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
           <AnimatedCountUp target={stats.orders} />
         </div>
-        <div className="text-white/70 text-sm mt-2 font-medium">Orders fulfilled</div>
+        <div className="mt-2 text-sm font-medium text-white/65">Orders fulfilled</div>
       </div>
       <div className="text-center">
-        <div className="text-5xl font-bold text-white">
+        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
           <AnimatedCountUp target={Math.round(stats.foodRescued)} suffix=" kg" />
         </div>
-        <div className="text-white/70 text-sm mt-2 font-medium">Food rescued so far</div>
+        <div className="mt-2 text-sm font-medium text-white/65">Food rescued so far</div>
       </div>
     </div>
   );

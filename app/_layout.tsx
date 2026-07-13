@@ -1,7 +1,6 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-gesture-handler';
@@ -12,6 +11,7 @@ import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ScreenErrorBoundary } from '@/components/ui/ScreenErrorBoundary';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useNotificationObserver, usePushTokenRegistration } from '@/hooks/useNotifications';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
 import Colors, { Palette } from '@/constants/Colors';
@@ -25,10 +25,6 @@ export const unstable_settings = {
   initialRouteName: 'index',
 };
 
-void SplashScreen.preventAutoHideAsync().catch((error) => {
-  console.warn('[boot] preventAutoHideAsync failed:', error);
-});
-
 export default function RootLayout() {
   console.log('[boot] layout mounted');
 
@@ -40,23 +36,10 @@ export default function RootLayout() {
     }
   }, []);
 
-  const hideSplash = useCallback(async () => {
-    try {
-      console.log('[boot] hiding splash');
-      await SplashScreen.hideAsync();
-    } catch (error) {
-      console.error('[boot] SplashScreen.hideAsync failed:', error);
-    }
-  }, []);
-
-  const onRootLayout = useCallback(() => {
-    void hideSplash();
-  }, [hideSplash]);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <View style={{ flex: 1 }} onLayout={onRootLayout}>
+        <View style={{ flex: 1 }}>
           <OfflineBanner />
           <ScreenErrorBoundary>
             <RootLayoutNav />
@@ -74,6 +57,7 @@ function RootLayoutNav() {
   usePushTokenRegistration();
   useNotificationObserver();
   useUnreadNotifications();
+  useUnreadMessages();
 
   const theme = {
     dark: colorScheme === 'dark',
@@ -120,6 +104,7 @@ function RootLayoutNav() {
         <Stack.Screen name="order/confirmed" options={{ headerShown: false }} />
         <Stack.Screen name="order/confirmed/[orderId]" options={{ headerShown: false }} />
         <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="order/chat/[orderId]" options={{ headerShown: false }} />
         <Stack.Screen name="review/[orderId]" options={{ headerShown: false }} />
         <Stack.Screen
           name="partner/add-bag"
@@ -132,6 +117,7 @@ function RootLayoutNav() {
         <Stack.Screen name="partner/edit-business" options={{ headerShown: false }} />
         <Stack.Screen name="partner/edit-location" options={{ headerShown: false }} />
         <Stack.Screen name="partner/edit-hours" options={{ headerShown: false }} />
+        <Stack.Screen name="partner/reports" options={{ headerShown: false }} />
         <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
         <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
         <Stack.Screen name="legal/about" options={{ headerShown: false }} />

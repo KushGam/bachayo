@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
+  AppState,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -51,6 +52,7 @@ import {
 } from '@/lib/partnerBags';
 import { isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
+import { fetchUnreadCountsByOrder } from '@/lib/orderMessages';
 import { supabase } from '@/lib/supabase';
 import { useBagPrefillStore, type BagPrefillData } from '@/store/useBagPrefillStore';
 
@@ -186,8 +188,11 @@ export default function PartnerMyBagsScreen() {
   const [soldOutToast, setSoldOutToast] = useState(false);
   const [showFabHint, setShowFabHint] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
+  const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
   const lastPickupTime = useRef(0);
   const pendingPickupIds = useRef(new Set<string>());
+  const loadGeneration = useRef(0);
 
   const isFirstLoad = useRef(true);
   const bagsCacheRef = useRef<{
@@ -278,6 +283,7 @@ export default function PartnerMyBagsScreen() {
 
   const loadBags = useCallback(async () => {
     setErrorText(null);
+    const generation = ++loadGeneration.current;
 
     if (bagsCacheRef.current) {
       setTodayBags(bagsCacheRef.current.today);
@@ -301,6 +307,7 @@ export default function PartnerMyBagsScreen() {
         .maybeSingle();
 
       if (!partnerData) {
+        if (generation !== loadGeneration.current) return;
         setPartnerId(null);
         setTodayBags([]);
         setUpcomingBags([]);
@@ -319,6 +326,8 @@ export default function PartnerMyBagsScreen() {
         fetchPartnerBagsForDate(partnerData.id, yesterday),
       ]);
 
+      if (generation !== loadGeneration.current) return;
+
       setTodayBags(todayRows);
       setUpcomingBags(upcomingRows);
       setPastBags(pastRows);
@@ -329,11 +338,28 @@ export default function PartnerMyBagsScreen() {
         past: pastRows,
         yesterday: yesterdayRows,
       };
+      setOrdersRefreshKey((key) => key + 1);
+
+      const { data: partnerOrders } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('partner_id', partnerData.id);
+      if (generation !== loadGeneration.current) return;
+
+      const counts = await fetchUnreadCountsByOrder(
+        (partnerOrders ?? []).map((row) => row.id),
+        userId,
+      );
+      if (generation !== loadGeneration.current) return;
+      setUnreadByOrder(counts);
     } catch (err) {
+      if (generation !== loadGeneration.current) return;
       setErrorText(err instanceof Error ? err.message : 'Failed to load bags');
     } finally {
-      setLoading(false);
-      isFirstLoad.current = false;
+      if (generation === loadGeneration.current) {
+        setLoading(false);
+        isFirstLoad.current = false;
+      }
     }
   }, [today, yesterday]);
 
@@ -362,6 +388,37 @@ export default function PartnerMyBagsScreen() {
     const channelName = `partner-my-bags-${partnerId}`;
     let cancelled = false;
 
+    const patchAllBagLists = (patch: (bag: PartnerBagWithStats) => PartnerBagWithStats) => {
+      setTodayBags((prev) => prev.map(patch));
+      setUpcomingBags((prev) => prev.map(patch));
+      setPastBags((prev) => prev.map(patch));
+      setYesterdayBags((prev) => prev.map(patch));
+      if (bagsCacheRef.current) {
+        bagsCacheRef.current = {
+          today: bagsCacheRef.current.today.map(patch),
+          upcoming: bagsCacheRef.current.upcoming.map(patch),
+          past: bagsCacheRef.current.past.map(patch),
+          yesterday: bagsCacheRef.current.yesterday.map(patch),
+        };
+      }
+    };
+
+    const refreshUnread = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (!userId || cancelled) return;
+      const { data: partnerOrders } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('partner_id', partnerId);
+      if (cancelled) return;
+      const counts = await fetchUnreadCountsByOrder(
+        (partnerOrders ?? []).map((row) => row.id),
+        userId,
+      );
+      if (!cancelled) setUnreadByOrder(counts);
+    };
+
     void (async () => {
       try {
         await subscribePostgresChannel(
@@ -369,19 +426,47 @@ export default function PartnerMyBagsScreen() {
           channelName,
           [
             {
-              event: 'UPDATE',
+              event: '*',
               table: 'rescue_bags',
               filter: `partner_id=eq.${partnerId}`,
               callback: (payload) => {
-                const newRow = (payload as { new?: { id?: string; status?: string } }).new;
+                const eventType = (payload as { eventType?: string }).eventType;
+                const newRow = (payload as {
+                  new?: {
+                    id?: string;
+                    status?: PartnerBagWithStats['status'];
+                    quantity_reserved?: number;
+                    quantity_available?: number;
+                    available_date?: string;
+                  };
+                }).new;
+
                 if (newRow?.status === 'active' && newRow.id) {
                   const wasSoldOut = [...todayBagsRef.current, ...upcomingBagsRef.current].some(
                     (bag) => bag.id === newRow.id && bag.status === 'sold_out',
                   );
-                  if (wasSoldOut) {
-                    setReactivationToast(true);
-                  }
+                  if (wasSoldOut) setReactivationToast(true);
                 }
+
+                if (
+                  eventType === 'UPDATE' &&
+                  newRow?.id &&
+                  (newRow.quantity_reserved != null ||
+                    newRow.quantity_available != null ||
+                    newRow.status)
+                ) {
+                  patchAllBagLists((bag) =>
+                    bag.id === newRow.id
+                      ? applyBagStockPatch(bag, {
+                          quantity_reserved: newRow.quantity_reserved,
+                          quantity_available: newRow.quantity_available,
+                          status: newRow.status,
+                        })
+                      : bag,
+                  );
+                }
+
+                // INSERT / DELETE / date moves need a full reload across tabs
                 void loadBagsRef.current();
               },
             },
@@ -390,13 +475,15 @@ export default function PartnerMyBagsScreen() {
               table: 'orders',
               filter: `partner_id=eq.${partnerId}`,
               callback: (payload) => {
-                if (isPickupFetchBlocked(lastPickupTime.current)) {
-                  console.log('[realtime] blocked stale update');
-                  return;
-                }
+                if (isPickupFetchBlocked(lastPickupTime.current)) return;
 
                 const inserted = (payload as {
-                  new?: { bag_id?: string; quantity?: number; status?: string; total_price?: number };
+                  new?: {
+                    bag_id?: string;
+                    quantity?: number;
+                    status?: string;
+                    total_price?: number;
+                  };
                 }).new;
 
                 if (inserted?.bag_id) {
@@ -404,20 +491,11 @@ export default function PartnerMyBagsScreen() {
                   const qty = inserted.quantity ?? 1;
                   const status = inserted.status ?? 'confirmed';
                   const total = inserted.total_price ?? 0;
-
-                  const patchBag = (bag: PartnerBagWithStats) =>
-                    bag.id === bagId ? applyReservationToPartnerBag(bag, qty, status, total) : bag;
-
-                  setTodayBags((prev) => prev.map(patchBag));
-                  setUpcomingBags((prev) => prev.map(patchBag));
-
-                  if (bagsCacheRef.current) {
-                    bagsCacheRef.current = {
-                      ...bagsCacheRef.current,
-                      today: bagsCacheRef.current.today.map(patchBag),
-                      upcoming: bagsCacheRef.current.upcoming.map(patchBag),
-                    };
-                  }
+                  patchAllBagLists((bag) =>
+                    bag.id === bagId
+                      ? applyReservationToPartnerBag(bag, qty, status, total)
+                      : bag,
+                  );
                 }
 
                 void loadBagsRef.current();
@@ -428,48 +506,15 @@ export default function PartnerMyBagsScreen() {
               table: 'orders',
               filter: `partner_id=eq.${partnerId}`,
               callback: () => {
-                if (isPickupFetchBlocked(lastPickupTime.current)) {
-                  console.log('[realtime] blocked stale update');
-                  return;
-                }
+                if (isPickupFetchBlocked(lastPickupTime.current)) return;
                 void loadBagsRef.current();
               },
             },
             {
-              event: 'UPDATE',
-              table: 'rescue_bags',
-              filter: `partner_id=eq.${partnerId}`,
-              callback: (payload) => {
-                const updated = (payload as {
-                  new?: {
-                    id?: string;
-                    quantity_reserved?: number;
-                    quantity_available?: number;
-                    status?: PartnerBagWithStats['status'];
-                  };
-                }).new;
-
-                if (!updated?.id) return;
-
-                const patch = (bag: PartnerBagWithStats) =>
-                  bag.id === updated.id
-                    ? applyBagStockPatch(bag, {
-                        quantity_reserved: updated.quantity_reserved,
-                        quantity_available: updated.quantity_available,
-                        status: updated.status,
-                      })
-                    : bag;
-
-                setTodayBags((prev) => prev.map(patch));
-                setUpcomingBags((prev) => prev.map(patch));
-
-                if (bagsCacheRef.current) {
-                  bagsCacheRef.current = {
-                    ...bagsCacheRef.current,
-                    today: bagsCacheRef.current.today.map(patch),
-                    upcoming: bagsCacheRef.current.upcoming.map(patch),
-                  };
-                }
+              event: '*',
+              table: 'order_messages',
+              callback: () => {
+                void refreshUnread();
               },
             },
           ],
@@ -482,8 +527,15 @@ export default function PartnerMyBagsScreen() {
       }
     })();
 
+    const appSub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        void loadBagsRef.current();
+      }
+    });
+
     return () => {
       cancelled = true;
+      appSub.remove();
       void removeChannelByName(supabase, channelName);
     };
   }, [partnerId]);
@@ -572,6 +624,9 @@ export default function PartnerMyBagsScreen() {
               onRelist={() => handleRelist(bag)}
               onSoldOut={() => setSoldOutToast(true)}
               onDeleted={handleBagDeleted}
+              onOpenChat={(orderId) => router.push(`/order/chat/${orderId}`)}
+              unreadByOrder={unreadByOrder}
+              ordersRefreshKey={ordersRefreshKey}
             />
           ))}
         </>
@@ -618,6 +673,9 @@ export default function PartnerMyBagsScreen() {
                   onRelist={() => handleRelist(bag)}
                   onSoldOut={() => setSoldOutToast(true)}
                   onDeleted={handleBagDeleted}
+                  onOpenChat={(orderId) => router.push(`/order/chat/${orderId}`)}
+                  unreadByOrder={unreadByOrder}
+                  ordersRefreshKey={ordersRefreshKey}
                 />
               )),
             )
@@ -644,7 +702,14 @@ export default function PartnerMyBagsScreen() {
           <View key={group.label}>
             <Text style={styles.pastGroupHeader}>{group.label}</Text>
             {group.bags.map((bag) => (
-              <PartnerPastBagCard key={bag.id} bag={bag} onRelist={() => handleRelist(bag)} />
+              <PartnerPastBagCard
+                key={bag.id}
+                bag={bag}
+                onRelist={() => handleRelist(bag)}
+                isOrdersExpanded={expandedOrderId === bag.id}
+                onToggleOrders={handleToggleOrders}
+                ordersRefreshKey={ordersRefreshKey}
+              />
             ))}
           </View>
         ))}

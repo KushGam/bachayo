@@ -32,14 +32,14 @@ export const CUSTOMER_FAQ: FaqItem[] = [
     audience: 'customer',
     question: 'Can I cancel a reservation?',
     answer:
-      'Yes. Go to My Bags, find your reservation, and tap "Cancel reservation". Please cancel as early as possible so the bag can be offered to someone else.',
+      'Yes. Go to My Bags, find your reservation, and tap Cancel. You can cancel until 30 minutes before pickup starts. After that, cancellation is blocked so the restaurant can prepare. Cancelling frees the slot for someone else.',
   },
   {
     id: 'late-pickup',
     audience: 'customer',
     question: "What if I'm late to pick up?",
     answer:
-      'Try to arrive within the pickup window. If you\'ll be late, you can call the restaurant directly using the phone number on your confirmation screen. Uncollected bags after the window closes are forfeited.',
+      'Try to arrive within the pickup window. If you\'ll be late, call the restaurant using the phone number on your confirmation. After the window closes without pickup, the order is marked as missed and moves to Past.',
   },
   {
     id: 'food-quality',
@@ -104,7 +104,7 @@ export const PARTNER_FAQ: FaqItem[] = [
     audience: 'partner',
     question: "What if a customer doesn't show up?",
     answer:
-      'After the pickup window closes, unreserved bags are automatically marked as expired. If a customer reserved but didn\'t come, the order is marked as missed. Repeated no-shows by the same customer are flagged in our system.',
+      'After the pickup window closes, bags are marked expired. Reserved orders that were not picked up are marked as missed, leave Active, and release that reserved stock.',
   },
   {
     id: 'edit-bag',

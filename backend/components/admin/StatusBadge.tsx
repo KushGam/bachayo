@@ -8,6 +8,8 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-100 text-red-800',
   pending: 'bg-amber-100 text-amber-800',
   picked_up: 'bg-gray-100 text-gray-600',
+  missed: 'bg-gray-100 text-gray-600',
+  confirmed: 'bg-amber-100 text-amber-800',
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {

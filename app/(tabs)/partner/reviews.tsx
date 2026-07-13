@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +31,8 @@ export default function PartnerReviewsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [draftReplies, setDraftReplies] = useState<Record<string, string>>({});
+  const [partnerName, setPartnerName] = useState('');
 
   const loadReviews = useCallback(async () => {
     setErrorText(null);
@@ -36,7 +47,7 @@ export default function PartnerReviewsScreen() {
     try {
       const { data: partner } = await supabase
         .from('partners')
-        .select('id')
+        .select('id, name')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -45,6 +56,7 @@ export default function PartnerReviewsScreen() {
         setLoading(false);
         return;
       }
+      setPartnerName(partner.name ?? 'Restaurant');
 
       const rows = await fetchPartnerReviews(partner.id);
       setReviews(rows as unknown as PartnerReviewItem[]);
@@ -103,8 +115,54 @@ export default function PartnerReviewsScreen() {
 
   const hasReviews = reviews.length > 0;
 
+  const postReply = async (review: PartnerReviewItem, reply: string) => {
+    const trimmed = reply.trim();
+    if (!trimmed) return;
+    const repliedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from('reviews')
+      .update({
+        partner_reply: trimmed,
+        partner_replied_at: repliedAt,
+      })
+      .eq('id', review.id);
+    if (error) {
+      Alert.alert('Error', 'Failed to post reply');
+      return;
+    }
+
+    setReviews((prev) =>
+      prev.map((item) =>
+        item.id === review.id
+          ? { ...item, partner_reply: trimmed, partner_replied_at: repliedAt }
+          : item,
+      ),
+    );
+    setDraftReplies((prev) => ({ ...prev, [review.id]: '' }));
+
+    if (review.customer_id) {
+      await supabase.functions
+        .invoke('send-notification', {
+          body: {
+            user_id: review.customer_id,
+            title: `${partnerName} replied to your review`,
+            body: `${trimmed.slice(0, 80)}${trimmed.length > 80 ? '...' : ''}`,
+            type: 'review_reply',
+            data: {
+              review_id: review.id,
+              partner_id: review.partner_id,
+            },
+          },
+        })
+        .catch(console.error);
+    }
+  };
+
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}>
       <StatusBar style="light" />
 
       <ReviewsHeader paddingTop={insets.top + Spacing.md} reviewCount={reviews.length} />
@@ -113,6 +171,8 @@ export default function PartnerReviewsScreen() {
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Palette.primary} />
         }>
@@ -152,12 +212,20 @@ export default function PartnerReviewsScreen() {
               <Text style={styles.sectionHint}>Newest first</Text>
             </View>
             {reviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
+              <ReviewCard
+                key={review.id}
+                review={review}
+                draftReply={draftReplies[review.id] ?? ''}
+                onDraftReplyChange={(reviewId, value) =>
+                  setDraftReplies((prev) => ({ ...prev, [reviewId]: value }))
+                }
+                onPostReply={postReply}
+              />
             ))}
           </>
         ) : null}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -398,10 +398,20 @@ export default function LeaveReviewScreen() {
     return (
       <View style={styles.screen}>
         <StatusBar style="light" />
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <Text style={styles.headerTitle}>Leave a review</Text>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={8}>
+              <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2.5} />
+            </Pressable>
+            <View style={styles.headerTitles}>
+              <Text style={styles.headerTitle}>Leave a review</Text>
+            </View>
+            <View style={styles.headerBtnSpacer} />
+          </View>
         </View>
-        <ListSkeleton count={2} />
+        <View style={{ paddingTop: 16 }}>
+          <ListSkeleton count={2} />
+        </View>
       </View>
     );
   }
@@ -422,16 +432,18 @@ export default function LeaveReviewScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Leave a review</Text>
-        <Text style={styles.headerSubtitle}>Help others find great rescue bags</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={8}>
+            <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2.5} />
+          </Pressable>
+          <View style={styles.headerTitles}>
+            <Text style={styles.headerTitle}>Leave a review</Text>
+            <Text style={styles.headerSubtitle}>Help others find great rescue bags</Text>
+          </View>
+          <View style={styles.headerBtnSpacer} />
+        </View>
       </View>
-
-      <Pressable
-        onPress={() => router.back()}
-        style={[styles.headerBtn, { top: insets.top + 12 }]}>
-        <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2.5} />
-      </Pressable>
 
       <KeyboardAwareScrollView
         style={styles.scroll}
@@ -446,8 +458,12 @@ export default function LeaveReviewScreen() {
             </View>
           )}
           <View style={styles.summaryCenter}>
-            <Text style={styles.summaryPartner}>{order.partner?.name ?? 'Restaurant'}</Text>
-            <Text style={styles.summaryBag}>{order.bag?.title ?? 'Rescue bag'}</Text>
+            <Text style={styles.summaryPartner} numberOfLines={2}>
+              {order.partner?.name ?? 'Restaurant'}
+            </Text>
+            <Text style={styles.summaryBag} numberOfLines={1}>
+              {order.bag?.title ?? 'Rescue bag'}
+            </Text>
             <Text style={styles.summaryPickup}>{formatPickedUpLabel(order.picked_up_at)}</Text>
           </View>
           <View style={styles.summaryRight}>
@@ -456,102 +472,109 @@ export default function LeaveReviewScreen() {
           </View>
         </View>
 
-        <View style={styles.ratingSection}>
-          <Text style={styles.ratingTitle}>How was your experience?</Text>
-          <Text style={styles.ratingSubtitle}>Tap to rate</Text>
-          <View style={styles.starRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <StarButton
-                key={star}
-                index={star}
-                selected={star <= rating}
-                onPress={(value) => {
-                  void hapticButtonPress();
-                  setRating(value);
-                }}
-              />
-            ))}
-          </View>
-          {ratingLabel ? (
-            <Animated.Text entering={FadeIn.duration(200)} style={[styles.ratingLabel, { color: ratingLabel.color }]}>
-              {ratingLabel.text}
-            </Animated.Text>
-          ) : null}
-        </View>
-
-        {rating > 0 ? (
-          <Animated.View entering={FadeIn.duration(200)} style={styles.miniSection}>
-            <Text style={styles.miniSectionTitle}>What did you think of...</Text>
-            <MiniRatingRow
-              icon="🍱"
-              title="Food quantity"
-              options={QUANTITY_OPTIONS}
-              value={quantityFeedback}
-              onChange={setQuantityFeedback}
-            />
-            <MiniRatingRow
-              icon="💰"
-              title="Value for money"
-              options={VALUE_OPTIONS}
-              value={valueFeedback}
-              onChange={setValueFeedback}
-            />
-            <MiniRatingRow
-              icon="🔄"
-              title="Would you come back?"
-              options={RETURN_OPTIONS}
-              value={wouldReturn}
-              onChange={setWouldReturn}
-            />
-          </Animated.View>
-        ) : null}
-
-        <View style={styles.commentSection}>
-          <Text style={styles.fieldLabel}>Add a comment (optional)</Text>
-          <TextInput
-            value={comment}
-            onChangeText={(text) => setComment(text.slice(0, MAX_COMMENT))}
-            onFocus={() => setCommentFocused(true)}
-            onBlur={() => setCommentFocused(false)}
-            placeholder="What did you love? Any suggestions for the restaurant?"
-            placeholderTextColor="#9CA3AF"
-            multiline
-            style={[styles.commentInput, commentFocused && styles.commentInputFocused]}
-          />
-          <Text style={styles.charCount}>
-            {comment.length}/{MAX_COMMENT}
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagsRow}>
-            {QUICK_REVIEW_TAGS.map((tag) => {
-              const used = usedTags.includes(tag);
-              return (
-                <Pressable
-                  key={tag}
-                  disabled={used}
-                  onPress={() => appendTag(tag)}
-                  style={[styles.tagPill, used && styles.tagPillUsed]}>
-                  <Text style={[styles.tagPillText, used && styles.tagPillTextUsed]}>{tag}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <View style={styles.photoSection}>
-          <Text style={styles.fieldLabel}>Add a photo (optional)</Text>
-          {photoUri ? (
-            <View style={styles.photoPreviewWrap}>
-              <Image source={{ uri: photoUri }} style={styles.photoPreview} resizeMode="cover" />
-              <Pressable onPress={() => setPhotoUri(null)} style={styles.photoRemove}>
-                <X size={16} color="#FFFFFF" strokeWidth={2.5} />
-              </Pressable>
+        <View style={styles.formSheet}>
+          <View style={styles.ratingSection}>
+            <Text style={styles.ratingTitle}>How was your experience?</Text>
+            <Text style={styles.ratingSubtitle}>Tap to rate</Text>
+            <View style={styles.starRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <StarButton
+                  key={star}
+                  index={star}
+                  selected={star <= rating}
+                  onPress={(value) => {
+                    void hapticButtonPress();
+                    setRating(value);
+                  }}
+                />
+              ))}
             </View>
-          ) : (
-            <Pressable onPress={showPhotoPicker} style={styles.photoZone}>
-              <Camera size={24} color={TERRACOTTA} strokeWidth={2} />
-              <Text style={styles.photoZoneText}>Add photo of your bag</Text>
-            </Pressable>
-          )}
+            {ratingLabel ? (
+              <Animated.Text
+                entering={FadeIn.duration(200)}
+                style={[styles.ratingLabel, { color: ratingLabel.color }]}>
+                {ratingLabel.text}
+              </Animated.Text>
+            ) : null}
+          </View>
+
+          {rating > 0 ? (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.miniSection}>
+              <Text style={styles.miniSectionTitle}>What did you think of...</Text>
+              <MiniRatingRow
+                icon="🍱"
+                title="Food quantity"
+                options={QUANTITY_OPTIONS}
+                value={quantityFeedback}
+                onChange={setQuantityFeedback}
+              />
+              <MiniRatingRow
+                icon="💰"
+                title="Value for money"
+                options={VALUE_OPTIONS}
+                value={valueFeedback}
+                onChange={setValueFeedback}
+              />
+              <MiniRatingRow
+                icon="🔄"
+                title="Would you come back?"
+                options={RETURN_OPTIONS}
+                value={wouldReturn}
+                onChange={setWouldReturn}
+              />
+            </Animated.View>
+          ) : null}
+
+          <View style={styles.commentSection}>
+            <Text style={styles.fieldLabel}>Add a comment (optional)</Text>
+            <TextInput
+              value={comment}
+              onChangeText={(text) => setComment(text.slice(0, MAX_COMMENT))}
+              onFocus={() => setCommentFocused(true)}
+              onBlur={() => setCommentFocused(false)}
+              placeholder="What did you love? Any suggestions for the restaurant?"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              style={[styles.commentInput, commentFocused && styles.commentInputFocused]}
+            />
+            <Text style={styles.charCount}>
+              {comment.length}/{MAX_COMMENT}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tagsRow}>
+              {QUICK_REVIEW_TAGS.map((tag) => {
+                const used = usedTags.includes(tag);
+                return (
+                  <Pressable
+                    key={tag}
+                    disabled={used}
+                    onPress={() => appendTag(tag)}
+                    style={[styles.tagPill, used && styles.tagPillUsed]}>
+                    <Text style={[styles.tagPillText, used && styles.tagPillTextUsed]}>{tag}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.photoSection}>
+            <Text style={styles.fieldLabel}>Add a photo (optional)</Text>
+            {photoUri ? (
+              <View style={styles.photoPreviewWrap}>
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} resizeMode="cover" />
+                <Pressable onPress={() => setPhotoUri(null)} style={styles.photoRemove}>
+                  <X size={16} color="#FFFFFF" strokeWidth={2.5} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={showPhotoPicker} style={styles.photoZone}>
+                <Camera size={24} color={TERRACOTTA} strokeWidth={2} />
+                <Text style={styles.photoZoneText}>Add photo of your bag</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       </KeyboardAwareScrollView>
     </View>
@@ -571,55 +594,67 @@ const styles = StyleSheet.create({
     backgroundColor: TERRACOTTA,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
+    paddingBottom: 18,
+    paddingHorizontal: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitles: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   headerSubtitle: {
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 4,
   },
   headerBtn: {
-    position: 'absolute',
-    left: 16,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.28)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+  },
+  headerBtnSpacer: {
+    width: 36,
+    height: 36,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
   },
   summaryCard: {
-    marginTop: -20,
     marginHorizontal: 16,
-    borderRadius: 20,
+    marginBottom: 16,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 3 },
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
@@ -638,10 +673,11 @@ const styles = StyleSheet.create({
   },
   summaryCenter: {
     flex: 1,
+    minWidth: 0,
   },
   summaryPartner: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A1A1A',
   },
   summaryBag: {
@@ -656,10 +692,11 @@ const styles = StyleSheet.create({
   },
   summaryRight: {
     alignItems: 'flex-end',
+    flexShrink: 0,
   },
   summaryPrice: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: TERRACOTTA,
   },
   summaryPaid: {
@@ -667,14 +704,22 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
+  formSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    paddingBottom: 8,
+    minHeight: 420,
+  },
   ratingSection: {
-    marginTop: 32,
+    marginTop: 20,
     alignItems: 'center',
     paddingHorizontal: 16,
   },
   ratingTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1A1A1A',
   },
   ratingSubtitle: {

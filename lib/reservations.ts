@@ -1,3 +1,4 @@
+import { getBagDineInExtraPaisa, getBagServiceType } from '@/lib/helpers';
 import { supabase } from '@/lib/supabase';
 import { useBagsStore } from '@/store/useBagsStore';
 import {
@@ -47,6 +48,7 @@ export type CreateReservationInput = {
   customerName: string;
   customerPhone: string;
   customerNote?: string;
+  serviceType?: 'takeaway' | 'dinein';
 };
 
 export type CreateReservationResult =
@@ -178,7 +180,16 @@ export async function createReservation(
     };
   }
 
-  const totalPrice = bag.rescue_price * input.quantity;
+  const bagServiceType = getBagServiceType(bag);
+  const dineInExtra = getBagDineInExtraPaisa(bag);
+  const chosenServiceType: 'takeaway' | 'dinein' =
+    bagServiceType === 'dinein'
+      ? 'dinein'
+      : bagServiceType === 'takeaway'
+        ? 'takeaway'
+        : (input.serviceType ?? 'takeaway');
+  const unitPrice = chosenServiceType === 'dinein' ? bag.rescue_price + dineInExtra : bag.rescue_price;
+  const totalPrice = unitPrice * input.quantity;
   const qrCode = randomUuidV4();
 
   const insertPayload = {
@@ -191,6 +202,7 @@ export async function createReservation(
     customer_name: input.customerName.trim(),
     customer_phone: input.customerPhone.trim(),
     customer_note: input.customerNote?.trim() || null,
+    service_type: chosenServiceType,
   };
 
   let { data: order, error: orderError } = await supabase

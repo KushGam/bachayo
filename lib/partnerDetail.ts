@@ -10,6 +10,8 @@ export type PartnerReviewRow = {
   created_at: string;
   customer: { full_name: string | null } | null;
   order: { bag: { title: string } | null } | null;
+  partner_reply?: string | null;
+  partner_replied_at?: string | null;
 };
 
 export type PartnerDetailStats = {

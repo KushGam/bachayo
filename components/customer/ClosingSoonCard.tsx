@@ -5,7 +5,7 @@ import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { getRescueBagImageUrl } from '@/lib/images';
-import { formatNprPaisa } from '@/lib/helpers';
+import { formatBagServiceBadge, formatNprPaisa } from '@/lib/helpers';
 import type { HomeBag } from '@/store/useBagsStore';
 
 type ClosingSoonCardProps = {
@@ -18,6 +18,7 @@ export function ClosingSoonCard({ bag, countdownLabel, onPress }: ClosingSoonCar
   const showCountdown =
     countdownLabel !== 'Closing now' &&
     (countdownLabel.includes('m left') || countdownLabel.includes('h '));
+  const serviceBadge = formatBagServiceBadge(bag);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
@@ -47,6 +48,11 @@ export function ClosingSoonCard({ bag, countdownLabel, onPress }: ClosingSoonCar
         <Text numberOfLines={2} style={styles.bagTitle}>
           {bag.title}
         </Text>
+        {serviceBadge ? (
+          <Text numberOfLines={1} style={styles.serviceBadge}>
+            {serviceBadge}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -114,5 +120,11 @@ const styles = StyleSheet.create({
     ...Type.label,
     color: Palette.textSecondary,
     lineHeight: 15,
+  },
+  serviceBadge: {
+    ...Type.label,
+    fontWeight: '600',
+    color: Palette.primary,
+    marginTop: 2,
   },
 });

@@ -1,5 +1,7 @@
 import { Linking, Platform } from 'react-native';
 
+import type { BagServiceType } from '@/types/database';
+
 export function formatCurrency(amount: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -23,6 +25,37 @@ export function formatRsNpr(amountNpr: number): string {
 
 export function formatRsPaisa(paisa: number): string {
   return formatRsNpr(paisa / 100);
+}
+
+export function getBagServiceType(
+  bag: { service_type?: string | null } | null | undefined,
+): BagServiceType {
+  const value = bag?.service_type;
+  if (value === 'takeaway' || value === 'dinein' || value === 'both') return value;
+  return 'both';
+}
+
+export function getBagDineInExtraPaisa(
+  bag: { dinein_extra_charge?: number | null } | null | undefined,
+): number {
+  return Math.max(0, bag?.dinein_extra_charge ?? 0);
+}
+
+/** Short label for list cards, e.g. "🪑 Dine-in" or "🍽 Both · +₨20". */
+export function formatBagServiceBadge(
+  bag: {
+    service_type?: string | null;
+    dinein_extra_charge?: number | null;
+  } | null | undefined,
+): string | null {
+  const serviceType = getBagServiceType(bag);
+  const extra = getBagDineInExtraPaisa(bag);
+  const extraLabel = extra > 0 ? ` · +${formatNprPaisa(extra)}` : '';
+
+  if (serviceType === 'takeaway') return '🛍 Takeaway';
+  if (serviceType === 'dinein') return `🪑 Dine-in${extraLabel}`;
+  if (extra > 0) return `🍽 Both${extraLabel}`;
+  return null;
 }
 
 /** First 6 chars of order QR (UUID) for manual partner entry. */

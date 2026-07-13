@@ -13,18 +13,18 @@ type PartnerCardProps = {
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Pending',
-  paid: 'Paid',
+  confirmed: 'Confirmed',
   picked_up: 'Picked up',
   cancelled: 'Cancelled',
-  refunded: 'Refunded',
+  missed: 'Missed',
 };
 
 const STATUS_STYLES: Record<OrderStatus, { bg: string; text: string }> = {
   pending: { bg: '#FEF3C7', text: Palette.amber },
-  paid: { bg: Palette.lightGreenBg, text: Palette.primaryDark },
+  confirmed: { bg: Palette.lightGreenBg, text: Palette.primaryDark },
   picked_up: { bg: '#D1FAE5', text: '#047857' },
   cancelled: { bg: '#FEE2E2', text: '#B91C1C' },
-  refunded: { bg: '#E5E7EB', text: '#4B5563' },
+  missed: { bg: '#E5E7EB', text: '#4B5563' },
 };
 
 export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps) {

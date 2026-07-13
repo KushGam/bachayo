@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { getRescueBagImageUrl } from '@/lib/images';
-import { formatNprPaisa } from '@/lib/helpers';
+import { formatBagServiceBadge, formatNprPaisa } from '@/lib/helpers';
 import type { HomeBag } from '@/store/useBagsStore';
 
 type HomeSearchResultRowProps = {
@@ -13,6 +13,7 @@ type HomeSearchResultRowProps = {
 
 export function HomeSearchResultRow({ bag, onPress }: HomeSearchResultRowProps) {
   const pickupLabel = `${bag.pickup_start.slice(0, 5)} – ${bag.pickup_end.slice(0, 5)}`;
+  const serviceBadge = formatBagServiceBadge(bag);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
@@ -29,6 +30,7 @@ export function HomeSearchResultRow({ bag, onPress }: HomeSearchResultRowProps) 
         </Text>
         <View style={styles.meta}>
           <Text style={styles.price}>{formatNprPaisa(bag.rescue_price)}</Text>
+          {serviceBadge ? <Text style={styles.service}>{serviceBadge}</Text> : null}
           <Text style={styles.pickup}>{pickupLabel}</Text>
         </View>
       </View>
@@ -94,6 +96,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Palette.primary,
+  },
+  service: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Palette.textSecondary,
   },
   pickup: {
     fontSize: 12,
