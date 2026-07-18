@@ -1,3 +1,4 @@
+import { Keyboard } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,19 +15,21 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Palette } from '@/constants/Colors';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress, hapticError } from '@/lib/haptics';
 import { lookupOrderByPartnerCode } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 
-const TERRACOTTA = '#D85A30';
 const BOX_COUNT = 6;
 
 type ManualQREntryProps = {
   onOrderFound: (order: PartnerOrderWithCustomer) => void;
+  onBack?: () => void;
 };
 
-export function ManualQREntry({ onOrderFound }: ManualQREntryProps) {
+export function ManualQREntry({ onOrderFound, onBack }: ManualQREntryProps) {
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [focused, setFocused] = useState(false);
@@ -116,11 +119,25 @@ export function ManualQREntry({ onOrderFound }: ManualQREntryProps) {
 
   return (
     <View style={styles.container}>
+      {onBack ? (
+        <Pressable
+          onPress={() => {
+            void hapticButtonPress();
+            onBack();
+          }}
+          style={styles.backBtn}
+          hitSlop={8}>
+          <Text style={styles.backText}>‹ Back</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.headerCard}>
-        <Text style={styles.headerEmoji}>📱</Text>
+        <View style={styles.iconWrap}>
+          <Keyboard size={26} color={Palette.white} strokeWidth={2} />
+        </View>
         <Text style={styles.headerTitle}>Enter customer code</Text>
         <Text style={styles.headerSubtitle}>
-          Ask customer to show their 6-digit order code from My Bags
+          Ask the customer to open My Bags and show their 6-digit order code
         </Text>
       </View>
 
@@ -188,36 +205,51 @@ export function ManualQREntry({ onOrderFound }: ManualQREntryProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F3EF',
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    backgroundColor: Palette.background,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.md,
+    paddingVertical: 4,
+  },
+  backText: {
+    ...Type.bodyMedium,
+    color: Palette.primary,
+    fontWeight: '600',
   },
   headerCard: {
-    backgroundColor: TERRACOTTA,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.lg + 4,
+    padding: Spacing.xl,
+    marginBottom: Spacing.xl,
     alignItems: 'center',
   },
-  headerEmoji: {
-    fontSize: 48,
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: Palette.white,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: Spacing.md,
   },
   headerSubtitle: {
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.78)',
     fontSize: 13,
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 20,
   },
   inputArea: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   digitRow: {
     flexDirection: 'row',
@@ -229,13 +261,13 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: Palette.border,
+    backgroundColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   digitBoxFocused: {
-    borderColor: TERRACOTTA,
+    borderColor: Palette.primary,
     backgroundColor: '#FFFAF9',
   },
   digitBoxFilled: {
@@ -244,7 +276,7 @@ const styles = StyleSheet.create({
   digitText: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
     textAlign: 'center',
   },
   hiddenInput: {
@@ -257,11 +289,11 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 13,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
     fontWeight: '500',
   },
   verifyBtn: {
-    backgroundColor: TERRACOTTA,
+    backgroundColor: Palette.primary,
     borderRadius: 999,
     height: 52,
     alignItems: 'center',
@@ -271,7 +303,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   verifyBtnText: {
-    color: '#FFFFFF',
+    color: Palette.white,
     fontSize: 16,
     fontWeight: '600',
   },

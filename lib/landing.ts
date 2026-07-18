@@ -116,6 +116,18 @@ export async function resolveInitialRoute(): Promise<string> {
   console.log('[boot] resolved role:', role ?? 'none (deferred)');
 
   try {
+    const { data: termsRow } = await supabase
+      .from('profiles')
+      .select('terms_accepted_at')
+      .eq('id', userId)
+      .maybeSingle();
+    const termsAcceptedAt = (termsRow as { terms_accepted_at?: string | null } | null)
+      ?.terms_accepted_at;
+    if (termsRow && !termsAcceptedAt) {
+      console.log('[boot] terms not accepted — routing to accept-terms');
+      return '/(auth)/accept-terms';
+    }
+
     return resolveAuthenticatedRoute(userId, role);
   } catch (error) {
     console.error('[boot] resolveAuthenticatedRoute failed:', error);

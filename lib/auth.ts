@@ -6,6 +6,7 @@ import type { Href } from 'expo-router';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 
 import { supabase } from '@/lib/supabase';
+import { fetchTermsAcceptedAt } from '@/lib/terms';
 import type { UserRole } from '@/types/database';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -18,6 +19,11 @@ const googleRedirectUri = makeRedirectUri({
 export type GoogleSignInResult =
   | { status: 'cancelled' }
   | { status: 'success'; userId: string; hasProfile: boolean };
+
+export type NavigateAfterGoogleResult =
+  | { ok: false; cancelled: true }
+  | { ok: true; cancelled: false; needsTerms: true; userId: string }
+  | { ok: true; cancelled: false; needsTerms: false };
 
 export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url);
@@ -89,7 +95,7 @@ export async function fetchProfileByUserId(userId: string) {
 export async function navigateAfterGoogleSignIn(
   router: { replace: (href: Href) => void },
   setAuthRole: (role: UserRole | null) => void,
-) {
+): Promise<NavigateAfterGoogleResult> {
   const result = await signInWithGoogle();
 
   if (result.status === 'cancelled') {
@@ -97,14 +103,19 @@ export async function navigateAfterGoogleSignIn(
   }
 
   if (result.hasProfile) {
+    const termsAcceptedAt = await fetchTermsAcceptedAt(result.userId);
+    if (!termsAcceptedAt) {
+      return { ok: true as const, cancelled: false, needsTerms: true, userId: result.userId };
+    }
+
     const role = await fetchUserRole(result.userId);
     setAuthRole(role ?? 'customer');
     router.replace(await resolveAuthenticatedRoute(result.userId, role ?? 'customer'));
-    return { ok: true as const, cancelled: false };
+    return { ok: true as const, cancelled: false, needsTerms: false };
   }
 
   router.replace('/(auth)/complete-profile');
-  return { ok: true as const, cancelled: false };
+  return { ok: true as const, cancelled: false, needsTerms: false };
 }
 
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {

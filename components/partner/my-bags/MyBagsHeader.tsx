@@ -18,11 +18,41 @@ const TAB_LABELS: Record<MyBagsTabKey, string> = {
 type MyBagsHeaderProps = {
   tab: MyBagsTabKey;
   paddingTop: number;
+  todayCount: number;
+  upcomingCount: number;
+  pastCount: number;
   onTabChange: (tab: MyBagsTabKey) => void;
   onAddBag: () => void;
 };
 
-export function MyBagsHeader({ tab, paddingTop, onTabChange, onAddBag }: MyBagsHeaderProps) {
+export function MyBagsHeader({
+  tab,
+  paddingTop,
+  todayCount,
+  upcomingCount,
+  pastCount,
+  onTabChange,
+  onAddBag,
+}: MyBagsHeaderProps) {
+  const counts: Record<MyBagsTabKey, number> = {
+    today: todayCount,
+    upcoming: upcomingCount,
+    past: pastCount,
+  };
+
+  const subtitle =
+    tab === 'today'
+      ? todayCount > 0
+        ? `${todayCount} listing${todayCount === 1 ? '' : 's'} live today`
+        : 'List surplus · customers reserve nearby'
+      : tab === 'upcoming'
+        ? upcomingCount > 0
+          ? `${upcomingCount} scheduled ahead`
+          : 'Schedule bags for coming days'
+        : pastCount > 0
+          ? 'Last 30 days of listings'
+          : 'History after your first listings';
+
   return (
     <LinearGradient
       colors={[Palette.primaryDarker, Palette.primaryDark, Palette.primary]}
@@ -32,9 +62,9 @@ export function MyBagsHeader({ tab, paddingTop, onTabChange, onAddBag }: MyBagsH
       <View style={styles.glow} pointerEvents="none" />
 
       <View style={styles.topRow}>
-        <View>
-          <Text style={styles.eyebrow}>Manage listings</Text>
+        <View style={styles.copy}>
           <Text style={styles.title}>My Bags</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
         <Pressable
           onPress={() => {
@@ -50,6 +80,8 @@ export function MyBagsHeader({ tab, paddingTop, onTabChange, onAddBag }: MyBagsH
       <View style={styles.tabBar}>
         {(['today', 'upcoming', 'past'] as MyBagsTabKey[]).map((key) => {
           const active = tab === key;
+          const count = counts[key];
+          const countLabel = count > 0 ? ` · ${count}` : '';
           return (
             <Pressable
               key={key}
@@ -60,11 +92,17 @@ export function MyBagsHeader({ tab, paddingTop, onTabChange, onAddBag }: MyBagsH
               style={styles.tabSlot}>
               {active ? (
                 <Animated.View layout={Layout.duration(200)} style={styles.tabActive}>
-                  <Text style={styles.tabTextActive}>{TAB_LABELS[key]}</Text>
+                  <Text style={styles.tabTextActive}>
+                    {TAB_LABELS[key]}
+                    {countLabel}
+                  </Text>
                 </Animated.View>
               ) : (
                 <View style={styles.tabInactive}>
-                  <Text style={styles.tabTextInactive}>{TAB_LABELS[key]}</Text>
+                  <Text style={styles.tabTextInactive}>
+                    {TAB_LABELS[key]}
+                    {countLabel}
+                  </Text>
                 </View>
               )}
             </Pressable>
@@ -78,37 +116,41 @@ export function MyBagsHeader({ tab, paddingTop, onTabChange, onAddBag }: MyBagsH
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
-    borderBottomLeftRadius: Radius.lg + 8,
-    borderBottomRightRadius: Radius.lg + 8,
+    paddingBottom: Spacing.md,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
     overflow: 'hidden',
   },
   glow: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     backgroundColor: 'rgba(255,255,255,0.07)',
-    top: -60,
-    right: -40,
+    top: -50,
+    right: -36,
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
+    gap: Spacing.md,
   },
-  eyebrow: {
-    ...Type.label,
-    color: 'rgba(255,255,255,0.65)',
-    fontWeight: '500',
-    marginBottom: 2,
+  copy: {
+    flex: 1,
+    gap: 2,
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '700',
     color: Palette.white,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    ...Type.caption,
+    color: 'rgba(255,255,255,0.72)',
+    fontWeight: '500',
   },
   addBtn: {
     width: 40,
@@ -122,21 +164,21 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.88 },
   tabBar: {
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.14)',
     borderRadius: Radius.pill,
     padding: 3,
     flexDirection: 'row',
   },
   tabSlot: { flex: 1 },
   tabActive: {
-    height: 36,
+    height: 34,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Palette.white,
   },
   tabInactive: {
-    height: 36,
+    height: 34,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
+import { createSupabaseAdmin } from '@/lib/supabase-admin';
+
 type SupportContactBody = {
   subject?: string;
   message?: string;
@@ -20,15 +22,6 @@ function escapeHtml(text: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (!resendApiKey) {
-      return NextResponse.json(
-        { success: false, error: 'Email service is not configured' },
-        { status: 503 },
-      );
-    }
-    const resend = new Resend(resendApiKey);
-
     const { subject, message, email, userId, role } =
       (await request.json()) as SupportContactBody;
 
@@ -39,31 +32,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const safeSubject = escapeHtml(subject.trim());
-    const safeMessage = escapeHtml(message.trim()).replace(/\n/g, '<br/>');
-    const safeEmail = escapeHtml(email.trim());
-    const safeUserId = escapeHtml(userId ?? '—');
-    const safeRole = escapeHtml(role ?? '—');
+    const trimmedSubject = subject.trim();
+    const trimmedMessage = message.trim();
+    const trimmedEmail = email.trim();
 
-    const { error } = await resend.emails.send({
-      from: 'LastBag Support <noreply@lastbag.app>',
-      to: 'support@lastbag.app',
-      replyTo: email.trim(),
-      subject: `[LastBag Support] ${subject.trim()}`,
-      html: `
-        <h2>New support message</h2>
-        <p><b>From:</b> ${safeEmail}</p>
-        <p><b>User ID:</b> ${safeUserId}</p>
-        <p><b>Role:</b> ${safeRole}</p>
-        <p><b>Subject:</b> ${safeSubject}</p>
-        <hr/>
-        <p>${safeMessage}</p>
-      `,
+    const supabase = createSupabaseAdmin();
+    const { error: insertError } = await supabase.from('support_messages').insert({
+      subject: trimmedSubject,
+      message: trimmedMessage,
+      email: trimmedEmail,
+      user_id: userId || null,
+      role: role || null,
+      status: 'new',
     });
 
-    if (error) {
-      console.error('[support/contact] Resend error:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 502 });
+    if (insertError) {
+      console.error('[support/contact] DB insert error:', insertError);
+      return NextResponse.json(
+        { success: false, error: 'Could not save your message. Please try again.' },
+        { status: 500 },
+      );
+    }
+
+    // Email is best-effort — admin inbox is the source of truth.
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (resendApiKey) {
+      try {
+        const resend = new Resend(resendApiKey);
+        const safeSubject = escapeHtml(trimmedSubject);
+        const safeMessage = escapeHtml(trimmedMessage).replace(/\n/g, '<br/>');
+        const safeEmail = escapeHtml(trimmedEmail);
+        const safeUserId = escapeHtml(userId ?? '—');
+        const safeRole = escapeHtml(role ?? '—');
+
+        const { error } = await resend.emails.send({
+          from: 'LastBag Support <noreply@lastbag.app>',
+          to: 'support@lastbag.app',
+          replyTo: trimmedEmail,
+          subject: `[LastBag Support] ${trimmedSubject}`,
+          html: `
+            <h2>New support message</h2>
+            <p><b>From:</b> ${safeEmail}</p>
+            <p><b>User ID:</b> ${safeUserId}</p>
+            <p><b>Role:</b> ${safeRole}</p>
+            <p><b>Subject:</b> ${safeSubject}</p>
+            <hr/>
+            <p>${safeMessage}</p>
+            <p style="color:#6B7280;font-size:12px;margin-top:24px">Also saved in LastBag Admin → Support</p>
+          `,
+        });
+
+        if (error) {
+          console.error('[support/contact] Resend error:', error);
+        }
+      } catch (emailError) {
+        console.error('[support/contact] email send failed:', emailError);
+      }
     }
 
     return NextResponse.json({ success: true });

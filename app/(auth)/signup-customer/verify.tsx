@@ -21,7 +21,8 @@ const TOTAL_STEPS = 4;
 
 export default function CustomerVerifyScreen() {
   const router = useRouter();
-  const { customer, customerAuthMethod, signupPassword, resetCustomer } = useSignupStore();
+  const { customer, customerAuthMethod, signupPassword, termsAccepted, resetCustomer } =
+    useSignupStore();
   const { setAuthRole } = useAuthStore();
   const setLocation = useLocationStore((s) => s.setLocation);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -72,7 +73,11 @@ export default function CustomerVerifyScreen() {
         userId = data.user.id;
       }
 
-      const { error: profileError } = await createCustomerProfile(userId, customer);
+      const { error: profileError } = await createCustomerProfile(
+        userId,
+        customer,
+        termsAccepted,
+      );
 
       if (profileError) {
         setSubmitError(profileError.message ?? 'Could not create your profile.');

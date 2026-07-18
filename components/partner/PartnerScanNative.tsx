@@ -2,7 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -14,6 +14,10 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ManualQREntry } from '@/components/partner/ManualQREntry';
+import {
+  PartnerScanChooser,
+  type ScanMode,
+} from '@/components/partner/PartnerScanChooser';
 import { PickupOrderSheet } from '@/components/partner/PickupOrderSheet';
 import { PickupSuccessOverlay } from '@/components/partner/PickupSuccessOverlay';
 import { Palette } from '@/constants/Colors';
@@ -36,7 +40,7 @@ export default function PartnerScanNative() {
   const [partnerName, setPartnerName] = useState<string | undefined>();
   const [errorText, setErrorText] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
-  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [mode, setMode] = useState<ScanMode>('choose');
   const scanLock = useRef(false);
   const pickupMethodRef = useRef<'partner_qr' | 'partner_manual'>('partner_qr');
   const pickup = usePartnerPickupFlow(partnerName);
@@ -89,7 +93,7 @@ export default function PartnerScanNative() {
   }, [loadPartner]);
 
   const handleBarcode = async (data: string) => {
-    if (scanLock.current || pickup.sheetVisible || pickup.successVisible) return;
+    if (mode !== 'qr' || scanLock.current || pickup.sheetVisible || pickup.successVisible) return;
     scanLock.current = true;
     setErrorText(null);
 
@@ -133,10 +137,86 @@ export default function PartnerScanNative() {
     }
   };
 
+  const openOrderManual = (order: Parameters<typeof pickup.openOrder>[0]) => {
+    pickupMethodRef.current = 'partner_manual';
+    setMode('choose');
+    pickup.openOrder(order);
+  };
+
+  if (mode === 'choose') {
+    return (
+      <View style={styles.chooserScreen}>
+        <PartnerScanChooser
+          onSelect={(next) => {
+            setErrorText(null);
+            scanLock.current = false;
+            setMode(next);
+            if (next === 'qr' && permission && !permission.granted) {
+              void requestPermission();
+            }
+          }}
+        />
+        <PickupOrderSheet
+          visible={pickup.sheetVisible}
+          order={pickup.foundOrder}
+          confirming={pickup.confirming}
+          onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
+          onDismiss={() => {
+            pickup.dismissSheet();
+            scanLock.current = false;
+          }}
+        />
+        <PickupSuccessOverlay
+          visible={pickup.successVisible}
+          customerName={pickup.successCustomerName}
+          onDone={() => {
+            pickup.dismissSuccess();
+            scanLock.current = false;
+          }}
+        />
+      </View>
+    );
+  }
+
+  if (mode === 'manual') {
+    return (
+      <View style={[styles.manualScreen, { paddingTop: insets.top }]}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <ManualQREntry onBack={() => setMode('choose')} onOrderFound={openOrderManual} />
+        </ScrollView>
+        <PickupOrderSheet
+          visible={pickup.sheetVisible}
+          order={pickup.foundOrder}
+          confirming={pickup.confirming}
+          onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
+          onDismiss={() => {
+            pickup.dismissSheet();
+            scanLock.current = false;
+          }}
+        />
+        <PickupSuccessOverlay
+          visible={pickup.successVisible}
+          customerName={pickup.successCustomerName}
+          onDone={() => {
+            pickup.dismissSuccess();
+            scanLock.current = false;
+          }}
+        />
+      </View>
+    );
+  }
+
+  // mode === 'qr'
   if (!permission) {
     return (
       <View style={styles.center}>
         <Text style={styles.message}>Requesting camera permission…</Text>
+        <Pressable onPress={() => setMode('choose')} style={styles.permissionBtn}>
+          <Text style={styles.permissionBtnText}>Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -149,46 +229,26 @@ export default function PartnerScanNative() {
           <Text style={styles.permissionBtnText}>Grant permission</Text>
         </Pressable>
         <Pressable
-          onPress={() => setShowManualEntry(true)}
+          onPress={() => setMode('manual')}
           style={[styles.permissionBtn, styles.manualFallbackBtn]}>
           <Text style={styles.permissionBtnText}>Enter code instead</Text>
         </Pressable>
-        {showManualEntry ? (
-          <View style={styles.manualOverlay}>
-            <ManualQREntry
-              onOrderFound={(order) => {
-                pickupMethodRef.current = 'partner_manual';
-                setShowManualEntry(false);
-                pickup.openOrder(order);
-              }}
-            />
-          </View>
-        ) : null}
+        <Pressable onPress={() => setMode('choose')} hitSlop={8}>
+          <Text style={styles.linkText}>Choose another option</Text>
+        </Pressable>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {!showManualEntry ? (
-        <CameraView
-          style={styles.camera}
-          facing="back"
-          enableTorch={torchOn}
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          onBarcodeScanned={({ data }) => void handleBarcode(data)}
-        />
-      ) : (
-        <View style={[styles.manualPanel, { paddingTop: insets.top + 56 }]}>
-          <ManualQREntry
-            onOrderFound={(order) => {
-              pickupMethodRef.current = 'partner_manual';
-              setShowManualEntry(false);
-              pickup.openOrder(order);
-            }}
-          />
-        </View>
-      )}
+      <CameraView
+        style={styles.camera}
+        facing="back"
+        enableTorch={torchOn}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={({ data }) => void handleBarcode(data)}
+      />
 
       <Animated.View pointerEvents="none" style={[styles.errorFlash, flashStyle]} />
 
@@ -196,7 +256,9 @@ export default function PartnerScanNative() {
         <Pressable
           onPress={() => {
             void hapticButtonPress();
-            router.back();
+            setMode('choose');
+            setErrorText(null);
+            scanLock.current = false;
           }}
           style={styles.iconBtn}>
           <SymbolView
@@ -223,21 +285,17 @@ export default function PartnerScanNative() {
         <Animated.View style={[styles.scanLine, scanLineStyle]} />
       </View>
 
-      <Text style={styles.hintText}>
-        {showManualEntry ? 'Enter the 6-digit code from the customer' : "Point camera at customer's QR code"}
-      </Text>
+      <Text style={styles.hintText}>Point camera at customer&apos;s QR code</Text>
 
       <Pressable
         onPress={() => {
           void hapticButtonPress();
-          setShowManualEntry((current) => !current);
+          setMode('manual');
           setErrorText(null);
           scanLock.current = false;
         }}
         style={[styles.manualToggle, { bottom: insets.bottom + 24 }]}>
-        <Text style={styles.manualToggleText}>
-          {showManualEntry ? 'Use camera instead' : 'Enter code instead'}
-        </Text>
+        <Text style={styles.manualToggleText}>Enter code instead</Text>
       </Pressable>
 
       {errorText ? (
@@ -273,6 +331,14 @@ const CORNER = 28;
 const BORDER = 4;
 
 const styles = StyleSheet.create({
+  chooserScreen: {
+    flex: 1,
+    backgroundColor: Palette.background,
+  },
+  manualScreen: {
+    flex: 1,
+    backgroundColor: Palette.background,
+  },
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -416,14 +482,11 @@ const styles = StyleSheet.create({
   manualFallbackBtn: {
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  manualPanel: {
-    flex: 1,
-    backgroundColor: '#F5F3EF',
-  },
-  manualOverlay: {
-    marginTop: 16,
-    width: '100%',
-    maxWidth: 360,
+  linkText: {
+    color: Palette.textSecondary,
+    fontWeight: '600',
+    fontSize: 13,
+    marginTop: 4,
   },
   manualToggle: {
     position: 'absolute',

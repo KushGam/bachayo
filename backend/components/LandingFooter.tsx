@@ -3,8 +3,6 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
-import { WaitlistSignup } from '@/components/WaitlistSignup';
-
 export function LandingFooter() {
   const pathname = usePathname();
   const shouldShow = !pathname.startsWith('/admin');
@@ -13,9 +11,7 @@ export function LandingFooter() {
   return (
     <footer className="bg-[var(--ink)] py-16 md:py-20">
       <div className="mx-auto max-w-6xl px-6">
-        <WaitlistSignup />
-
-        <div className="mt-14 grid grid-cols-2 gap-10 md:grid-cols-4 md:gap-12">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-4 md:gap-12">
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="font-display text-2xl font-extrabold tracking-tight text-white">
               LastBag

@@ -82,6 +82,7 @@ type SignupStore = {
   signupPassword: string;
   phoneOtpVerified: boolean;
   otpSentForPhone: string | null;
+  termsAccepted: boolean;
   setCustomer: (patch: Partial<CustomerSignupData>) => void;
   setPartner: (patch: Partial<PartnerSignupData>) => void;
   setCustomerAuthMethod: (method: 'email' | 'phone') => void;
@@ -89,6 +90,7 @@ type SignupStore = {
   setSignupPassword: (password: string) => void;
   setPhoneOtpVerified: (verified: boolean) => void;
   setOtpSentForPhone: (phone: string | null) => void;
+  setTermsAccepted: (v: boolean) => void;
   resetCustomer: () => void;
   resetPartner: () => void;
 };
@@ -101,6 +103,7 @@ export const useSignupStore = create<SignupStore>((set) => ({
   signupPassword: '',
   phoneOtpVerified: false,
   otpSentForPhone: null,
+  termsAccepted: false,
   setCustomer: (patch) => set((state) => ({ customer: { ...state.customer, ...patch } })),
   setPartner: (patch) => set((state) => ({ partner: { ...state.partner, ...patch } })),
   setCustomerAuthMethod: (customerAuthMethod) => set({ customerAuthMethod }),
@@ -108,6 +111,7 @@ export const useSignupStore = create<SignupStore>((set) => ({
   setSignupPassword: (signupPassword) => set({ signupPassword }),
   setPhoneOtpVerified: (phoneOtpVerified) => set({ phoneOtpVerified }),
   setOtpSentForPhone: (otpSentForPhone) => set({ otpSentForPhone }),
+  setTermsAccepted: (termsAccepted) => set({ termsAccepted }),
   resetCustomer: () =>
     set({
       customer: { ...defaultCustomer },
@@ -115,6 +119,7 @@ export const useSignupStore = create<SignupStore>((set) => ({
       signupPassword: '',
       phoneOtpVerified: false,
       otpSentForPhone: null,
+      termsAccepted: false,
     }),
   resetPartner: () =>
     set({
@@ -123,6 +128,7 @@ export const useSignupStore = create<SignupStore>((set) => ({
       signupPassword: '',
       phoneOtpVerified: false,
       otpSentForPhone: null,
+      termsAccepted: false,
     }),
 }));
 

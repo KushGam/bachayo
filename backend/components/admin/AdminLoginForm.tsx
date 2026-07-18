@@ -36,9 +36,9 @@ export function AdminLoginForm({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4">
+    <form onSubmit={onSubmit} className="w-full space-y-4">
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-[#1A1A1A]">
           Password
         </label>
         <input
@@ -46,17 +46,17 @@ export function AdminLoginForm({ nextPath }: { nextPath: string }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#D85A30] focus:ring-2 focus:ring-[#FAECE7]"
+          className="w-full rounded-xl border border-[#E8E4DE] bg-[#FFFCFA] px-3.5 py-2.5 text-sm text-[#1A1A1A] outline-none transition focus:border-[#D85A30] focus:ring-2 focus:ring-[#FAECE7]"
           placeholder="Enter admin password"
           autoComplete="current-password"
           required
         />
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm font-medium text-[#DC2626]">{error}</p> : null}
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-[#D85A30] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#993C1D] disabled:opacity-60">
+        className="w-full rounded-full bg-[#D85A30] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#993C1D] disabled:opacity-60">
         {loading ? 'Signing in…' : 'Sign in'}
       </button>
     </form>

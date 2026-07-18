@@ -3,11 +3,12 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
 import { AuthButton } from '@/components/auth/AuthButton';
 import { PhoneInput } from '@/components/auth/PhoneInput';
+import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { Screen } from '@/components/Screen';
 import { Palette } from '@/constants/Colors';
 import { Border, Radius, Spacing, Type } from '@/constants/theme';
@@ -15,6 +16,7 @@ import { t } from '@/constants/i18n';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { phoneProfileExists, upsertProfile } from '@/lib/auth';
 import { getTabsRouteForRole } from '@/lib/navigation';
+import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { phoneSchema } from '@/lib/validation/auth';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -34,6 +36,7 @@ export default function CompleteProfileScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [phoneTaken, setPhoneTaken] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
@@ -66,6 +69,14 @@ export default function CompleteProfileScreen() {
   const onSubmit = async ({ phone }: CompleteProfileValues) => {
     if (!userId) return;
 
+    if (!termsAccepted) {
+      Alert.alert(
+        'Please accept terms',
+        'You must agree to our Terms of Service and Privacy Policy to continue.',
+      );
+      return;
+    }
+
     setSubmitError(null);
     setPhoneTaken(false);
     setLoading(true);
@@ -86,6 +97,8 @@ export default function CompleteProfileScreen() {
         setLoading(false);
         return;
       }
+
+      await recordTermsAcceptance(userId);
 
       setAuthRole(role);
 
@@ -161,10 +174,16 @@ export default function CompleteProfileScreen() {
 
       {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
 
+      <TermsCheckbox
+        accepted={termsAccepted}
+        onToggle={() => setTermsAccepted((v) => !v)}
+      />
+
       <AuthButton
         label="Complete account"
         onPress={handleSubmit(onSubmit)}
         loading={loading}
+        disabled={!termsAccepted}
         style={styles.submit}
       />
     </Screen>

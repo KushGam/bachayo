@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocationPicker } from '@/components/ui/LocationPicker';
+import { MessageIconBadge } from '@/components/ui/MessageIconBadge';
 import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -49,6 +50,12 @@ export function HomeHeroBand({ userName, locale, areaId, onLocationChange }: Hom
           <Text style={styles.greetingName}>{firstName}</Text>
         </Text>
         <View style={styles.actions}>
+          <MessageIconBadge
+            variant="dark"
+            compact
+            size={16}
+            onPress={() => router.push('/messages')}
+          />
           <NotificationBellBadge
             variant="dark"
             compact

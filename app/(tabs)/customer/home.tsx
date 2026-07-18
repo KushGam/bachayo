@@ -480,6 +480,7 @@ export default function HomeScreen() {
         {
           value: savedLabel,
           label: locale === 'np' ? 'बचत' : 'Money saved',
+          accent: true,
         },
         {
           value: String(impactStats.reviewsGiven),
@@ -487,7 +488,7 @@ export default function HomeScreen() {
         },
         {
           value: String(impactStats.activeReservations),
-          label: locale === 'np' ? 'सक्रिय' : 'Active',
+          label: locale === 'np' ? 'सक्रिय' : 'Active pickups',
         },
       ];
     }
@@ -504,6 +505,7 @@ export default function HomeScreen() {
       {
         value: avgSavings > 0 ? `${avgSavings}%` : '—',
         label: locale === 'np' ? 'औसत बचत' : 'Avg savings',
+        accent: true,
       },
       {
         value: String(closingSoon.length),
@@ -622,7 +624,11 @@ export default function HomeScreen() {
       {searchStrip}
 
       {!isSearching ? (
-        <HomeMarketDigest stats={digestStats} title={digestTitle} />
+        <HomeMarketDigest
+          stats={digestStats}
+          title={digestTitle}
+          variant={isSignedIn && impactStats ? 'impact' : 'market'}
+        />
       ) : null}
 
       {!isSearching ? (

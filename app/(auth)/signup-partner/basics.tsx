@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthFormCard } from '@/components/auth/AuthFormCard';
@@ -12,8 +12,7 @@ import { PasswordField } from '@/components/auth/PasswordField';
 import { PhoneInput } from '@/components/auth/PhoneInput';
 import { SignupFieldGroup } from '@/components/auth/SignupFieldGroup';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
-import { Palette } from '@/constants/Colors';
-import { Spacing, Type } from '@/constants/theme';
+import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { emailProfileExists, phoneProfileExists, sendPhoneOtp } from '@/lib/auth';
 import { hapticStepAdvance } from '@/lib/haptics';
@@ -27,8 +26,15 @@ export default function PartnerBasicsScreen() {
   const router = useRouter();
   const goBack = useSafeBack('/(auth)/welcome');
   const { setPendingPhone, setPendingMode, setPendingRole, setPendingName } = useAuthStore();
-  const { partner, setPartner, setPartnerAuthMethod, setSignupPassword, setOtpSentForPhone } =
-    useSignupStore();
+  const {
+    partner,
+    setPartner,
+    setPartnerAuthMethod,
+    setSignupPassword,
+    setOtpSentForPhone,
+    termsAccepted,
+    setTermsAccepted,
+  } = useSignupStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -53,6 +59,14 @@ export default function PartnerBasicsScreen() {
   const authMethod = watch('authMethod');
 
   const onContinue = handleSubmit(async (values) => {
+    if (!termsAccepted) {
+      Alert.alert(
+        'Please accept terms',
+        'You must agree to our Terms of Service and Privacy Policy to continue.',
+      );
+      return;
+    }
+
     setSubmitError(null);
     setChecking(true);
 
@@ -130,7 +144,7 @@ export default function PartnerBasicsScreen() {
       showBack
       onBack={goBack}
       onContinue={onContinue}
-      continueDisabled={!isValid || checking}
+      continueDisabled={!isValid || checking || !termsAccepted}
       continueLoading={checking}>
       <Controller
         control={control}
@@ -265,6 +279,11 @@ export default function PartnerBasicsScreen() {
       </SignupFieldGroup>
 
       {submitError ? <AuthErrorBanner message={submitError} /> : null}
+
+      <TermsCheckbox
+        accepted={termsAccepted}
+        onToggle={() => setTermsAccepted(!termsAccepted)}
+      />
     </SignupStepShell>
   );
 }

@@ -24,12 +24,20 @@ export function useUnreadMessages() {
         .eq('user_id', userId)
         .maybeSingle();
 
+      // Only active reservations — past/missed chats shouldn't keep the tab badge lit.
+      const activeStatuses = ['pending', 'confirmed'] as const;
+
       const { data: customerOrders } = await supabase
         .from('orders')
         .select('id')
-        .eq('customer_id', userId);
+        .eq('customer_id', userId)
+        .in('status', [...activeStatuses]);
       const { data: partnerOrders } = asPartner
-        ? await supabase.from('orders').select('id').eq('partner_id', asPartner.id)
+        ? await supabase
+            .from('orders')
+            .select('id')
+            .eq('partner_id', asPartner.id)
+            .in('status', [...activeStatuses])
         : { data: [] as Array<{ id: string }> };
 
       const ids = [...(customerOrders ?? []), ...(partnerOrders ?? [])].map((row) => row.id);

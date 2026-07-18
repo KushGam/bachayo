@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Radius, Type } from '@/constants/theme';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
 import type { OrderStatus } from '@/types/database';
 
@@ -14,7 +14,7 @@ function labelFor(status: OrderStatus) {
     case 'pending':
       return 'Pending';
     case 'confirmed':
-      return 'Confirmed';
+      return 'Ready';
     case 'picked_up':
       return 'Picked up';
     case 'cancelled':
@@ -35,8 +35,9 @@ function colorsFor(status: OrderStatus) {
     case 'picked_up':
       return { bg: Palette.successBg, text: Palette.success, border: '#C5D9CB' };
     case 'cancelled':
-    case 'missed':
       return { bg: Palette.surfaceMuted, text: Palette.textSecondary, border: Palette.borderSubtle };
+    case 'missed':
+      return { bg: '#FEF3C7', text: '#B45309', border: '#F5D98A' };
     default:
       return { bg: Palette.surfaceMuted, text: Palette.textSecondary, border: Palette.borderSubtle };
   }
@@ -55,14 +56,15 @@ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    alignSelf: 'flex-start',
+    flexShrink: 0,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: Radius.pill,
     borderWidth: 1,
   },
   text: {
     ...Type.label,
     fontWeight: '700',
+    fontSize: 11,
   },
 });

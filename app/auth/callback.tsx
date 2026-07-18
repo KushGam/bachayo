@@ -9,6 +9,7 @@ import {
   hasUserProfile,
 } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { fetchTermsAcceptedAt } from '@/lib/terms';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
@@ -39,6 +40,12 @@ export default function AuthCallbackScreen() {
         const hasProfile = await hasUserProfile(userId);
         if (!hasProfile) {
           router.replace('/(auth)/complete-profile');
+          return;
+        }
+
+        const termsAcceptedAt = await fetchTermsAcceptedAt(userId);
+        if (!termsAcceptedAt) {
+          router.replace('/(auth)/accept-terms');
           return;
         }
 

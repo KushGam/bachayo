@@ -54,7 +54,7 @@ export default function HomeLanding() {
     {
       id: 'city',
       q: 'Is LastBag available in my city?',
-      a: 'We are live-building across Kathmandu, with Lalitpur, Pokhara, and Bharatpur next. Join the waitlist in the footer to get launch updates.',
+      a: 'We are live-building across Kathmandu, with Lalitpur, Pokhara, and Bharatpur next. Download the app to see what’s available near you.',
     },
     {
       id: 'partner',

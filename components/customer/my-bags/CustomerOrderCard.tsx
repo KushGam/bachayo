@@ -2,11 +2,11 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   Clock,
   Lock,
   MapPin,
+  MessageCircle,
   Star,
   Store,
   X,
@@ -45,6 +45,29 @@ type CustomerOrderCardProps = {
   unreadMessages: number;
 };
 
+function StatusGlyph({ status }: { status: string }) {
+  const normalized = normalizeOrderStatus(status);
+  if (normalized === 'picked_up') {
+    return (
+      <View style={[styles.statusGlyph, styles.statusGlyphSuccess]}>
+        <Check size={20} color={Palette.success} strokeWidth={2.6} />
+      </View>
+    );
+  }
+  if (normalized === 'missed') {
+    return (
+      <View style={[styles.statusGlyph, styles.statusGlyphMissed]}>
+        <X size={20} color="#B45309" strokeWidth={2.6} />
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.statusGlyph, styles.statusGlyphMuted]}>
+      <X size={20} color={Palette.textTertiary} strokeWidth={2.6} />
+    </View>
+  );
+}
+
 export function CustomerOrderCard({
   order,
   tab,
@@ -67,77 +90,105 @@ export function CustomerOrderCard({
   const isPast = tab === 'past';
   const isCancelBlocked = cancelEligibility === 'blocked' || cancelEligibility === 'expired';
   const serviceType = (order.service_type ?? 'takeaway') as OrderServiceType;
+  const needsReview = isPast && status === 'picked_up' && !order.review;
+  const hasReview = isPast && status === 'picked_up' && Boolean(order.review);
 
   return (
     <View style={[styles.card, isPast && styles.cardPast]}>
-      <View style={styles.accent} />
-
       <Pressable
         onPress={() => isActiveOrder && onToggleExpand()}
         style={({ pressed }) => [styles.row, pressed && isActiveOrder && styles.pressed]}>
         {isActiveOrder ? (
           <View style={styles.qrThumb}>
-            <QRCode value={order.qr_code} size={48} color={Palette.primaryDark} />
+            <QRCode value={order.qr_code} size={44} color={Palette.primaryDark} />
           </View>
         ) : (
-          <View style={[styles.qrThumb, styles.qrThumbMuted]}>
-            {status === 'cancelled' || status === 'missed' ? (
-              <X size={22} color={Palette.textTertiary} strokeWidth={2.5} />
-            ) : (
-              <Check size={22} color={Palette.success} strokeWidth={2.5} />
-            )}
-          </View>
+          <StatusGlyph status={status} />
         )}
 
         <View style={styles.body}>
-          <Text style={[styles.partner, isPast && styles.muted]} numberOfLines={1}>
-            {order.partner.name}
-          </Text>
-          <Text style={[styles.bagTitle, isPast && styles.muted]} numberOfLines={1}>
+          <View style={styles.titleRow}>
+            <Text style={styles.partner} numberOfLines={1}>
+              {order.partner.name}
+            </Text>
+            <OrderStatusBadge status={order.status} />
+          </View>
+
+          <Text style={styles.bagTitle} numberOfLines={1}>
             {order.bag?.title ?? 'Rescue bag'}
           </Text>
 
           {isActiveOrder && countdown ? (
-            <View style={styles.countdownRow}>
-              <Clock size={12} color={urgent ? Palette.urgency : Palette.textTertiary} strokeWidth={2} />
+            <View style={[styles.countdownRow, urgent && styles.countdownRowUrgent]}>
+              <Clock
+                size={12}
+                color={urgent ? Palette.urgency : Palette.primary}
+                strokeWidth={2.2}
+              />
               <Text style={[styles.countdown, urgent && styles.countdownUrgent]}>{countdown}</Text>
             </View>
           ) : null}
 
-          <Text style={[styles.priceLine, isPast && styles.muted]}>
-            {formatNprPaisa(order.total_price)} · {serviceType === 'dinein' ? 'Dine-in' : 'Takeaway'} · Pay
-            at pickup
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaChip}>{formatNprPaisa(order.total_price)}</Text>
+            <View style={styles.metaDot} />
+            <Text style={styles.metaChip}>{serviceType === 'dinein' ? 'Dine-in' : 'Takeaway'}</Text>
+            {isActiveOrder ? (
+              <>
+                <View style={styles.metaDot} />
+                <Text style={styles.metaChipMuted}>Pay at pickup</Text>
+              </>
+            ) : null}
+          </View>
 
-          <OrderStatusBadge status={order.status} />
+          {isActiveOrder && !expanded ? (
+            <Text style={styles.tapHint}>Tap to show QR code</Text>
+          ) : null}
         </View>
 
         {isActiveOrder ? (
-          expanded ? (
-            <ChevronUp size={18} color={Palette.textTertiary} strokeWidth={2.5} />
-          ) : (
-            <ChevronDown size={18} color={Palette.textTertiary} strokeWidth={2.5} />
-          )
+          <View style={styles.chevronWrap}>
+            {expanded ? (
+              <ChevronUp size={18} color={Palette.textTertiary} strokeWidth={2.5} />
+            ) : (
+              <ChevronDown size={18} color={Palette.textTertiary} strokeWidth={2.5} />
+            )}
+          </View>
         ) : null}
       </Pressable>
 
       {expanded && isActiveOrder ? (
-        <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={styles.expanded}>
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          exiting={FadeOut.duration(120)}
+          style={styles.expanded}>
           <View style={styles.qrPanel}>
-            <QRCode value={order.qr_code} size={176} color={Palette.primaryDark} />
+            <QRCode value={order.qr_code} size={168} color={Palette.primaryDark} />
           </View>
           <OrderShortCode qrCode={order.qr_code} />
-          <Text style={styles.scanHint}>Show this QR at pickup</Text>
+          <Text style={styles.scanHint}>Show this QR at the counter to confirm pickup</Text>
           <View style={styles.chatRow}>
-            <Pressable onPress={onChat} style={({ pressed }) => [styles.chatBtn, pressed && styles.pressed]}>
-              <Text style={styles.chatBtnText}>💬 Message restaurant</Text>
+            <Pressable
+              onPress={onChat}
+              style={({ pressed }) => [
+                styles.actionPill,
+                styles.actionPillFlex,
+                styles.actionPillPrimary,
+                pressed && styles.pressed,
+              ]}>
+              <MessageCircle size={14} color={Palette.primaryDark} strokeWidth={2.2} />
+              <Text style={styles.actionPillTextPrimary}>Message</Text>
               {unreadMessages > 0 ? <View style={styles.chatDot} /> : null}
             </Pressable>
             <Pressable
               onPress={onDirections}
-              style={({ pressed }) => [styles.chatBtn, styles.chatBtnSecondary, pressed && styles.pressed]}>
-              <MapPin size={14} color="#374151" strokeWidth={2.2} />
-              <Text style={styles.chatBtnTextSecondary}>Get directions</Text>
+              style={({ pressed }) => [
+                styles.actionPill,
+                styles.actionPillFlex,
+                pressed && styles.pressed,
+              ]}>
+              <MapPin size={14} color={Palette.textPrimary} strokeWidth={2.2} />
+              <Text style={styles.actionPillText}>Directions</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -162,7 +213,7 @@ export function CustomerOrderCard({
           </View>
 
           {!isCancelBlocked ? (
-            <Pressable onPress={onCancelPress} hitSlop={8}>
+            <Pressable onPress={onCancelPress} hitSlop={8} style={styles.cancelBtn}>
               <Text style={styles.cancelAction}>Cancel</Text>
             </Pressable>
           ) : (
@@ -173,36 +224,48 @@ export function CustomerOrderCard({
         </View>
       ) : null}
 
-      {tab === 'past' ? (
-        <Pressable
-          onPress={onViewRestaurant}
-          style={({ pressed }) => [styles.viewRestaurantBtn, pressed && styles.pressed]}>
-          <Store size={15} color={Palette.primary} strokeWidth={2.2} />
-          <Text style={styles.viewRestaurantText}>View restaurant</Text>
-          <ChevronRight size={16} color={Palette.textTertiary} strokeWidth={2.5} />
-        </Pressable>
-      ) : null}
+      {isPast ? (
+        <View style={styles.pastFooter}>
+          <View style={styles.pastActions}>
+            <Pressable
+              onPress={onViewRestaurant}
+              style={({ pressed }) => [styles.actionPill, styles.actionPillFlex, pressed && styles.pressed]}>
+              <Store size={14} color={Palette.textPrimary} strokeWidth={2.2} />
+              <Text style={styles.actionPillText}>Restaurant</Text>
+            </Pressable>
 
-      {tab === 'past' && status === 'picked_up' && !order.review ? (
-        <Pressable onPress={onReview} style={({ pressed }) => [styles.reviewBtn, pressed && styles.pressed]}>
-          <Star size={15} color={Palette.primary} strokeWidth={2.2} />
-          <Text style={styles.reviewText}>Leave a review</Text>
-        </Pressable>
-      ) : null}
-
-      {tab === 'past' && status === 'picked_up' && order.review ? (
-        <View style={styles.reviewBlock}>
-          <View style={styles.reviewedPill}>
-            <Check size={12} color={Palette.success} strokeWidth={2.5} />
-            <Text style={styles.reviewedText}>
-              You rated {order.review.rating}★
-              {order.review.comment ? ` · “${order.review.comment.slice(0, 48)}${order.review.comment.length > 48 ? '…' : ''}”` : ''}
-            </Text>
+            {needsReview ? (
+              <Pressable
+                onPress={onReview}
+                style={({ pressed }) => [
+                  styles.actionPill,
+                  styles.actionPillFlex,
+                  styles.actionPillPrimary,
+                  pressed && styles.pressed,
+                ]}>
+                <Star size={14} color={Palette.primaryDark} strokeWidth={2.2} />
+                <Text style={styles.actionPillTextPrimary}>Leave review</Text>
+              </Pressable>
+            ) : null}
           </View>
-          {order.review.partner_reply ? (
-            <View style={styles.partnerReplyBox}>
-              <Text style={styles.partnerReplyLabel}>Reply from {order.partner.name}</Text>
-              <Text style={styles.partnerReplyText}>{order.review.partner_reply}</Text>
+
+          {hasReview && order.review ? (
+            <View style={styles.reviewBlock}>
+              <View style={styles.reviewedPill}>
+                <Check size={12} color={Palette.success} strokeWidth={2.5} />
+                <Text style={styles.reviewedText}>
+                  You rated {order.review.rating}★
+                  {order.review.comment
+                    ? ` · “${order.review.comment.slice(0, 48)}${order.review.comment.length > 48 ? '…' : ''}”`
+                    : ''}
+                </Text>
+              </View>
+              {order.review.partner_reply ? (
+                <View style={styles.partnerReplyBox}>
+                  <Text style={styles.partnerReplyLabel}>Reply from {order.partner.name}</Text>
+                  <Text style={styles.partnerReplyText}>{order.review.partner_reply}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -221,45 +284,67 @@ const styles = StyleSheet.create({
     ...FloatingShadow,
   },
   cardPast: {
-    opacity: 0.92,
-    backgroundColor: Palette.background,
-  },
-  accent: {
-    height: 3,
-    backgroundColor: Palette.primary,
+    backgroundColor: Palette.surface,
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   pressed: {
-    opacity: 0.95,
+    opacity: 0.92,
   },
   qrThumb: {
+    width: 56,
+    height: 56,
     padding: 6,
     backgroundColor: Palette.primaryLight,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Palette.overlay.border,
-  },
-  qrThumbMuted: {
-    width: 60,
-    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  statusGlyph: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  statusGlyphSuccess: {
+    backgroundColor: Palette.successBg,
+    borderColor: '#C5D9CB',
+  },
+  statusGlyphMissed: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F5D98A',
+  },
+  statusGlyphMuted: {
     backgroundColor: Palette.surfaceMuted,
     borderColor: Palette.borderSubtle,
   },
   body: {
     flex: 1,
-    gap: 4,
+    gap: 5,
+    minWidth: 0,
+    paddingTop: 2,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   partner: {
+    flex: 1,
     ...Type.bodyMedium,
     fontWeight: '700',
     color: Palette.textPrimary,
+    letterSpacing: -0.2,
   },
   bagTitle: {
     ...Type.caption,
@@ -267,26 +352,58 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   countdownRow: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 1,
+    gap: 5,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  countdownRowUrgent: {
+    backgroundColor: '#FEE2E2',
   },
   countdown: {
     ...Type.label,
     fontWeight: '700',
-    color: Palette.textSecondary,
+    color: Palette.primaryDark,
   },
   countdownUrgent: {
     color: Palette.urgency,
   },
-  priceLine: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  metaChip: {
     ...Type.caption,
     color: Palette.textPrimary,
     fontWeight: '600',
   },
-  muted: {
-    color: Palette.textSecondary,
+  metaChipMuted: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    fontWeight: '500',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: Palette.borderSubtle,
+  },
+  tapHint: {
+    ...Type.label,
+    color: Palette.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  chevronWrap: {
+    paddingTop: 18,
   },
   expanded: {
     paddingHorizontal: Spacing.md,
@@ -295,7 +412,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Palette.borderSubtle,
-    marginTop: -Spacing.xs,
     paddingTop: Spacing.md,
   },
   qrPanel: {
@@ -314,32 +430,37 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
-    paddingTop: 10,
-    borderTopWidth: 0.5,
-    borderTopColor: '#F0EDE8',
+    marginTop: 4,
   },
-  chatBtn: {
-    flex: 1,
-    backgroundColor: '#F5F3EF',
-    borderRadius: Radius.pill,
-    minHeight: 34,
+  actionPill: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.background,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
     position: 'relative',
   },
-  chatBtnSecondary: {
-    backgroundColor: Palette.background,
+  actionPillFlex: {
+    flex: 1,
   },
-  chatBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+  actionPillPrimary: {
+    backgroundColor: Palette.primaryLight,
+    borderColor: Palette.overlay.border,
   },
-  chatBtnTextSecondary: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
+  actionPillText: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
+  actionPillTextPrimary: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primaryDark,
   },
   chatDot: {
     position: 'absolute',
@@ -383,74 +504,53 @@ const styles = StyleSheet.create({
     color: Palette.textTertiary,
     fontWeight: '500',
   },
+  cancelBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   cancelAction: {
     ...Type.caption,
     color: Palette.danger,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   helpLink: {
     ...Type.caption,
     color: Palette.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  viewRestaurantBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    paddingVertical: Spacing.sm,
+  pastFooter: {
     borderTopWidth: 1,
     borderTopColor: Palette.borderSubtle,
-    paddingTop: Spacing.md,
-  },
-  viewRestaurantText: {
-    flex: 1,
-    ...Type.caption,
-    fontWeight: '700',
-    color: Palette.primaryDark,
-  },
-  reviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Palette.primaryLight,
-    borderRadius: Radius.pill,
+    marginTop: 4,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Palette.overlay.border,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
+    gap: 10,
   },
-  reviewText: {
-    ...Type.caption,
-    fontWeight: '700',
-    color: Palette.primaryDark,
+  pastActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  reviewBlock: {
+    gap: 8,
   },
   reviewedPill: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 4,
-    alignSelf: 'stretch',
+    gap: 6,
     backgroundColor: Palette.successBg,
-    borderRadius: Radius.pill,
+    borderRadius: Radius.md,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#C5D9CB',
   },
   reviewedText: {
     flex: 1,
     ...Type.label,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Palette.success,
-  },
-  reviewBlock: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    gap: 8,
+    lineHeight: 16,
   },
   partnerReplyBox: {
     backgroundColor: Palette.background,

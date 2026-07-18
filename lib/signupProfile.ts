@@ -2,10 +2,15 @@ import { formatNepalPhone } from '@/lib/auth';
 import { getAreaById, getCityById } from '@/lib/locations';
 import { encodePartnerMeta } from '@/lib/partnerMeta';
 import { supabase } from '@/lib/supabase';
+import { termsAcceptanceFields } from '@/lib/terms';
 import { toDbPartnerCategory, type PartnerCategoryOption } from '@/constants/partnerCategories';
 import type { CustomerSignupData, PartnerSignupData } from '@/store/useSignupStore';
 
-export async function createCustomerProfile(userId: string, data: CustomerSignupData) {
+export async function createCustomerProfile(
+  userId: string,
+  data: CustomerSignupData,
+  termsAccepted = false,
+) {
   const area = getAreaById(data.areaId);
   const city = getCityById(data.cityId);
   const areaLabel = area?.name ?? null;
@@ -24,10 +29,16 @@ export async function createCustomerProfile(userId: string, data: CustomerSignup
     home_longitude: data.homeLongitude,
     food_preferences: data.foodPreferences.length > 0 ? data.foodPreferences : null,
     onboarding_completed: true,
-  });
+    ...termsAcceptanceFields(termsAccepted),
+  } as never);
 }
 
-export async function createPartnerAccount(userId: string, data: PartnerSignupData, coverUrl: string | null) {
+export async function createPartnerAccount(
+  userId: string,
+  data: PartnerSignupData,
+  coverUrl: string | null,
+  termsAccepted = false,
+) {
   const area = getAreaById(data.areaId);
   const city = getCityById(data.cityId);
   const areaLabel = area?.name ?? null;
@@ -54,7 +65,8 @@ export async function createPartnerAccount(userId: string, data: PartnerSignupDa
     home_latitude: data.latitude,
     home_longitude: data.longitude,
     onboarding_completed: true,
-  });
+    ...termsAcceptanceFields(termsAccepted),
+  } as never);
 
   if (profileError) return { error: profileError };
 

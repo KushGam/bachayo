@@ -253,3 +253,20 @@ export async function sendAdminNotification(input: {
   revalidatePath('/admin/notifications');
   return { sent, total: unique.length };
 }
+
+export async function updateSupportMessageStatus(
+  messageId: string,
+  status: 'new' | 'open' | 'resolved',
+) {
+  const supabase = await admin();
+  await supabase
+    .from('support_messages')
+    .update({
+      status,
+      resolved_at: status === 'resolved' ? new Date().toISOString() : null,
+    })
+    .eq('id', messageId);
+
+  revalidatePath('/admin/support');
+  revalidatePath('/admin');
+}

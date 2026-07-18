@@ -4,6 +4,7 @@ import {
   Building2,
   CheckCircle,
   CreditCard,
+  Inbox,
   MapPin,
   ShoppingBag,
   Users,
@@ -46,6 +47,7 @@ export default async function AdminOverviewPage() {
     { count: ordersPending },
     { count: trialExpiring },
     { data: recentPartners },
+    supportResult,
   ] = await Promise.all([
     supabase.from('partners').select('*', { count: 'exact', head: true }),
     supabase.from('partners').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
@@ -68,7 +70,10 @@ export default async function AdminOverviewPage() {
       .gte('created_at', weekAgo)
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase.from('support_messages').select('*', { count: 'exact', head: true }).eq('status', 'new'),
   ]);
+
+  const newSupport = supportResult.error ? 0 : (supportResult.count ?? 0);
 
   const cityRows = await Promise.all(
     ADMIN_CITIES.map(async (city) => {
@@ -109,6 +114,25 @@ export default async function AdminOverviewPage() {
   return (
     <>
       <PageHeader title="Overview" subtitle={dateLabel} showLive />
+
+      {newSupport > 0 ? (
+        <Link
+          href="/admin/support?status=new"
+          className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-[#F5D98A] bg-[#FFFBEB] px-5 py-4 transition hover:bg-[#FEF3C7]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEF3C7]">
+              <Inbox size={18} className="text-[#B45309]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#92400E]">
+                {newSupport} new support message{newSupport === 1 ? '' : 's'}
+              </p>
+              <p className="text-xs text-[#B45309]">From Help & Support in the app</p>
+            </div>
+          </div>
+          <span className="text-sm font-semibold text-[#D85A30]">Open inbox →</span>
+        </Link>
+      ) : null}
 
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
@@ -163,9 +187,9 @@ export default async function AdminOverviewPage() {
 
       <section className="mb-8">
         <h2 className="admin-section-label">City breakdown</h2>
-        <div className="mt-2 overflow-hidden rounded-2xl border border-[#F0EDE8] bg-white">
+        <div className="mt-2 overflow-hidden rounded-2xl border border-[#F0EDE8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
           <table className="min-w-full">
-            <thead className="border-b border-[#F0EDE8] bg-[#F9F9F7]">
+            <thead className="border-b border-[#F0EDE8] bg-[#FFFCFA]">
               <tr>
                 <th className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9CA3AF]">
                   City
@@ -203,7 +227,7 @@ export default async function AdminOverviewPage() {
                   </td>
                 </tr>
               ))}
-              <tr className="border-t-2 border-[#F0EDE8] bg-[#F9F9F7] font-semibold">
+              <tr className="border-t-2 border-[#F0EDE8] bg-[#FFFCFA] font-semibold">
                 <td className="px-5 py-3.5 text-sm text-[#1A1A1A]">Total</td>
                 <td className={`px-5 py-3.5 text-right text-sm ${tableNumberClass(totals.partners)}`}>
                   {totals.partners}

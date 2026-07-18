@@ -15,6 +15,7 @@ type DashboardHeroBlockProps = {
   stats: DashboardStat[];
   loading: boolean;
   onNotifications: () => void;
+  onMessages: () => void;
 };
 
 export function DashboardHeroBlock({
@@ -26,6 +27,7 @@ export function DashboardHeroBlock({
   stats,
   loading,
   onNotifications,
+  onMessages,
 }: DashboardHeroBlockProps) {
   return (
     <View style={styles.shell}>
@@ -36,6 +38,7 @@ export function DashboardHeroBlock({
         dateLabel={dateLabel}
         paddingTop={paddingTop}
         onNotifications={onNotifications}
+        onMessages={onMessages}
       />
 
       <View style={styles.statsSection}>

@@ -21,7 +21,8 @@ const TOTAL_STEPS = 5;
 
 export default function PartnerVerifyScreen() {
   const router = useRouter();
-  const { partner, partnerAuthMethod, signupPassword, resetPartner } = useSignupStore();
+  const { partner, partnerAuthMethod, signupPassword, termsAccepted, resetPartner } =
+    useSignupStore();
   const { setAuthRole } = useAuthStore();
   const setLocation = useLocationStore((s) => s.setLocation);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -77,7 +78,12 @@ export default function PartnerVerifyScreen() {
         coverUrl = await resolvePartnerCoverUrl(userId, partner.coverUri);
       }
 
-      const { error: accountError } = await createPartnerAccount(userId, partner, coverUrl);
+      const { error: accountError } = await createPartnerAccount(
+        userId,
+        partner,
+        coverUrl,
+        termsAccepted,
+      );
 
       if (accountError) {
         setSubmitError(accountError.message ?? 'Could not create your restaurant profile.');

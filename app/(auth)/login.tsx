@@ -16,17 +16,22 @@ import { FormField } from '@/components/auth/FormField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PhoneInput } from '@/components/auth/PhoneInput';
+import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { Screen } from '@/components/Screen';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
+  fetchUserRole,
   navigateAfterGoogleSignIn,
   navigateAfterPasswordSignIn,
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
+import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { recordTermsAcceptance } from '@/lib/terms';
+import { supabase } from '@/lib/supabase';
 import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -36,6 +41,8 @@ export default function LoginScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
@@ -102,6 +109,11 @@ export default function LoginScreen() {
 
     try {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
+      if (result.ok && result.needsTerms) {
+        setPendingGoogleUserId(result.userId);
+        setShowTermsModal(true);
+        return;
+      }
       if (!result.ok && !result.cancelled) {
         setSubmitError(t(locale, 'authError'));
       }
@@ -209,6 +221,28 @@ export default function LoginScreen() {
           loading={googleLoading}
         />
       </View>
+
+      <TermsAcceptanceModal
+        visible={showTermsModal}
+        onAccept={async () => {
+          if (!pendingGoogleUserId) return;
+          const { error } = await recordTermsAcceptance(pendingGoogleUserId);
+          if (error) {
+            Alert.alert('Could not save', error.message);
+            return;
+          }
+          setShowTermsModal(false);
+          const role = await fetchUserRole(pendingGoogleUserId);
+          setAuthRole(role ?? 'customer');
+          router.replace(await resolveAuthenticatedRoute(pendingGoogleUserId, role ?? 'customer'));
+        }}
+        onCancel={async () => {
+          setShowTermsModal(false);
+          setPendingGoogleUserId(null);
+          await supabase.auth.signOut();
+          Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
+        }}
+      />
     </Screen>
   );
 }

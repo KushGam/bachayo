@@ -8,12 +8,16 @@ import { AuthButton } from '@/components/auth/AuthButton';
 import { LastBagLogo } from '@/components/auth/LastBagLogo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { LanguageToggle } from '@/components/auth/LanguageToggle';
+import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { Screen } from '@/components/Screen';
 import { Button } from '@/components/ui/Button';
 import { t } from '@/constants/i18n';
 import { Palette } from '@/constants/Colors';
 import { Border, Spacing, Type } from '@/constants/theme';
-import { navigateAfterGoogleSignIn } from '@/lib/auth';
+import { fetchUserRole, navigateAfterGoogleSignIn } from '@/lib/auth';
+import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { recordTermsAcceptance } from '@/lib/terms';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function WelcomeScreen() {
@@ -22,6 +26,8 @@ export default function WelcomeScreen() {
   const { locale, setLocale, setPendingRole, setAuthRole } = useAuthStore();
   const [googleLoading, setGoogleLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
 
   const goToSignup = () => {
     setPendingRole('customer');
@@ -48,6 +54,11 @@ export default function WelcomeScreen() {
 
     try {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
+      if (result.ok && result.needsTerms) {
+        setPendingGoogleUserId(result.userId);
+        setShowTermsModal(true);
+        return;
+      }
       if (!result.ok && !result.cancelled) {
         setAuthError(t(locale, 'authError'));
       }
@@ -108,6 +119,28 @@ export default function WelcomeScreen() {
         />
         {authError ? <Text style={styles.error}>{authError}</Text> : null}
       </View>
+
+      <TermsAcceptanceModal
+        visible={showTermsModal}
+        onAccept={async () => {
+          if (!pendingGoogleUserId) return;
+          const { error } = await recordTermsAcceptance(pendingGoogleUserId);
+          if (error) {
+            Alert.alert('Could not save', error.message);
+            return;
+          }
+          setShowTermsModal(false);
+          const role = await fetchUserRole(pendingGoogleUserId);
+          setAuthRole(role ?? 'customer');
+          router.replace(await resolveAuthenticatedRoute(pendingGoogleUserId, role ?? 'customer'));
+        }}
+        onCancel={async () => {
+          setShowTermsModal(false);
+          setPendingGoogleUserId(null);
+          await supabase.auth.signOut();
+          Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
+        }}
+      />
     </Screen>
   );
 }

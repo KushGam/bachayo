@@ -517,6 +517,10 @@ export default function PartnerDashboardScreen() {
             void hapticButtonPress();
             router.push('/notifications');
           }}
+          onMessages={() => {
+            void hapticButtonPress();
+            router.push('/messages');
+          }}
         />
       ) : (
         <View style={[styles.headerPlaceholder, { paddingTop: insets.top + Spacing.md }]} />

@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MessageIconBadge } from '@/components/ui/MessageIconBadge';
 import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
@@ -13,6 +14,7 @@ type DashboardHeaderProps = {
   dateLabel: string;
   paddingTop: number;
   onNotifications: () => void;
+  onMessages: () => void;
 };
 
 function truncateName(name: string, max = 26) {
@@ -28,6 +30,7 @@ export function DashboardHeader({
   dateLabel,
   paddingTop,
   onNotifications,
+  onMessages,
 }: DashboardHeaderProps) {
   const displayName = truncateName(partnerName);
   const categoryPart =
@@ -45,7 +48,10 @@ export function DashboardHeader({
 
       <View style={styles.topRow}>
         <Text style={styles.date}>{dateLabel}</Text>
-        <NotificationBellBadge variant="dark" size={18} onPress={onNotifications} />
+        <View style={styles.actions}>
+          <MessageIconBadge variant="dark" size={18} onPress={onMessages} />
+          <NotificationBellBadge variant="dark" size={18} onPress={onNotifications} />
+        </View>
       </View>
 
       <View style={styles.copy}>
@@ -87,6 +93,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.lg,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   date: {
     ...Type.caption,

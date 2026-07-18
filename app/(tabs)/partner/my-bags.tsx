@@ -1,4 +1,4 @@
-import { Plus, ShoppingBag } from 'lucide-react-native';
+import { CalendarDays, Package, Plus, ShoppingBag, Sparkles } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -117,30 +117,100 @@ function TodayEmptyState({
   onQuickStart: (prefill: BagPrefillData) => void;
 }) {
   return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconWrap}>
-        <ShoppingBag size={32} color={Palette.primary} strokeWidth={1.8} />
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyCard}>
+        <View style={styles.emptyHeroOuter}>
+          <View style={styles.emptyHeroInner}>
+            <ShoppingBag size={28} color={Palette.primary} strokeWidth={2} />
+          </View>
+        </View>
+        <Text style={styles.emptyTitle}>Ready to rescue food today?</Text>
+        <Text style={styles.emptySubtitle}>
+          List surplus in minutes. Nearby customers reserve, pick up, and pay at your counter.
+        </Text>
+
+        <View style={styles.emptySteps}>
+          {[
+            { icon: Sparkles, label: 'Pick a quick-start template' },
+            { icon: Package, label: 'Set quantity & pickup window' },
+            { icon: ShoppingBag, label: 'Go live for customers nearby' },
+          ].map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <View key={step.label} style={styles.emptyStepRow}>
+                <View style={styles.emptyStepIndex}>
+                  <Text style={styles.emptyStepIndexText}>{index + 1}</Text>
+                </View>
+                <View style={styles.emptyStepIcon}>
+                  <Icon size={14} color={Palette.primaryDark} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.emptyStepLabel}>{step.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+
+        <Text style={styles.quickStartLabel}>Quick start</Text>
+        <View style={styles.quickStartGrid}>
+          {QUICK_START_PRESETS.slice(0, 4).map((preset) => (
+            <Pressable
+              key={preset.label}
+              onPress={() => onQuickStart(preset.prefill)}
+              style={({ pressed }) => [styles.quickStartPill, pressed && styles.quickStartPillPressed]}>
+              <Text style={styles.quickStartPillText}>{preset.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Pressable
+          onPress={onAddBag}
+          style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}>
+          <Plus size={18} color={Palette.white} strokeWidth={2.5} />
+          <Text style={styles.emptyCtaText}>Create custom bag</Text>
+        </Pressable>
       </View>
-      <Text style={styles.emptyTitle}>Ready to rescue food today?</Text>
-      <Text style={styles.emptySubtitle}>
-        List your surplus and customers nearby can start reserving in minutes
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.quickStartRow}>
-        {QUICK_START_PRESETS.map((preset) => (
-          <Pressable
-            key={preset.label}
-            onPress={() => onQuickStart(preset.prefill)}
-            style={({ pressed }) => [styles.quickStartPill, pressed && styles.quickStartPillPressed]}>
-            <Text style={styles.quickStartPillText}>{preset.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <Pressable onPress={onAddBag} hitSlop={8}>
-        <Text style={styles.emptyLink}>Or create a custom bag</Text>
-      </Pressable>
+    </View>
+  );
+}
+
+function UpcomingEmptyState({ onAddBag }: { onAddBag: () => void }) {
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyCard}>
+        <View style={styles.emptyHeroOuter}>
+          <View style={styles.emptyHeroInner}>
+            <CalendarDays size={28} color={Palette.primary} strokeWidth={2} />
+          </View>
+        </View>
+        <Text style={styles.emptyTitle}>Nothing scheduled ahead</Text>
+        <Text style={styles.emptySubtitle}>
+          Plan tomorrow or later this week so customers can reserve before the day starts.
+        </Text>
+        <Pressable
+          onPress={onAddBag}
+          style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}>
+          <Plus size={18} color={Palette.white} strokeWidth={2.5} />
+          <Text style={styles.emptyCtaText}>Schedule a bag</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function PastEmptyState() {
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyCard}>
+        <View style={[styles.emptyHeroOuter, styles.emptyHeroMuted]}>
+          <View style={styles.emptyHeroInner}>
+            <Package size={28} color={Palette.textSecondary} strokeWidth={1.8} />
+          </View>
+        </View>
+        <Text style={styles.emptyTitle}>No past bags yet</Text>
+        <Text style={styles.emptySubtitle}>
+          After your first day of listings, sold, missed, and expired bags show up here.
+        </Text>
+      </View>
     </View>
   );
 }
@@ -148,18 +218,27 @@ function TodayEmptyState({
 function PastSummaryCard({ bags }: { bags: PartnerBagWithStats[] }) {
   const summary = computePastSummary(bags);
   const stats = [
-    { value: String(summary.listed), label: 'Total bags listed' },
-    { value: String(summary.sold), label: 'Total sold' },
-    { value: formatNprFromPaisa(summary.earned), label: 'Total earned' },
+    { value: String(summary.listed), label: 'Listed' },
+    { value: String(summary.sold), label: 'Sold' },
+    { value: formatNprFromPaisa(summary.earned), label: 'Earned', accent: true },
   ];
 
   return (
     <View style={styles.pastSummaryCard}>
-      <Text style={styles.pastSummaryTitle}>Last 30 days</Text>
+      <View style={styles.pastSummaryHeader}>
+        <View style={styles.headerAccent} />
+        <Text style={styles.pastSummaryTitle}>Last 30 days</Text>
+      </View>
       <View style={styles.pastSummaryRow}>
         {stats.map((stat) => (
           <View key={stat.label} style={styles.pastSummaryStat}>
-            <Text style={styles.pastSummaryValue}>{stat.value}</Text>
+            <Text
+              style={[styles.pastSummaryValue, stat.accent && styles.pastSummaryValueAccent]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}>
+              {stat.value}
+            </Text>
             <Text style={styles.pastSummaryLabel}>{stat.label}</Text>
           </View>
         ))}
@@ -638,7 +717,10 @@ export default function PartnerMyBagsScreen() {
         <>
           {yesterdayBags.length > 0 ? (
             <View style={styles.relistSection}>
-              <Text style={styles.relistSectionTitle}>Relist from yesterday</Text>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.headerAccent} />
+                <Text style={styles.relistSectionTitle}>Relist from yesterday</Text>
+              </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -651,12 +733,12 @@ export default function PartnerMyBagsScreen() {
           ) : null}
 
           {upcomingBags.length === 0 ? (
-            <View style={styles.upcomingEmpty}>
-              <Text style={styles.upcomingEmptyTitle}>No upcoming bags scheduled</Text>
-              <Text style={styles.upcomingEmptySubtitle}>
-                Use Relist above to quickly add today&apos;s bag,{'\n'}or add a new one with the + button
-              </Text>
-            </View>
+            <UpcomingEmptyState
+              onAddBag={() => {
+                void hapticButtonPress();
+                router.push('/partner/add-bag');
+              }}
+            />
           ) : (
             upcomingByDate.map(([date, bags]) =>
               bags.map((bag) => (
@@ -685,14 +767,7 @@ export default function PartnerMyBagsScreen() {
     }
 
     if (pastBags.length === 0) {
-      return (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No past bags yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Your listing history will appear here{'\n'}after your first day of listings
-          </Text>
-        </View>
-      );
+      return <PastEmptyState />;
     }
 
     return (
@@ -723,7 +798,10 @@ export default function PartnerMyBagsScreen() {
 
       <MyBagsHeader
         tab={tab}
-        paddingTop={insets.top + Spacing.md}
+        paddingTop={insets.top + Spacing.sm}
+        todayCount={todayBags.length}
+        upcomingCount={upcomingBags.length}
+        pastCount={pastBags.length}
         onTabChange={setTab}
         onAddBag={() => router.push('/partner/add-bag')}
       />
@@ -783,61 +861,76 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: Palette.background },
   skeletonWrap: { paddingTop: Spacing.lg },
   errorWrap: { padding: Spacing.lg },
-  relistSection: { marginTop: Spacing.lg },
-  relistSectionTitle: {
-    ...Type.h2,
-    fontSize: 16,
-    color: Palette.textPrimary,
+  relistSection: { marginTop: Spacing.lg, marginBottom: Spacing.sm },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm + 2,
   },
-  relistScroll: { paddingHorizontal: Spacing.lg, paddingBottom: 4 },
-  upcomingEmpty: {
-    paddingVertical: Spacing.xxxl,
-    paddingHorizontal: Spacing.xl,
-    alignItems: 'center',
+  headerAccent: {
+    width: 3,
+    height: 14,
+    borderRadius: 2,
+    backgroundColor: Palette.primary,
   },
-  upcomingEmptyTitle: {
-    ...Type.bodyMedium,
-    fontWeight: '600',
-    color: Palette.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
-  },
-  upcomingEmptySubtitle: {
+  relistSectionTitle: {
     ...Type.caption,
-    color: Palette.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 280,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+    letterSpacing: -0.2,
   },
+  relistScroll: { paddingHorizontal: Spacing.lg, paddingBottom: 4 },
   pastSummaryCard: {
     ...CardChrome,
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.lg,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
+    borderRadius: 20,
+    padding: Spacing.md,
     ...FloatingShadow,
   },
-  pastSummaryTitle: {
-    ...Type.bodyMedium,
-    fontWeight: '600',
-    color: Palette.textPrimary,
+  pastSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: Spacing.md,
   },
-  pastSummaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  pastSummaryStat: { flex: 1, alignItems: 'center' },
-  pastSummaryValue: {
-    fontSize: 20,
+  pastSummaryTitle: {
+    ...Type.caption,
     fontWeight: '700',
-    color: Palette.primary,
+    color: Palette.textPrimary,
+    letterSpacing: -0.2,
+  },
+  pastSummaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pastSummaryStat: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Palette.background,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  pastSummaryValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Palette.textPrimary,
     letterSpacing: -0.3,
+  },
+  pastSummaryValueAccent: {
+    color: Palette.primary,
   },
   pastSummaryLabel: {
     ...Type.label,
-    color: Palette.textTertiary,
+    color: Palette.textSecondary,
     textAlign: 'center',
     marginTop: 4,
+    fontWeight: '500',
   },
   pastGroupHeader: {
     ...Type.label,
@@ -849,47 +942,124 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
   },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xxxl,
-    paddingHorizontal: Spacing.xl,
+  emptyWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.lg,
   },
-  emptyIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  emptyCard: {
+    ...CardChrome,
+    backgroundColor: Palette.surface,
+    borderRadius: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.lg,
+    alignItems: 'center',
+    ...FloatingShadow,
+  },
+  emptyHeroOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  emptyHeroMuted: {
+    backgroundColor: Palette.background,
+  },
+  emptyHeroInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Palette.surface,
+    borderWidth: 1,
+    borderColor: Palette.overlay.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: Palette.textPrimary,
-    marginTop: Spacing.lg,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   emptySubtitle: {
     ...Type.caption,
     color: Palette.textSecondary,
     textAlign: 'center',
     marginTop: Spacing.sm,
-    lineHeight: 20,
+    lineHeight: 21,
     maxWidth: 300,
   },
-  quickStartRow: {
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
+  emptySteps: {
+    alignSelf: 'stretch',
+    marginTop: Spacing.xl,
+    gap: 10,
+  },
+  emptyStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Palette.background,
+    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
+  },
+  emptyStepIndex: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStepIndexText: {
+    color: Palette.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  emptyStepIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStepLabel: {
+    flex: 1,
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textPrimary,
+  },
+  quickStartLabel: {
+    alignSelf: 'stretch',
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
+  },
+  quickStartGrid: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   quickStartPill: {
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.background,
     borderRadius: Radius.pill,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: Spacing.sm,
+    paddingVertical: 10,
   },
   quickStartPillPressed: {
     backgroundColor: Palette.primaryLight,
@@ -897,15 +1067,26 @@ const styles = StyleSheet.create({
   },
   quickStartPillText: {
     ...Type.caption,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.primaryDark,
   },
-  emptyLink: {
-    ...Type.caption,
-    fontWeight: '600',
-    color: Palette.primary,
-    marginTop: Spacing.md,
+  emptyCta: {
+    marginTop: Spacing.xl,
+    alignSelf: 'stretch',
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
+  emptyCtaText: {
+    ...Type.bodyMedium,
+    color: Palette.white,
+    fontWeight: '700',
+  },
+  pressed: { opacity: 0.92 },
   fab: {
     position: 'absolute',
     right: Spacing.lg,
