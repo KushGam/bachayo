@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-const HOME_SECTIONS = ['how-it-works', 'cities', 'about', 'download'] as const;
+const HOME_SECTIONS = ['how-it-works', 'for-restaurants', 'cities', 'impact'] as const;
 
 export function LandingNavbar() {
   const pathname = usePathname();
@@ -14,7 +14,7 @@ export function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => setScrolled(window.scrollY > 80);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -35,7 +35,7 @@ export function LandingNavbar() {
         ([entry]) => {
           if (entry.isIntersecting) setActiveSection(sectionId);
         },
-        { threshold: 0.3 },
+        { threshold: 0.25 },
       );
       observer.observe(element);
       observers.push(observer);
@@ -48,71 +48,72 @@ export function LandingNavbar() {
 
   const isHome = pathname === '/';
   const onHero = isHome && !scrolled;
-  const navBg = onHero
-    ? 'bg-transparent border-b border-white/10'
-    : 'bg-[var(--surface)]/90 border-b border-[var(--border)] shadow-[0_8px_30px_rgba(28,25,23,0.04)]';
 
   const linkClass = (active: boolean) =>
-    `transition text-sm font-medium ${
+    `text-sm font-medium transition ${
       active
         ? onHero
           ? 'text-white'
-          : 'text-[var(--primary)]'
+          : 'text-[#1A1A1A]'
         : onHero
-          ? 'text-white/70 hover:text-white'
-          : 'text-[var(--text-secondary)] hover:text-[var(--primary)]'
+          ? 'text-white/60 hover:text-white'
+          : 'text-[#6B7280] hover:text-[#1A1A1A]'
     }`;
 
   return (
-    <header className={`fixed top-0 z-50 w-full backdrop-blur-xl transition-all duration-300 ${navBg}`}>
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="inline-flex items-center">
+    <header
+      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+        onHero
+          ? 'border-b border-transparent bg-transparent'
+          : 'border-b border-[#F0EDE8] bg-white/90 backdrop-blur'
+      }`}>
+      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between px-6">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#D85A30] text-sm">
+            🛍
+          </span>
           <span
-            className={`font-display text-2xl font-extrabold tracking-tight ${
-              onHero ? 'text-white' : 'text-[var(--primary)]'
-            }`}>
+            className={`text-xl font-bold ${onHero ? 'text-white' : 'text-[#1A1A1A]'}`}>
             LastBag
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav className="hidden items-center gap-8 md:flex">
           <a
             className={linkClass(isHome && activeSection === 'how-it-works')}
             href={isHome ? '#how-it-works' : '/#how-it-works'}>
             How it works
           </a>
-          <Link className={linkClass(pathname === '/for-restaurants')} href="/for-restaurants">
+          <a
+            className={linkClass(isHome && activeSection === 'for-restaurants')}
+            href={isHome ? '#for-restaurants' : '/#for-restaurants'}>
             For restaurants
-          </Link>
+          </a>
           <a
             className={linkClass(isHome && activeSection === 'cities')}
             href={isHome ? '#cities' : '/#cities'}>
             Cities
           </a>
-          <Link
-            className={linkClass(pathname === '/about' || (isHome && activeSection === 'about'))}
-            href="/about">
-            About
-          </Link>
+          <a
+            className={linkClass(isHome && activeSection === 'impact')}
+            href={isHome ? '#impact' : '/#impact'}>
+            Impact
+          </a>
         </nav>
 
         <div className="flex items-center gap-3">
           <Link
-            href="/for-restaurants"
-            className={`hidden rounded-full px-5 py-2.5 text-sm font-semibold transition md:inline-flex ${
-              onHero
-                ? 'bg-white text-[var(--primary)] hover:bg-[#fff7f3]'
-                : 'bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)]'
-            }`}>
-            Partner with us
+            href={isHome ? '#for-restaurants' : '/for-restaurants'}
+            className="hidden rounded-full bg-[#D85A30] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#993C1D] md:inline-flex">
+            For restaurants →
           </Link>
 
           <button
             type="button"
-            className={`flex h-10 w-10 items-center justify-center rounded-full border lg:hidden ${
+            className={`flex h-10 w-10 items-center justify-center rounded-full border md:hidden ${
               onHero
-                ? 'border-white/30 bg-white/10 text-white'
-                : 'border-[var(--border)] bg-white text-[var(--primary)]'
+                ? 'border-white/20 bg-white/10 text-white'
+                : 'border-[#F0EDE8] bg-white text-[#1A1A1A]'
             }`}
             aria-label="Open menu"
             onClick={() => setOpen((v) => !v)}>
@@ -122,42 +123,32 @@ export function LandingNavbar() {
       </div>
 
       <div
-        className={`overflow-hidden transition-all duration-300 lg:hidden ${
+        className={`overflow-hidden transition-all duration-300 md:hidden ${
           open
-            ? 'max-h-screen border-b border-[var(--border)] bg-[var(--surface)] opacity-100'
+            ? 'max-h-screen border-b border-[#F0EDE8] bg-white opacity-100'
             : 'max-h-0 opacity-0'
         }`}>
-        <div className="mx-auto max-w-6xl px-6 pb-6 pt-2">
+        <div className="mx-auto max-w-[1200px] px-6 pb-6 pt-2">
           <nav className="flex flex-col gap-3 pt-2">
-            <a
-              className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
-              href={isHome ? '#how-it-works' : '/#how-it-works'}
-              onClick={() => setOpen(false)}>
-              How it works
-            </a>
+            {[
+              { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works' },
+              { href: isHome ? '#for-restaurants' : '/#for-restaurants', label: 'For restaurants' },
+              { href: isHome ? '#cities' : '/#cities', label: 'Cities' },
+              { href: isHome ? '#impact' : '/#impact', label: 'Impact' },
+            ].map((item) => (
+              <a
+                key={item.href}
+                className="text-sm font-medium text-[#6B7280] transition hover:text-[#1A1A1A]"
+                href={item.href}
+                onClick={() => setOpen(false)}>
+                {item.label}
+              </a>
+            ))}
             <Link
-              className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
-              href="/for-restaurants"
+              href={isHome ? '#for-restaurants' : '/for-restaurants'}
+              className="mt-3 inline-flex justify-center rounded-full bg-[#D85A30] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#993C1D]"
               onClick={() => setOpen(false)}>
-              For restaurants
-            </Link>
-            <a
-              className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
-              href={isHome ? '#cities' : '/#cities'}
-              onClick={() => setOpen(false)}>
-              Cities
-            </a>
-            <Link
-              className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--primary)]"
-              href="/about"
-              onClick={() => setOpen(false)}>
-              About
-            </Link>
-            <Link
-              href={isHome ? '#download' : '/#download'}
-              className="mt-4 inline-flex justify-center rounded-full bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--primary-dark)]"
-              onClick={() => setOpen(false)}>
-              Download app
+              For restaurants →
             </Link>
           </nav>
         </div>

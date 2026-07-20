@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { DM_Sans, Syne } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import '@/app/globals.css';
@@ -7,22 +6,10 @@ import '@/app/globals.css';
 import { LandingFooter } from '@/components/LandingFooter';
 import { LandingNavbar } from '@/components/LandingNavbar';
 
-const syne = Syne({
-  variable: '--font-syne',
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-});
-
-const dmSans = DM_Sans({
-  variable: '--font-dm-sans',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
-
 export const metadata: Metadata = {
   title: 'LastBag — Rescue food. Save money.',
   description:
-    'Nepal’s food rescue app. Reserve surplus bags from restaurants, cafés, and bakeries near you — save up to 70%, waste less, pay at pickup.',
+    "Nepal's food rescue app. Reserve surplus bags from restaurants, cafés, and bakeries near you — save up to 70%, waste less, pay at pickup.",
   keywords:
     'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur',
   metadataBase: new URL('https://bachayo.vercel.app'),
@@ -51,7 +38,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#D85A30',
+  themeColor: '#0F0F0F',
 };
 
 export default function RootLayout({
@@ -60,8 +47,8 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${syne.variable} ${dmSans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col bg-[var(--bg)] text-[var(--text-primary)]">
+    <html lang="en" className="h-full antialiased">
+      <body className="flex min-h-full flex-col bg-[#F5F3EF] text-[#1A1A1A]">
         <LandingNavbar />
         <div className="flex-1">{children}</div>
         <LandingFooter />

@@ -34,7 +34,7 @@ export function LiveImpactStats() {
           foodRescued: Number(data.foodRescued ?? 0),
         });
       } catch {
-        // fall back to defaults silently
+        // fall back silently
       }
     })();
 
@@ -43,31 +43,37 @@ export function LiveImpactStats() {
     };
   }, []);
 
+  const cards = [
+    { value: 4, suffix: '', label: 'Cities at launch', live: false },
+    { value: 70, suffix: '%', label: 'Average savings per bag', live: false },
+    {
+      value: Math.round(stats.foodRescued),
+      suffix: ' kg',
+      label: 'Food rescued so far',
+      live: true,
+    },
+    { value: 30, suffix: '', label: 'Free trial for restaurants', live: false },
+  ];
+
   return (
-    <div className="mt-14 grid grid-cols-2 gap-10 md:grid-cols-4 md:gap-8">
-      <div className="text-center">
-        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-          <AnimatedCountUp target={stats.partners} suffix="+" />
+    <div className="mx-auto mt-16 grid max-w-4xl grid-cols-2 gap-4 px-6 md:grid-cols-4 md:gap-8">
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          className="rounded-3xl border border-white/8 p-6 text-center md:p-8">
+          <div className="text-4xl font-black text-white md:text-5xl">
+            {card.live ? (
+              <AnimatedCountUp target={card.value} suffix={card.suffix} />
+            ) : (
+              <>
+                <AnimatedCountUp target={card.value} />
+                <span className="text-[#D85A30]">{card.suffix}</span>
+              </>
+            )}
+          </div>
+          <div className="mt-3 text-sm text-white/50">{card.label}</div>
         </div>
-        <div className="mt-2 text-sm font-medium text-white/65">Restaurants onboarded</div>
-      </div>
-      <div className="text-center">
-        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">70%</div>
-        <div className="mt-2 text-sm font-medium text-white/65">Average savings per bag</div>
-      </div>
-      <div className="text-center">
-        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-          <AnimatedCountUp target={stats.orders} />
-        </div>
-        <div className="mt-2 text-sm font-medium text-white/65">Orders fulfilled</div>
-      </div>
-      <div className="text-center">
-        <div className="font-display text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-          <AnimatedCountUp target={Math.round(stats.foodRescued)} suffix=" kg" />
-        </div>
-        <div className="mt-2 text-sm font-medium text-white/65">Food rescued so far</div>
-      </div>
+      ))}
     </div>
   );
 }
-
