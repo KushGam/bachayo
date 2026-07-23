@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
@@ -6,10 +6,20 @@ import { Palette } from '@/constants/Colors';
 type TermsCheckboxProps = {
   accepted: boolean;
   onToggle: () => void;
+  /** Called before navigating to Terms / Privacy so overlays can dismiss. */
+  onOpenLegal?: (href: Href) => void;
 };
 
-export function TermsCheckbox({ accepted, onToggle }: TermsCheckboxProps) {
+export function TermsCheckbox({ accepted, onToggle, onOpenLegal }: TermsCheckboxProps) {
   const router = useRouter();
+
+  const openLegal = (href: Href) => {
+    if (onOpenLegal) {
+      onOpenLegal(href);
+      return;
+    }
+    router.push(href);
+  };
 
   return (
     <Pressable onPress={onToggle} style={styles.row}>
@@ -19,21 +29,11 @@ export function TermsCheckbox({ accepted, onToggle }: TermsCheckboxProps) {
 
       <Text style={styles.text}>
         I have read and agree to LastBag&apos;s{' '}
-        <Text
-          style={styles.link}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            router.push('/legal/terms');
-          }}>
+        <Text style={styles.link} onPress={() => openLegal('/legal/terms')}>
           Terms of Service
         </Text>
         {' '}and{' '}
-        <Text
-          style={styles.link}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            router.push('/legal/privacy');
-          }}>
+        <Text style={styles.link} onPress={() => openLegal('/legal/privacy')}>
           Privacy Policy
         </Text>
       </Text>

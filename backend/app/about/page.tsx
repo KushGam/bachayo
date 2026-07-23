@@ -60,9 +60,9 @@ export default function AboutPage() {
             kitchens.
           </p>
 
-          <div className="mt-14 grid gap-px overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--border)] md:grid-cols-2">
-            <div className="bg-[var(--surface)] p-8 md:p-10">
-              <h3 className="font-display text-xl font-bold text-[var(--ink)]">For customers</h3>
+            <div className="mt-14 grid gap-px overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--border)] shadow-[var(--shadow-md)] md:grid-cols-2">
+              <div className="bg-[var(--surface)] p-8 md:p-10">
+                <h3 className="font-display text-xl font-bold text-[var(--ink)]">For customers</h3>
               <p className="mt-3 leading-relaxed text-[var(--text-secondary)]">
                 Browse rescue bags nearby. Reserve for free, choose takeaway or dine-in when
                 offered, pick up during the window, and pay at the counter.

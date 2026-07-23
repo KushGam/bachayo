@@ -45,6 +45,8 @@ import { fetchPartnerBagOrders, fetchPartnerBagsForDate, applyBagStockPatch, app
 import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
 import {
+  getDaysUntil,
+  getSubscriptionExpiryIso,
   getTrialDaysRemaining,
   type PartnerSubscriptionFields,
 } from '@/lib/subscriptions';
@@ -480,7 +482,15 @@ export default function PartnerDashboardScreen() {
     partner &&
     (subscriptionStatus === 'past_due' ||
       subscriptionStatus === 'paused' ||
-      (subscriptionStatus === 'trial' && trialDaysLeft <= 7));
+      subscriptionStatus === 'cancelled' ||
+      (subscriptionStatus === 'trial' && trialDaysLeft <= 7) ||
+      (subscriptionStatus === 'active' &&
+        (() => {
+          const days = getDaysUntil(
+            getSubscriptionExpiryIso(partner as PartnerSubscriptionFields),
+          );
+          return days !== null && days <= 7;
+        })()));
 
   const approvalStatus = partner ? getPartnerApprovalStatus(partner as PartnerApprovalFields) : 'approved';
   const isPendingApproval = approvalStatus === 'pending';

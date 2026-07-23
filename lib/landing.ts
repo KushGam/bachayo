@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchUserRole } from '@/lib/auth';
 import { getTabsRouteForRole, resolveAuthenticatedRoute } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
+import { hasAcceptedTerms } from '@/lib/terms';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { UserRole } from '@/types/database';
 
@@ -116,16 +117,18 @@ export async function resolveInitialRoute(): Promise<string> {
   console.log('[boot] resolved role:', role ?? 'none (deferred)');
 
   try {
-    const { data: termsRow } = await supabase
+    const { data: profileRow } = await supabase
       .from('profiles')
-      .select('terms_accepted_at')
+      .select('id')
       .eq('id', userId)
       .maybeSingle();
-    const termsAcceptedAt = (termsRow as { terms_accepted_at?: string | null } | null)
-      ?.terms_accepted_at;
-    if (termsRow && !termsAcceptedAt) {
-      console.log('[boot] terms not accepted — routing to accept-terms');
-      return '/(auth)/accept-terms';
+
+    if (profileRow) {
+      const accepted = await hasAcceptedTerms(userId);
+      if (!accepted) {
+        console.log('[boot] terms not accepted — routing to accept-terms');
+        return '/(auth)/accept-terms';
+      }
     }
 
     return resolveAuthenticatedRoute(userId, role);

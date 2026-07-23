@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
@@ -95,27 +94,19 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (Constants.appOwnership === 'expo') {
-      Alert.alert(
-        'Sign in with phone or email',
-        'Google Sign-In is available in the full LastBag app. For now please use your phone number or email address.',
-        [{ text: 'Got it', style: 'default' }],
-      );
-      return;
-    }
-
     setSubmitError(null);
     setGoogleLoading(true);
 
     try {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
-      if (result.ok && result.needsTerms) {
-        setPendingGoogleUserId(result.userId);
-        setShowTermsModal(true);
+      if (!result.ok) {
+        if (result.expoGo || result.cancelled) return;
+        setSubmitError(t(locale, 'authError'));
         return;
       }
-      if (!result.ok && !result.cancelled) {
-        setSubmitError(t(locale, 'authError'));
+      if (result.needsTerms) {
+        setPendingGoogleUserId(result.userId);
+        setShowTermsModal(true);
       }
     } catch {
       Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');

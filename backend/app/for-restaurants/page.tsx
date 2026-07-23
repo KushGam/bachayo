@@ -84,9 +84,9 @@ export default function ForRestaurantsPage() {
       {/* How it works — editorial numbered rows */}
       <section id="how-it-works" className="bg-[var(--surface)] py-24 md:py-28">
         <div className="mx-auto max-w-4xl px-6">
-          <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
-            Partner flow
-          </p>
+          <div className="text-center">
+            <p className="section-label">Partner flow</p>
+          </div>
           <h2 className="mt-3 text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
             Live in three steps
           </h2>

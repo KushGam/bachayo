@@ -9,7 +9,7 @@ import {
   hasUserProfile,
 } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
-import { fetchTermsAcceptedAt } from '@/lib/terms';
+import { hasAcceptedTerms } from '@/lib/terms';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
@@ -43,8 +43,8 @@ export default function AuthCallbackScreen() {
           return;
         }
 
-        const termsAcceptedAt = await fetchTermsAcceptedAt(userId);
-        if (!termsAcceptedAt) {
+        const accepted = await hasAcceptedTerms(userId);
+        if (!accepted) {
           router.replace('/(auth)/accept-terms');
           return;
         }

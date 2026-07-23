@@ -12,6 +12,7 @@ import { signUpWithEmail } from '@/lib/auth';
 import { getTabsRouteForRole } from '@/lib/navigation';
 import { hapticSuccess } from '@/lib/haptics';
 import { createCustomerProfile } from '@/lib/signupProfile';
+import { markTermsAcceptedLocally } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -83,6 +84,10 @@ export default function CustomerVerifyScreen() {
         setSubmitError(profileError.message ?? 'Could not create your profile.');
         setLoading(false);
         return;
+      }
+
+      if (termsAccepted) {
+        await markTermsAcceptedLocally(userId);
       }
 
       setLoading(false);

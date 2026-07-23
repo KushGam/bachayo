@@ -1,47 +1,50 @@
-import { makeRedirectUri } from 'expo-auth-session';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import * as WebBrowser from 'expo-web-browser';
 import type { Href } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
+import { signInWithGoogle as signInWithGoogleNative } from '@/lib/auth/googleSignIn';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
-
 import { supabase } from '@/lib/supabase';
-import { fetchTermsAcceptedAt } from '@/lib/terms';
+import { hasAcceptedTerms } from '@/lib/terms';
 import type { UserRole } from '@/types/database';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const googleRedirectUri = makeRedirectUri({
-  scheme: 'lastbag',
-  path: 'auth/callback',
-});
-
 export type GoogleSignInResult =
   | { status: 'cancelled' }
+  | { status: 'expo_go' }
   | { status: 'success'; userId: string; hasProfile: boolean };
 
 export type NavigateAfterGoogleResult =
-  | { ok: false; cancelled: true }
+  | { ok: false; cancelled: true; expoGo?: boolean }
   | { ok: true; cancelled: false; needsTerms: true; userId: string }
   | { ok: true; cancelled: false; needsTerms: false };
 
 export async function createSessionFromUrl(url: string) {
-  const { params, errorCode } = QueryParams.getQueryParams(url);
+  const hashParams = new URLSearchParams(url.split('#')[1] || '');
+  const queryString = url.split('?')[1]?.split('#')[0] || '';
+  const queryParams = new URLSearchParams(queryString);
 
+  const errorCode = queryParams.get('error') || hashParams.get('error');
   if (errorCode) {
     throw new Error(errorCode);
   }
 
-  if (params.code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+  const code = queryParams.get('code') || hashParams.get('code');
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) throw error;
     return data.session;
   }
 
-  if (params.access_token && params.refresh_token) {
+  const accessToken =
+    hashParams.get('access_token') || queryParams.get('access_token');
+  const refreshToken =
+    hashParams.get('refresh_token') || queryParams.get('refresh_token');
+
+  if (accessToken) {
     const { data, error } = await supabase.auth.setSession({
-      access_token: params.access_token,
-      refresh_token: params.refresh_token,
+      access_token: accessToken,
+      refresh_token: refreshToken || '',
     });
     if (error) throw error;
     return data.session;
@@ -98,13 +101,17 @@ export async function navigateAfterGoogleSignIn(
 ): Promise<NavigateAfterGoogleResult> {
   const result = await signInWithGoogle();
 
+  if (result.status === 'expo_go') {
+    return { ok: false as const, cancelled: true, expoGo: true };
+  }
+
   if (result.status === 'cancelled') {
     return { ok: false as const, cancelled: true };
   }
 
   if (result.hasProfile) {
-    const termsAcceptedAt = await fetchTermsAcceptedAt(result.userId);
-    if (!termsAcceptedAt) {
+    const accepted = await hasAcceptedTerms(result.userId);
+    if (!accepted) {
       return { ok: true as const, cancelled: false, needsTerms: true, userId: result.userId };
     }
 
@@ -119,37 +126,29 @@ export async function navigateAfterGoogleSignIn(
 }
 
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: googleRedirectUri,
-      skipBrowserRedirect: true,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      },
-    },
-  });
+  const result = await signInWithGoogleNative();
 
-  if (error) throw error;
-  if (!data.url) throw new Error('Could not start Google sign-in');
+  if ('expoGo' in result && result.expoGo) {
+    return { status: 'expo_go' };
+  }
 
-  const result = await WebBrowser.openAuthSessionAsync(data.url, googleRedirectUri);
-
-  if (result.type !== 'success') {
+  if ('cancelled' in result && result.cancelled) {
     return { status: 'cancelled' };
   }
 
-  const session = await createSessionFromUrl(result.url);
-  if (!session?.user) {
-    throw new Error('Sign-in failed');
+  if (!result.success || !('user' in result) || !result.user) {
+    const err =
+      'error' in result && result.error instanceof Error
+        ? result.error
+        : new Error('Google sign-in failed');
+    throw err;
   }
 
-  const hasProfile = await hasUserProfile(session.user.id);
+  const hasProfile = await hasUserProfile(result.user.id);
 
   return {
     status: 'success',
-    userId: session.user.id,
+    userId: result.user.id,
     hasProfile,
   };
 }
@@ -215,6 +214,12 @@ export async function navigateAfterPasswordSignIn(
 
   if (!profile) {
     return { ok: false as const, error: 'No account profile found. Please finish signup.' };
+  }
+
+  const accepted = await hasAcceptedTerms(userId);
+  if (!accepted) {
+    router.replace('/(auth)/accept-terms');
+    return { ok: true as const };
   }
 
   const profileRole = profile.role ?? 'customer';

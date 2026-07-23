@@ -54,6 +54,21 @@ export function getTrialDaysRemaining(trialEndsAt: string | null | undefined): n
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 }
 
+/** Days until a period end date (negative if already past). */
+export function getDaysUntil(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const end = new Date(iso).getTime();
+  if (Number.isNaN(end)) return null;
+  return Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+export function getSubscriptionExpiryIso(partner: PartnerSubscriptionFields | null | undefined) {
+  if (!partner) return null;
+  const status = partner.subscription_status ?? 'trial';
+  if (status === 'trial') return partner.trial_ends_at ?? null;
+  return partner.current_period_end ?? null;
+}
+
 export function formatSubscriptionDate(iso: string | null | undefined) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-NP', {

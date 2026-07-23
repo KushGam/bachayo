@@ -1,6 +1,5 @@
 import { SymbolView } from 'expo-symbols';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -33,7 +32,6 @@ function ScanCorner({ style }: { style: object }) {
 }
 
 export default function PartnerScanNative() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [partnerId, setPartnerId] = useState<string | null>(null);
@@ -41,9 +39,16 @@ export default function PartnerScanNative() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [mode, setMode] = useState<ScanMode>('choose');
+  const [scanPaused, setScanPaused] = useState(false);
   const scanLock = useRef(false);
   const pickupMethodRef = useRef<'partner_qr' | 'partner_manual'>('partner_qr');
   const pickup = usePartnerPickupFlow(partnerName);
+
+  const canScan =
+    mode === 'qr' &&
+    !scanPaused &&
+    !pickup.sheetVisible &&
+    !pickup.successVisible;
 
   const scanLineY = useSharedValue(-80);
   const flashOpacity = useSharedValue(0);
@@ -92,48 +97,58 @@ export default function PartnerScanNative() {
     void loadPartner();
   }, [loadPartner]);
 
+  const unlockScan = useCallback((delayMs = 0) => {
+    const unlock = () => {
+      scanLock.current = false;
+      setScanPaused(false);
+    };
+    if (delayMs > 0) {
+      setTimeout(unlock, delayMs);
+    } else {
+      unlock();
+    }
+  }, []);
+
   const handleBarcode = async (data: string) => {
-    if (mode !== 'qr' || scanLock.current || pickup.sheetVisible || pickup.successVisible) return;
+    if (!canScan || scanLock.current) return;
     scanLock.current = true;
+    setScanPaused(true);
     setErrorText(null);
 
+    const raw = data.trim();
     const pid = partnerId ?? (await loadPartner());
     if (!pid) {
       setErrorText('Partner profile not found');
       triggerErrorFlash();
-      scanLock.current = false;
+      unlockScan();
       return;
     }
 
     try {
-      const order = await lookupOrderByPartnerCode(data, pid);
+      const order = await lookupOrderByPartnerCode(raw, pid);
 
       if (!order) {
         setErrorText('Invalid QR — try again');
         triggerErrorFlash();
-        setTimeout(() => {
-          scanLock.current = false;
-        }, 1500);
+        unlockScan(1500);
         return;
       }
 
       if (order.status === 'picked_up') {
         setErrorText('Order already picked up');
         triggerErrorFlash();
-        setTimeout(() => {
-          scanLock.current = false;
-        }, 1500);
+        unlockScan(1500);
         return;
       }
 
       void hapticHeavy();
       pickupMethodRef.current = 'partner_qr';
       pickup.openOrder(order);
-      scanLock.current = false;
+      // Keep paused while sheet is open; unlock on dismiss
     } catch {
       setErrorText('Could not read QR — try again');
       triggerErrorFlash();
-      scanLock.current = false;
+      unlockScan();
     }
   };
 
@@ -149,9 +164,9 @@ export default function PartnerScanNative() {
         <PartnerScanChooser
           onSelect={(next) => {
             setErrorText(null);
-            scanLock.current = false;
+            unlockScan();
             setMode(next);
-            if (next === 'qr' && permission && !permission.granted) {
+            if (next === 'qr' && (!permission || !permission.granted)) {
               void requestPermission();
             }
           }}
@@ -163,7 +178,7 @@ export default function PartnerScanNative() {
           onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
           onDismiss={() => {
             pickup.dismissSheet();
-            scanLock.current = false;
+            unlockScan();
           }}
         />
         <PickupSuccessOverlay
@@ -171,7 +186,7 @@ export default function PartnerScanNative() {
           customerName={pickup.successCustomerName}
           onDone={() => {
             pickup.dismissSuccess();
-            scanLock.current = false;
+            unlockScan();
           }}
         />
       </View>
@@ -194,7 +209,7 @@ export default function PartnerScanNative() {
           onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
           onDismiss={() => {
             pickup.dismissSheet();
-            scanLock.current = false;
+            unlockScan();
           }}
         />
         <PickupSuccessOverlay
@@ -202,7 +217,7 @@ export default function PartnerScanNative() {
           customerName={pickup.successCustomerName}
           onDone={() => {
             pickup.dismissSuccess();
-            scanLock.current = false;
+            unlockScan();
           }}
         />
       </View>
@@ -247,7 +262,7 @@ export default function PartnerScanNative() {
         facing="back"
         enableTorch={torchOn}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={({ data }) => void handleBarcode(data)}
+        onBarcodeScanned={canScan ? ({ data }) => void handleBarcode(data) : undefined}
       />
 
       <Animated.View pointerEvents="none" style={[styles.errorFlash, flashStyle]} />
@@ -258,7 +273,7 @@ export default function PartnerScanNative() {
             void hapticButtonPress();
             setMode('choose');
             setErrorText(null);
-            scanLock.current = false;
+            unlockScan();
           }}
           style={styles.iconBtn}>
           <SymbolView
@@ -292,7 +307,7 @@ export default function PartnerScanNative() {
           void hapticButtonPress();
           setMode('manual');
           setErrorText(null);
-          scanLock.current = false;
+          unlockScan();
         }}
         style={[styles.manualToggle, { bottom: insets.bottom + 24 }]}>
         <Text style={styles.manualToggleText}>Enter code instead</Text>
@@ -311,7 +326,7 @@ export default function PartnerScanNative() {
         onConfirm={() => void pickup.confirmPickup(pickupMethodRef.current)}
         onDismiss={() => {
           pickup.dismissSheet();
-          scanLock.current = false;
+          unlockScan();
         }}
       />
 
@@ -320,7 +335,7 @@ export default function PartnerScanNative() {
         customerName={pickup.successCustomerName}
         onDone={() => {
           pickup.dismissSuccess();
-          scanLock.current = false;
+          unlockScan();
         }}
       />
     </View>

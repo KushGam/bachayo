@@ -28,19 +28,17 @@ export const metadata: Metadata = {
   keywords:
     'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur',
   metadataBase: new URL('https://bachayo.vercel.app'),
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/lastbag-icon.svg',
+    shortcut: '/favicon.svg',
+  },
   openGraph: {
     title: 'LastBag — Rescue food. Save money.',
     description:
       "Surplus rescue bags from Nepal's restaurants at 50–70% off. Free to reserve. Pay at pickup.",
     url: 'https://bachayo.vercel.app',
     siteName: 'LastBag',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-      },
-    ],
     locale: 'en_NP',
     type: 'website',
   },
@@ -48,7 +46,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'LastBag — Rescue food. Save money.',
     description: 'Find rescue bags near you in Nepal.',
-    images: ['/og-image.png'],
   },
 };
 

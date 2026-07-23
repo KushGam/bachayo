@@ -23,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LandingWordmark } from '@/components/brand/LandingWordmark';
+import { LastBagLogo } from '@/components/LastBagLogo';
 import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
 import { Palette } from '@/constants/Colors';
@@ -148,7 +148,7 @@ export default function LandingScreen() {
 
           <View style={[styles.heroTop, { paddingTop: insets.top + Spacing.md }]}>
             <Animated.View entering={FadeIn.duration(500)}>
-              <LandingWordmark height={30} />
+              <LastBagLogo size="sm" variant="dark" />
             </Animated.View>
             <Animated.View entering={FadeIn.delay(120).duration(400)} style={styles.localeBadge}>
               <Text style={styles.localeBadgeText}>{copy.badge}</Text>

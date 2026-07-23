@@ -1,11 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/components/auth/AuthButton';
-import { LastBagLogo } from '@/components/auth/LastBagLogo';
+import { LastBagLogo } from '@/components/LastBagLogo';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { LanguageToggle } from '@/components/auth/LanguageToggle';
 import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
@@ -40,27 +39,19 @@ export default function WelcomeScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (Constants.appOwnership === 'expo') {
-      Alert.alert(
-        'Sign in with phone or email',
-        'Google Sign-In is available in the full LastBag app. For now please use your phone number or email address.',
-        [{ text: 'Got it', style: 'default' }],
-      );
-      return;
-    }
-
     setAuthError(null);
     setGoogleLoading(true);
 
     try {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
-      if (result.ok && result.needsTerms) {
-        setPendingGoogleUserId(result.userId);
-        setShowTermsModal(true);
+      if (!result.ok) {
+        if (result.expoGo || result.cancelled) return;
+        setAuthError(t(locale, 'authError'));
         return;
       }
-      if (!result.ok && !result.cancelled) {
-        setAuthError(t(locale, 'authError'));
+      if (result.needsTerms) {
+        setPendingGoogleUserId(result.userId);
+        setShowTermsModal(true);
       }
     } catch {
       Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
@@ -78,7 +69,7 @@ export default function WelcomeScreen() {
       <LanguageToggle locale={locale} onChange={setLocale} />
 
       <View style={styles.hero}>
-        <LastBagLogo />
+        <LastBagLogo size="lg" layout="stack" />
         <Text style={styles.tagline}>{t(locale, 'tagline')}</Text>
         <Text style={styles.subtagline}>Rescue food. Save money.</Text>
         {accountRemoved === '1' ? (

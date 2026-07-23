@@ -98,7 +98,12 @@ export default function CompleteProfileScreen() {
         return;
       }
 
-      await recordTermsAcceptance(userId);
+      const { error: termsError } = await recordTermsAcceptance(userId);
+      if (termsError) {
+        setSubmitError(termsError.message || 'Could not save terms acceptance.');
+        setLoading(false);
+        return;
+      }
 
       setAuthRole(role);
 

@@ -5,7 +5,12 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
 import type { SubscriptionStatus } from '@/constants/subscriptions';
-import { getTrialDaysRemaining, type PartnerSubscriptionFields } from '@/lib/subscriptions';
+import {
+  getDaysUntil,
+  getSubscriptionExpiryIso,
+  getTrialDaysRemaining,
+  type PartnerSubscriptionFields,
+} from '@/lib/subscriptions';
 import { hapticButtonPress } from '@/lib/haptics';
 
 const DISMISS_KEY = 'subscription_banner_dismissed_until';
@@ -21,6 +26,8 @@ export function SubscriptionBanner({ partner, placement = 'overlap' }: Subscript
 
   const status = (partner.subscription_status ?? 'trial') as SubscriptionStatus;
   const daysLeft = getTrialDaysRemaining(partner.trial_ends_at);
+  const expiryIso = getSubscriptionExpiryIso(partner);
+  const daysUntilExpiry = getDaysUntil(expiryIso);
 
   useEffect(() => {
     void (async () => {
@@ -38,16 +45,18 @@ export function SubscriptionBanner({ partner, placement = 'overlap' }: Subscript
     setDismissed(true);
   };
 
-  if (status === 'active') return null;
+  const goBilling = () => router.push('/(tabs)/partner/subscription');
+
+  if (status === 'active' && (daysUntilExpiry === null || daysUntilExpiry > 7)) {
+    return null;
+  }
 
   if (status === 'trial' && daysLeft > 7 && !dismissed) {
     if (placement === 'inHeader') {
       return (
         <View style={styles.headerBanner}>
           <Text style={styles.headerBannerEmoji}>✨</Text>
-          <Text style={styles.headerBannerText}>
-            {daysLeft} days free trial remaining
-          </Text>
+          <Text style={styles.headerBannerText}>{daysLeft} days free trial remaining</Text>
           <Pressable onPress={dismissForToday} hitSlop={8}>
             <Text style={styles.headerDismiss}>✕</Text>
           </Pressable>
@@ -58,9 +67,7 @@ export function SubscriptionBanner({ partner, placement = 'overlap' }: Subscript
     if (placement === 'content') {
       return (
         <View style={styles.contentBanner}>
-          <Text style={styles.contentBannerText}>
-            {daysLeft} days left on your free trial
-          </Text>
+          <Text style={styles.contentBannerText}>{daysLeft} days left on your free trial</Text>
           <Pressable onPress={dismissForToday} hitSlop={8}>
             <Text style={styles.contentDismiss}>Dismiss</Text>
           </Pressable>
@@ -79,31 +86,47 @@ export function SubscriptionBanner({ partner, placement = 'overlap' }: Subscript
         <Text style={styles.urgentEmoji}>⚠️</Text>
         <View style={styles.urgentCopy}>
           <Text style={styles.urgentTitle}>
-            Trial ends in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
+            Your free trial ends in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
           </Text>
-          <Text style={styles.urgentSubtitle}>Add payment to keep your listings live</Text>
+          <Text style={styles.urgentSubtitle}>Renew now to keep your listings live</Text>
         </View>
-        <Pressable
-          onPress={() => router.push('/(tabs)/partner/subscription')}
-          hitSlop={8}>
-          <Text style={styles.urgentAction}>Add →</Text>
+        <Pressable onPress={goBilling} hitSlop={8}>
+          <Text style={styles.urgentAction}>Renew →</Text>
         </Pressable>
       </View>
     );
   }
 
-  if (status === 'past_due' || status === 'paused') {
+  if (status === 'active' && daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry < 7) {
     return (
-      <View style={[styles.urgentBanner, styles.pastDueBanner]}>
+      <View style={styles.urgentBanner}>
         <Text style={styles.urgentEmoji}>⚠️</Text>
         <View style={styles.urgentCopy}>
-          <Text style={[styles.urgentTitle, styles.pastDueTitle]}>Your listings are hidden</Text>
+          <Text style={styles.urgentTitle}>
+            Subscription expires in {daysUntilExpiry}{' '}
+            {daysUntilExpiry === 1 ? 'day' : 'days'}
+          </Text>
+          <Text style={styles.urgentSubtitle}>Renew now to keep your listings live</Text>
+        </View>
+        <Pressable onPress={goBilling} hitSlop={8}>
+          <Text style={styles.urgentAction}>Renew →</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (status === 'past_due' || status === 'paused' || status === 'cancelled') {
+    return (
+      <View style={[styles.urgentBanner, styles.pastDueBanner]}>
+        <Text style={styles.urgentEmoji}>🚫</Text>
+        <View style={styles.urgentCopy}>
+          <Text style={[styles.urgentTitle, styles.pastDueTitle]}>Subscription expired</Text>
           <Text style={[styles.urgentSubtitle, styles.pastDueSubtitle]}>
-            Reactivate to show bags to customers again
+            Your bags are hidden from customers
           </Text>
         </View>
-        <Pressable onPress={() => router.push('/partner/reactivate')} hitSlop={8}>
-          <Text style={[styles.urgentAction, styles.pastDueAction]}>Reactivate now →</Text>
+        <Pressable onPress={goBilling} hitSlop={8}>
+          <Text style={[styles.urgentAction, styles.pastDueAction]}>Renew now →</Text>
         </Pressable>
       </View>
     );
@@ -123,9 +146,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     width: '100%',
   },
-  headerBannerEmoji: {
-    fontSize: 14,
-  },
+  headerBannerEmoji: { fontSize: 14 },
   headerBannerText: {
     flex: 1,
     fontSize: 13,
@@ -133,11 +154,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  headerDismiss: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '400',
-  },
+  headerDismiss: { fontSize: 16, color: 'rgba(255,255,255,0.5)', fontWeight: '400' },
   contentBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -169,6 +186,8 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: '#FEF3C7',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
     marginHorizontal: 16,
     marginTop: 12,
     paddingHorizontal: 16,
@@ -186,35 +205,14 @@ const styles = StyleSheet.create({
   },
   pastDueBanner: {
     backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
   },
-  urgentEmoji: {
-    fontSize: 16,
-  },
-  urgentCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  urgentTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#92400E',
-  },
-  urgentSubtitle: {
-    fontSize: 12,
-    color: '#B45309',
-  },
-  pastDueTitle: {
-    color: '#991B1B',
-  },
-  pastDueSubtitle: {
-    color: '#B91C1C',
-  },
-  urgentAction: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Palette.primary,
-  },
-  pastDueAction: {
-    color: '#DC2626',
-  },
+  urgentEmoji: { fontSize: 16 },
+  urgentCopy: { flex: 1, gap: 2 },
+  urgentTitle: { fontSize: 14, fontWeight: '600', color: '#92400E' },
+  urgentSubtitle: { fontSize: 12, color: '#B45309' },
+  pastDueTitle: { color: '#991B1B' },
+  pastDueSubtitle: { color: '#B91C1C' },
+  urgentAction: { fontSize: 14, fontWeight: '700', color: Palette.primary },
+  pastDueAction: { color: '#DC2626' },
 });

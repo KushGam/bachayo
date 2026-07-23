@@ -1,5 +1,15 @@
+import { usePathname, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
@@ -9,6 +19,8 @@ type TermsAcceptanceModalProps = {
   visible: boolean;
   onAccept: () => Promise<void>;
   onCancel: () => void;
+  /** When false, only the Cancel button dismisses. Default true. */
+  dismissOnBackdrop?: boolean;
 };
 
 const BENEFITS = [
@@ -21,10 +33,17 @@ export function TermsAcceptanceModal({
   visible,
   onAccept,
   onCancel,
+  dismissOnBackdrop = true,
 }: TermsAcceptanceModalProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // RN Modal stays above the stack — hide it while reading legal pages.
+  const onLegalPage = Boolean(pathname?.includes('/legal/'));
+  const modalVisible = visible && !onLegalPage;
 
   useEffect(() => {
     if (!visible) {
@@ -34,6 +53,7 @@ export function TermsAcceptanceModal({
   }, [visible]);
 
   const handleAccept = async () => {
+    if (loading) return;
     if (!accepted) {
       Alert.alert(
         'Please accept terms',
@@ -44,77 +64,127 @@ export function TermsAcceptanceModal({
     setLoading(true);
     try {
       await onAccept();
+    } catch (err) {
+      Alert.alert(
+        'Could not save',
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const openLegal = (href: Href) => {
+    router.push(href);
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
-      <Pressable style={styles.backdrop} onPress={onCancel} />
-
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
-        <View style={styles.handle} />
-
-        <Text style={styles.title}>Almost there!</Text>
-        <Text style={styles.subtitle}>
-          Please review and accept our terms before creating your account
-        </Text>
-
-        <View style={styles.benefits}>
-          {BENEFITS.map((item) => (
-            <View key={item} style={styles.benefitRow}>
-              <View style={styles.benefitCheck}>
-                <Text style={styles.benefitCheckText}>✓</Text>
-              </View>
-              <Text style={styles.benefitText}>{item}</Text>
-            </View>
-          ))}
-        </View>
-
-        <TermsCheckbox accepted={accepted} onToggle={() => setAccepted((v) => !v)} />
-
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => {
+        if (!loading) onCancel();
+      }}>
+      <View style={styles.root}>
         <Pressable
-          onPress={() => void handleAccept()}
-          disabled={loading}
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            {
-              backgroundColor: accepted
-                ? pressed
-                  ? Palette.primaryDark
-                  : Palette.primary
-                : '#F0EDE8',
-            },
-          ]}>
-          <Text style={[styles.primaryBtnText, !accepted && styles.primaryBtnTextDisabled]}>
-            {loading ? 'Creating account...' : 'Create my account →'}
-          </Text>
-        </Pressable>
+          style={styles.backdrop}
+          disabled={!dismissOnBackdrop || loading}
+          onPress={() => {
+            if (dismissOnBackdrop && !loading) onCancel();
+          }}
+        />
 
-        <Pressable onPress={onCancel} style={styles.cancelBtn}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 24, maxHeight: '92%' }]}>
+          <ScrollView
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sheetContent}>
+            <View style={styles.handle} />
+
+            <Text style={styles.title}>Almost there!</Text>
+            <Text style={styles.subtitle}>
+              Please review and accept our terms before creating your account
+            </Text>
+
+            <View style={styles.benefits}>
+              {BENEFITS.map((item) => (
+                <View key={item} style={styles.benefitRow}>
+                  <View style={styles.benefitCheck}>
+                    <Text style={styles.benefitCheckText}>✓</Text>
+                  </View>
+                  <Text style={styles.benefitText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TermsCheckbox
+              accepted={accepted}
+              onToggle={() => setAccepted((v) => !v)}
+              onOpenLegal={openLegal}
+            />
+
+            <Pressable
+              onPress={() => void handleAccept()}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.primaryBtn,
+                {
+                  backgroundColor: accepted
+                    ? pressed || loading
+                      ? Palette.primaryDark
+                      : Palette.primary
+                    : '#F0EDE8',
+                },
+              ]}>
+              {loading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color={Palette.white} />
+                  <Text style={styles.primaryBtnText}>Saving…</Text>
+                </View>
+              ) : (
+                <Text style={[styles.primaryBtnText, !accepted && styles.primaryBtnTextDisabled]}>
+                  Create my account →
+                </Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                if (!loading) onCancel();
+              }}
+              disabled={loading}
+              style={styles.cancelBtn}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  root: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
     backgroundColor: Palette.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    zIndex: 2,
+    elevation: 8,
+  },
+  sheetContent: {
     paddingHorizontal: 24,
     paddingTop: 12,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
   handle: {
     width: 36,
@@ -182,9 +252,15 @@ const styles = StyleSheet.create({
   primaryBtnTextDisabled: {
     color: '#9CA3AF',
   },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   cancelBtn: {
     marginTop: 14,
     padding: 8,
+    marginBottom: 8,
   },
   cancelText: {
     color: '#9CA3AF',

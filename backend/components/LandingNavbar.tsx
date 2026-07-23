@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -98,17 +97,20 @@ export function LandingNavbar() {
             : 'border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-xl'
         }`}>
         <div className="mx-auto flex h-[72px] max-w-[1120px] items-center justify-between px-5 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2.5" onClick={() => setOpen(false)}>
-            <Image
-              src={onHero ? '/lastbag-logo-light.png' : '/lastbag-logo.png'}
+          <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/lastbag-icon.svg"
+              width={36}
+              height={36}
               alt="LastBag"
-              width={132}
-              height={32}
-              className="h-8 w-auto"
-              priority
+              className="rounded-lg"
             />
-            <span className="text-base leading-none" aria-hidden="true">
-              🇳🇵
+            <span
+              className={`text-xl font-black tracking-tight ${
+                onHero ? 'text-white' : 'text-[#1A1A1A]'
+              }`}>
+              Last<span className="text-[#D85A30]">Bag</span>
             </span>
           </Link>
 
@@ -138,7 +140,7 @@ export function LandingNavbar() {
           <div className="flex items-center gap-3">
             <Link
               href="/for-restaurants"
-              className="hidden rounded-full bg-[#D85A30] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#993C1D] md:inline-flex">
+              className="hidden rounded-full bg-[#D85A30] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(216,90,48,0.35)] transition hover:-translate-y-0.5 hover:bg-[#993C1D] md:inline-flex">
               For restaurants →
             </Link>
 
@@ -190,13 +192,19 @@ export function LandingNavbar() {
             open ? 'translate-x-0' : 'translate-x-full'
           }`}>
           <div className="flex h-[72px] items-center justify-between border-b border-[var(--border)] px-5">
-            <Image
-              src="/lastbag-logo.png"
-              alt="LastBag"
-              width={120}
-              height={28}
-              className="h-7 w-auto"
-            />
+            <div className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/lastbag-icon.svg"
+                alt="LastBag"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+              <span className="text-lg font-black tracking-tight text-[#1A1A1A]">
+                Last<span className="text-[#D85A30]">Bag</span>
+              </span>
+            </div>
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] text-[var(--ink)]"

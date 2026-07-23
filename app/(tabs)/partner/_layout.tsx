@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { LayoutGrid, QrCode, ShoppingBag, Star, User } from 'lucide-react-native';
 import { Platform, StyleSheet, View } from 'react-native';
 
+import { PartnerExpiredSubscriptionModal } from '@/components/partner/PartnerExpiredSubscriptionModal';
 import { ScreenErrorBoundary } from '@/components/ui/ScreenErrorBoundary';
 
 function ScanTabIcon() {
@@ -74,14 +75,12 @@ export default function PartnerTabLayout() {
             title: 'Subscription & billing',
             href: null,
             lazy: true,
-            headerShown: true,
-            headerStyle: { backgroundColor: '#FFFFFF' },
-            headerTintColor: '#D85A30',
-            headerShadowVisible: false,
+            headerShown: false,
           }}
         />
         <Tabs.Screen name="index" options={{ href: null }} />
       </Tabs>
+      <PartnerExpiredSubscriptionModal />
     </ScreenErrorBoundary>
   );
 }

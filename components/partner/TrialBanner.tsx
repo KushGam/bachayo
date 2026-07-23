@@ -82,7 +82,7 @@ export function TrialBanner({ partner }: TrialBannerProps) {
         <Button
           label="Reactivate"
           size="md"
-          onPress={() => router.push('/partner/reactivate')}
+          onPress={() => router.push('/(tabs)/partner/subscription')}
           style={styles.cta}
         />
       </View>

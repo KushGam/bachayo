@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>LastBag App Icon</title>
+  <rect width="1024" height="1024" fill="#D85A30" rx="220"/>
+  <rect x="332" y="396" width="360" height="292" fill="white" rx="72"/>
+  <path d="M 436,396 L 436,256 Q 436,148 512,148 Q 588,148 588,256 L 588,396" fill="none" stroke="white" stroke-width="64" stroke-linecap="round"/>
+  <path d="M 512,640 L 512,484 Q 512,412 450,412 Q 450,484 512,484 Q 574,484 574,412 Q 512,412 512,484" fill="#D85A30"/>
+  <line x1="512" y1="640" x2="512" y2="490" stroke="#D85A30" stroke-width="28" stroke-linecap="round"/>
+</svg>

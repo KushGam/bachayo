@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LastBagLogo } from '@/components/auth/LastBagLogo';
+import { LastBagLogo } from '@/components/LastBagLogo';
 import { Palette } from '@/constants/Colors';
 import { LANDING_STATS } from '@/constants/stats';
 import { Radius } from '@/constants/theme';

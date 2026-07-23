@@ -2,20 +2,32 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
+import { AuthDivider } from '@/components/auth/AuthDivider';
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthFormCard } from '@/components/auth/AuthFormCard';
 import { AuthMethodToggle } from '@/components/auth/AuthMethodToggle';
 import { FormField } from '@/components/auth/FormField';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PhoneInput } from '@/components/auth/PhoneInput';
 import { SignupFieldGroup } from '@/components/auth/SignupFieldGroup';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
+import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { useSafeBack } from '@/hooks/useSafeBack';
-import { emailProfileExists, phoneProfileExists, sendPhoneOtp } from '@/lib/auth';
+import {
+  emailProfileExists,
+  fetchUserRole,
+  navigateAfterGoogleSignIn,
+  phoneProfileExists,
+  sendPhoneOtp,
+} from '@/lib/auth';
 import { hapticStepAdvance } from '@/lib/haptics';
+import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { recordTermsAcceptance } from '@/lib/terms';
+import { supabase } from '@/lib/supabase';
 import { customerBasicsSchema, type CustomerBasicsValues } from '@/lib/validation/signup';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSignupStore } from '@/store/useSignupStore';
@@ -27,7 +39,13 @@ const TOTAL_STEPS = 4;
 export default function CustomerBasicsScreen() {
   const router = useRouter();
   const goBack = useSafeBack('/(auth)/welcome');
-  const { setPendingPhone, setPendingMode, setPendingRole, setPendingName } = useAuthStore();
+  const {
+    setPendingPhone,
+    setPendingMode,
+    setPendingRole,
+    setPendingName,
+    setAuthRole,
+  } = useAuthStore();
   const {
     customer,
     setCustomer,
@@ -39,6 +57,9 @@ export default function CustomerBasicsScreen() {
   } = useSignupStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
 
   const {
     control,
@@ -136,7 +157,39 @@ export default function CustomerBasicsScreen() {
     }
   });
 
+  const handleGoogleSignIn = async () => {
+    if (!termsAccepted) {
+      Alert.alert(
+        'Please accept terms',
+        'You must agree to our Terms of Service and Privacy Policy to continue.',
+      );
+      return;
+    }
+
+    setSubmitError(null);
+    setGoogleLoading(true);
+    setPendingRole('customer');
+
+    try {
+      const result = await navigateAfterGoogleSignIn(router, setAuthRole);
+      if (!result.ok) {
+        if (result.expoGo || result.cancelled) return;
+        setSubmitError('Google Sign-In failed. Please try again or use phone/email.');
+        return;
+      }
+      if (result.needsTerms) {
+        setPendingGoogleUserId(result.userId);
+        setShowTermsModal(true);
+      }
+    } catch {
+      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
+    <>
     <SignupStepShell
       currentStep={1}
       totalSteps={TOTAL_STEPS}
@@ -146,7 +199,17 @@ export default function CustomerBasicsScreen() {
       onBack={goBack}
       onContinue={onContinue}
       continueDisabled={!isValid || checking || !termsAccepted}
-      continueLoading={checking}>
+      continueLoading={checking}
+      secondaryAction={
+        <View style={styles.googleBlock}>
+          <GoogleSignInButton
+            label="Continue with Google"
+            onPress={() => void handleGoogleSignIn()}
+            loading={googleLoading}
+          />
+          <AuthDivider />
+        </View>
+      }>
       <Controller
         control={control}
         name="authMethod"
@@ -295,12 +358,38 @@ export default function CustomerBasicsScreen() {
         onToggle={() => setTermsAccepted(!termsAccepted)}
       />
     </SignupStepShell>
+
+    <TermsAcceptanceModal
+      visible={showTermsModal}
+      onAccept={async () => {
+        if (!pendingGoogleUserId) return;
+        const { error } = await recordTermsAcceptance(pendingGoogleUserId);
+        if (error) {
+          Alert.alert('Could not save', error.message);
+          return;
+        }
+        setShowTermsModal(false);
+        const role = await fetchUserRole(pendingGoogleUserId);
+        setAuthRole(role ?? 'customer');
+        router.replace(await resolveAuthenticatedRoute(pendingGoogleUserId, role ?? 'customer'));
+      }}
+      onCancel={async () => {
+        setShowTermsModal(false);
+        setPendingGoogleUserId(null);
+        await supabase.auth.signOut();
+        Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');
+      }}
+    />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   cardCompact: {
     marginBottom: 0,
+  },
+  googleBlock: {
+    gap: Spacing.sm,
   },
   fieldHint: {
     ...Type.caption,

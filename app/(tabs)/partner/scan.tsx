@@ -1,12 +1,9 @@
-import { isExpoGo } from '@/lib/expoGo';
+import PartnerScanNative from '@/components/partner/PartnerScanNative';
 
-import PartnerScanExpoGoFallback from '@/components/partner/PartnerScanExpoGoFallback';
-
+/**
+ * Partner pickup scan — camera QR + manual 6-digit code.
+ * Uses expo-camera (works in Expo Go and EAS / store builds).
+ */
 export default function PartnerScanScreen() {
-  if (isExpoGo()) {
-    return <PartnerScanExpoGoFallback />;
-  }
-
-  const PartnerScanNative = require('@/components/partner/PartnerScanNative').default as typeof import('@/components/partner/PartnerScanNative').default;
   return <PartnerScanNative />;
 }

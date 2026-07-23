@@ -5,23 +5,31 @@
   --primary-dark: #993c1d;
   --primary-light: #faece7;
   --primary-darker: #712b13;
+  --primary-bright: #e8622f;
   --ink: #0c0c0c;
   --ink-soft: #161616;
   --surface: #fffcf9;
-  --bg: #f7f4ef;
+  --bg: #f5f3ef;
   --bg-deep: #ebe6df;
-  --border: #ebe6e0;
+  --border: #e8e4dc;
+  --border-soft: #f0ede8;
   --text: #141414;
   --text-secondary: #5c5c5c;
   --text-muted: #8a8a8a;
   --white: #ffffff;
   --green: #2f6b4f;
+  --shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.04);
+  --shadow-md: 0 8px 30px rgba(26, 26, 26, 0.06);
+  --shadow-lg: 0 24px 60px rgba(26, 26, 26, 0.1);
+  --shadow-warm: 0 20px 60px rgba(216, 90, 48, 0.22);
+  --radius-card: 28px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* legacy aliases */
   --dark: #0c0c0c;
   --dark-2: #161616;
   --dark-3: #222222;
-  --gray-1: #f7f4ef;
+  --gray-1: #f5f3ef;
   --gray-2: #ebe6df;
   --muted: #5c5c5c;
   --text-primary: #141414;
@@ -86,14 +94,14 @@ a {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-12px);
   }
 }
 
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -110,8 +118,17 @@ a {
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .marquee-track {
-  animation: marquee 36s linear infinite;
+  animation: marquee 40s linear infinite;
 }
 
 .animate-float {
@@ -119,7 +136,7 @@ a {
 }
 
 .animate-rise {
-  animation: rise-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise-in 0.85s var(--ease-out) both;
 }
 
 .hide-scrollbar {
@@ -139,17 +156,45 @@ a {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  opacity: 0.035;
+  opacity: 0.045;
   mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .section-label {
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--primary);
+}
+
+.section-label::before {
+  content: '';
+  width: 1.25rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.premium-card {
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out);
+}
+
+.premium-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
 }
 
 .btn-primary {
@@ -160,12 +205,22 @@ a {
   background: var(--primary);
   color: white;
   font-weight: 600;
-  padding: 0.9rem 1.75rem;
-  transition: background 0.2s ease, transform 0.2s ease;
+  padding: 0.95rem 1.85rem;
+  box-shadow: 0 10px 28px rgba(216, 90, 48, 0.28);
+  transition:
+    background 0.25s var(--ease-out),
+    transform 0.25s var(--ease-out),
+    box-shadow 0.25s var(--ease-out);
 }
 
 .btn-primary:hover {
   background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 34px rgba(216, 90, 48, 0.34);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-ghost-light {
@@ -173,16 +228,22 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.06);
   color: white;
   font-weight: 600;
-  padding: 0.9rem 1.75rem;
-  transition: background 0.2s ease;
+  padding: 0.95rem 1.85rem;
+  backdrop-filter: blur(8px);
+  transition:
+    background 0.25s var(--ease-out),
+    border-color 0.25s var(--ease-out),
+    transform 0.25s var(--ease-out);
 }
 
 .btn-ghost-light:hover {
   background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Admin panel */

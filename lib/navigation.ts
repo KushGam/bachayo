@@ -38,7 +38,7 @@ export async function resolvePartnerRoute(userId: string): Promise<Href> {
     return '/(auth)/partner-deleted';
   }
   if (approvalRow.subscription_status === 'paused') {
-    return '/partner/reactivate';
+    return '/(tabs)/partner/subscription';
   }
 
   return '/(tabs)/partner/dashboard';

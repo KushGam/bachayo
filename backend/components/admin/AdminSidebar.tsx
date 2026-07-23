@@ -81,7 +81,6 @@ export function AdminSidebar({ newSupportCount = 0 }: { newSupportCount?: number
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[248px] flex-col bg-gradient-to-b from-[#1A1411] via-[#1A1A1A] to-[#14110F]">
       <div className="border-b border-white/[0.07] px-5 pb-5 pt-6">
         <AdminLogo />
-        <p className="mt-2 text-[11px] font-medium tracking-wide text-white/35">Operations console</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">

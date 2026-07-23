@@ -80,43 +80,43 @@ export default function HomeLanding() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* HERO — brand, headline, support, CTAs, product visual */}
+      {/* HERO */}
       <section className="grain relative flex min-h-[100svh] items-center overflow-hidden bg-[var(--ink)] pt-[72px]">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 70% 55% at 85% 20%, rgba(216,90,48,0.22), transparent 60%), radial-gradient(ellipse 50% 40% at 10% 90%, rgba(216,90,48,0.08), transparent 55%)',
+              'radial-gradient(ellipse 75% 60% at 88% 18%, rgba(216,90,48,0.28), transparent 58%), radial-gradient(ellipse 45% 40% at 8% 88%, rgba(216,90,48,0.1), transparent 55%), radial-gradient(ellipse 80% 50% at 50% 100%, rgba(0,0,0,0.45), transparent 60%)',
           }}
         />
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
+          className="pointer-events-none absolute inset-0 opacity-[0.4]"
           style={{
             backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-            maskImage: 'radial-gradient(ellipse at center, black 20%, transparent 75%)',
+              'linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)',
+            backgroundSize: '72px 72px',
+            maskImage: 'radial-gradient(ellipse at 70% 40%, black 15%, transparent 72%)',
           }}
         />
 
         <div className="relative mx-auto grid max-w-[1120px] items-center gap-14 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:py-20">
           <FadeIn>
             <div className="text-center lg:text-left">
-              <p className="font-display text-[13px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+              <p className="font-display text-[13px] font-semibold uppercase tracking-[0.22em] text-[var(--primary-bright)]">
                 LastBag
               </p>
               <h1
-                className="mt-5 font-display font-extrabold leading-[0.96] text-white"
+                className="mt-6 font-display font-extrabold leading-[0.94] text-white"
                 style={{ fontSize: 'clamp(2.75rem, 7vw, 4.75rem)' }}>
                 Rescue great food.
-                <span className="mt-1 block text-[#E8622F]">Save up to 70%.</span>
+                <span className="mt-1 block text-[var(--primary-bright)]">Save up to 70%.</span>
               </h1>
-              <p className="mx-auto mt-7 max-w-md text-lg leading-relaxed text-white/55 lg:mx-0">
+              <p className="mx-auto mt-8 max-w-md text-lg leading-relaxed text-white/55 lg:mx-0">
                 Surplus bags from restaurants, cafés, and bakeries near you — free to reserve, pay
                 at pickup.
               </p>
 
-              <div className="mt-10 flex flex-wrap justify-center gap-3 lg:justify-start">
+              <div className="mt-11 flex flex-wrap justify-center gap-3 lg:justify-start">
                 <a href="#download" className="btn-primary text-[15px]">
                   Download the app
                 </a>
@@ -128,17 +128,24 @@ export default function HomeLanding() {
           </FadeIn>
 
           <FadeIn delay={140}>
-            <div className="relative mx-auto hidden w-full max-w-[340px] lg:block">
+            <div className="relative mx-auto hidden w-full max-w-[360px] lg:block">
               <div
-                className="animate-float relative mx-auto h-[580px] w-[290px] overflow-hidden rounded-[42px] border border-white/10 bg-[#141414]"
-                style={{ boxShadow: '0 20px 60px rgba(216,90,48,0.2)' }}>
-                <div className="mx-auto mt-0 h-7 w-28 rounded-b-2xl bg-black/80" />
+                className="pointer-events-none absolute -inset-8 rounded-[48px] opacity-70 blur-2xl"
+                style={{
+                  background:
+                    'radial-gradient(circle at 50% 40%, rgba(216,90,48,0.35), transparent 65%)',
+                }}
+              />
+              <div
+                className="animate-float relative mx-auto h-[580px] w-[290px] overflow-hidden rounded-[42px] border border-white/12 bg-[#121212]"
+                style={{ boxShadow: 'var(--shadow-warm), 0 0 0 1px rgba(255,255,255,0.04)' }}>
+                <div className="mx-auto mt-0 h-7 w-28 rounded-b-2xl bg-black/85" />
                 <div className="bg-[var(--primary)] px-5 pb-7 pt-4">
                   <p className="text-sm font-semibold text-white">Good evening</p>
                   <p className="mt-1 text-xs text-white/65">Thamel, Kathmandu</p>
                 </div>
                 <div className="bg-[var(--bg)] px-4 py-4">
-                  <div className="mb-3 rounded-xl bg-white px-3 py-2.5 text-xs text-[var(--text-muted)]">
+                  <div className="mb-3 rounded-xl bg-white px-3 py-2.5 text-xs text-[var(--text-muted)] shadow-[var(--shadow-sm)]">
                     Search restaurants, bakeries…
                   </div>
                   <div className="mb-4 flex gap-2">
@@ -172,7 +179,7 @@ export default function HomeLanding() {
                   ].map((bag) => (
                     <div
                       key={bag.title}
-                      className="mb-2.5 flex items-start gap-3 rounded-2xl bg-white p-3">
+                      className="mb-2.5 flex items-start gap-3 rounded-2xl bg-white p-3 shadow-[var(--shadow-sm)]">
                       <div
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${bag.tone}`}>
                         <span className="font-display text-sm font-bold text-[var(--primary)]">
@@ -207,17 +214,19 @@ export default function HomeLanding() {
 
       {/* Proof strip */}
       <section className="border-b border-[var(--border)] bg-[var(--surface)]">
-        <div className="mx-auto grid max-w-[1120px] grid-cols-3 divide-x divide-[var(--border)] px-6 py-8">
+        <div className="mx-auto grid max-w-[1120px] grid-cols-3 divide-x divide-[var(--border)] px-6 py-10">
           {[
             { n: '4', l: 'Cities launching' },
             { n: '70%', l: 'Max savings per bag' },
             { n: 'Free', l: 'To reserve a bag' },
           ].map((stat) => (
             <div key={stat.l} className="px-4 text-center md:px-8">
-              <p className="font-display text-2xl font-bold text-[var(--ink)] md:text-3xl">
+              <p className="font-display text-2xl font-bold tracking-tight text-[var(--ink)] md:text-[2rem]">
                 {stat.n}
               </p>
-              <p className="mt-1 text-xs text-[var(--text-muted)] md:text-sm">{stat.l}</p>
+              <p className="mt-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)] md:text-xs">
+                {stat.l}
+              </p>
             </div>
           ))}
         </div>
@@ -229,9 +238,9 @@ export default function HomeLanding() {
           {[...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
             <span
               key={`${item}-${i}`}
-              className="inline-flex items-center whitespace-nowrap text-sm text-[var(--text-secondary)]">
+              className="inline-flex items-center whitespace-nowrap text-sm tracking-wide text-[var(--text-secondary)]">
               {item}
-              <span className="mx-4 text-[var(--primary)]">·</span>
+              <span className="mx-5 text-[var(--primary)]">·</span>
             </span>
           ))}
         </div>
@@ -243,7 +252,7 @@ export default function HomeLanding() {
           <div className="mx-auto max-w-2xl px-6 text-center">
             <p className="section-label">How it works</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-[#1A1A1A]"
+              className="mt-5 font-display font-bold tracking-tight text-[#1A1A1A]"
               style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
               Rescue food in three steps
             </h2>
@@ -253,7 +262,7 @@ export default function HomeLanding() {
           </div>
         </FadeIn>
 
-        <div className="mx-auto mt-16 grid max-w-[1120px] gap-4 px-6 md:grid-cols-3">
+        <div className="mx-auto mt-16 grid max-w-[1120px] gap-5 px-6 md:grid-cols-3">
           {[
             {
               n: '01',
@@ -272,8 +281,9 @@ export default function HomeLanding() {
             },
           ].map((step, i) => (
             <FadeIn key={step.n} delay={(i + 1) * 90}>
-              <div className="h-full rounded-[28px] border border-[#E8E4DC] bg-white px-8 py-10 md:px-10 md:py-12">
+              <div className="premium-card group h-full px-8 py-10 md:px-10 md:py-12">
                 <p className="font-display text-sm font-semibold text-[var(--primary)]">{step.n}</p>
+                <div className="mt-5 h-px w-10 bg-[var(--border)] transition group-hover:w-16 group-hover:bg-[var(--primary)]/40" />
                 <h3 className="mt-6 font-display text-2xl font-bold text-[#1A1A1A]">
                   {step.title}
                 </h3>
@@ -292,23 +302,23 @@ export default function HomeLanding() {
           <div className="mx-auto max-w-2xl px-6 text-center">
             <p className="section-label">Why LastBag</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-[var(--ink)]"
+              className="mt-5 font-display font-bold tracking-tight text-[var(--ink)]"
               style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
               Built for Nepal&apos;s food scene
             </h2>
           </div>
         </FadeIn>
 
-        <div className="mx-auto mt-16 grid max-w-[1120px] gap-4 px-6 md:grid-cols-3">
+        <div className="mx-auto mt-16 grid max-w-[1120px] gap-5 px-6 md:grid-cols-3">
           <FadeIn delay={80}>
-            <div className="relative min-h-[260px] overflow-hidden rounded-[28px] bg-[var(--primary-light)] p-9 md:col-span-2">
+            <div className="relative min-h-[280px] overflow-hidden rounded-[28px] bg-[var(--primary-light)] p-9 shadow-[var(--shadow-sm)] md:col-span-2">
               <h3 className="font-display text-2xl font-bold text-[var(--ink)]">
                 Reserve in seconds
               </h3>
               <p className="mt-3 max-w-sm text-[15px] text-[var(--text-secondary)]">
                 Browse freely. Reserve with your details — no payment until pickup.
               </p>
-              <div className="mt-10 max-w-xs rounded-2xl border border-[var(--border)] bg-white p-4">
+              <div className="mt-10 max-w-xs rounded-2xl border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-md)]">
                 <div className="mb-2 h-8 rounded-lg bg-[var(--bg)]" />
                 <div className="mb-3 h-8 rounded-lg bg-[var(--bg)]" />
                 <div className="rounded-lg bg-[var(--primary)] py-2.5 text-center text-xs font-semibold text-white">
@@ -319,12 +329,19 @@ export default function HomeLanding() {
           </FadeIn>
 
           <FadeIn delay={140}>
-            <div className="min-h-[260px] rounded-[28px] bg-[var(--ink)] p-9">
-              <h3 className="font-display text-2xl font-bold text-white">QR pickup</h3>
-              <p className="mt-3 text-[15px] text-white/50">
+            <div className="relative min-h-[280px] overflow-hidden rounded-[28px] bg-[var(--ink)] p-9 shadow-[var(--shadow-md)]">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-40"
+                style={{
+                  background:
+                    'radial-gradient(circle at 80% 20%, rgba(216,90,48,0.35), transparent 50%)',
+                }}
+              />
+              <h3 className="relative font-display text-2xl font-bold text-white">QR pickup</h3>
+              <p className="relative mt-3 text-[15px] text-white/50">
                 Show your code, pay at the counter, done.
               </p>
-              <div className="mt-10 grid grid-cols-4 gap-1.5 opacity-80">
+              <div className="relative mt-10 grid grid-cols-4 gap-1.5 opacity-85">
                 {Array.from({ length: 16 }).map((_, i) => (
                   <div
                     key={i}
@@ -338,21 +355,25 @@ export default function HomeLanding() {
           </FadeIn>
 
           <FadeIn delay={100}>
-            <div className="min-h-[240px] rounded-[28px] bg-[var(--bg)] p-9">
+            <div className="min-h-[240px] rounded-[28px] border border-[var(--border)] bg-[#F5F3EF] p-9 shadow-[var(--shadow-sm)]">
               <h3 className="font-display text-2xl font-bold text-[var(--ink)]">Live updates</h3>
               <p className="mt-3 text-[15px] text-[var(--text-secondary)]">
                 Partners get notified the moment a bag is reserved.
               </p>
+              <div className="mt-8 flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--primary)]" />
+                <span className="text-xs font-medium text-[var(--text-muted)]">New reservation</span>
+              </div>
             </div>
           </FadeIn>
 
           <FadeIn delay={160}>
-            <div className="relative min-h-[240px] overflow-hidden rounded-[28px] bg-[var(--primary)] p-9 md:col-span-2">
+            <div className="relative min-h-[240px] overflow-hidden rounded-[28px] bg-[var(--primary)] p-9 shadow-[var(--shadow-warm)] md:col-span-2">
               <p className="pointer-events-none absolute -bottom-4 right-4 font-display text-[7rem] font-extrabold leading-none text-white/10">
                 100%
               </p>
-              <h3 className="font-display text-2xl font-bold text-white">Zero commission</h3>
-              <p className="mt-3 max-w-sm text-[15px] text-white/75">
+              <h3 className="relative font-display text-2xl font-bold text-white">Zero commission</h3>
+              <p className="relative mt-3 max-w-sm text-[15px] text-white/75">
                 Partners keep every sale. One flat monthly fee after a free 30-day trial.
               </p>
             </div>
@@ -361,12 +382,19 @@ export default function HomeLanding() {
       </section>
 
       {/* Impact */}
-      <section id="impact" className="bg-[#D85A30] py-24 md:py-28">
+      <section id="impact" className="relative overflow-hidden bg-[#D85A30] py-24 md:py-28">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-30"
+          style={{
+            background:
+              'radial-gradient(ellipse at 15% 0%, rgba(255,255,255,0.35), transparent 45%), radial-gradient(ellipse at 90% 100%, rgba(0,0,0,0.18), transparent 40%)',
+          }}
+        />
         <FadeIn>
-          <div className="mx-auto max-w-2xl px-6 text-center">
-            <p className="section-label !text-white/70">Impact</p>
+          <div className="relative mx-auto max-w-2xl px-6 text-center">
+            <p className="section-label !text-white/75">Impact</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-white"
+              className="mt-5 font-display font-bold tracking-tight text-white"
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
               Every bag rescued matters
             </h2>
@@ -375,7 +403,9 @@ export default function HomeLanding() {
             </p>
           </div>
         </FadeIn>
-        <LiveImpactStats />
+        <div className="relative">
+          <LiveImpactStats />
+        </div>
       </section>
 
       {/* Categories */}
@@ -384,7 +414,7 @@ export default function HomeLanding() {
           <div className="mx-auto max-w-2xl px-6 text-center">
             <p className="section-label">Partners</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-[#1A1A1A]"
+              className="mt-5 font-display font-bold tracking-tight text-[#1A1A1A]"
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
               Every type of kitchen
             </h2>
@@ -399,7 +429,7 @@ export default function HomeLanding() {
             { n: 'Hotel', d: 'Buffet surplus' },
           ].map((c, i) => (
             <FadeIn key={c.n} delay={i * 60}>
-              <div className="rounded-2xl border border-[#E8E4DC] bg-white px-4 py-6 text-center transition hover:bg-[#FAECE7]">
+              <div className="rounded-2xl border border-[#E8E4DC] bg-white px-4 py-7 text-center shadow-[var(--shadow-sm)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#FAECE7] hover:shadow-[var(--shadow-md)]">
                 <p className="font-display text-base font-bold text-[#1A1A1A]">{c.n}</p>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">{c.d}</p>
               </div>
@@ -409,12 +439,19 @@ export default function HomeLanding() {
       </section>
 
       {/* For restaurants */}
-      <section id="for-restaurants" className="bg-[#1A1A1A] py-24 md:py-32">
-        <div className="mx-auto grid max-w-[1120px] items-start gap-16 px-6 lg:grid-cols-2 lg:gap-20">
+      <section id="for-restaurants" className="relative overflow-hidden bg-[#1A1A1A] py-24 md:py-32">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 40% at 85% 10%, rgba(216,90,48,0.18), transparent 55%)',
+          }}
+        />
+        <div className="relative mx-auto grid max-w-[1120px] items-start gap-16 px-6 lg:grid-cols-2 lg:gap-20">
           <FadeIn>
             <p className="section-label">For restaurants</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-white"
+              className="mt-5 font-display font-bold tracking-tight text-white"
               style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
               Turn tonight&apos;s surplus into revenue — and rescue food while you&apos;re at it.
             </h2>
@@ -437,7 +474,7 @@ export default function HomeLanding() {
                   d: 'No payment required to start. Cancel anytime.',
                 },
               ].map((b) => (
-                <div key={b.t} className="border-l border-[var(--primary)] pl-5">
+                <div key={b.t} className="border-l-2 border-[var(--primary)] pl-5">
                   <p className="font-display text-lg font-semibold text-white">{b.t}</p>
                   <p className="mt-1 text-sm text-white/45">{b.d}</p>
                 </div>
@@ -479,17 +516,17 @@ export default function HomeLanding() {
               ].map((plan) => (
                 <div
                   key={plan.tier}
-                  className={`rounded-2xl p-6 ${
+                  className={`rounded-2xl p-6 transition duration-300 ${
                     plan.popular
-                      ? 'border border-[var(--primary)] bg-[#1c1c1c]'
-                      : 'border border-white/8 bg-[#191919]'
+                      ? 'border border-[var(--primary)] bg-[#1c1c1c] shadow-[0_0_0_1px_rgba(216,90,48,0.25),0_20px_50px_rgba(216,90,48,0.12)]'
+                      : 'border border-white/10 bg-[#191919] hover:border-white/18'
                   }`}>
                   <div className="flex items-baseline justify-between gap-3">
                     <div>
                       <p className="font-display text-lg font-bold text-white">
                         {plan.tier}
                         {plan.popular ? (
-                          <span className="ml-2 text-xs font-semibold text-[var(--primary)]">
+                          <span className="ml-2 rounded-full bg-[var(--primary)]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary)]">
                             Popular
                           </span>
                         ) : null}
@@ -523,7 +560,7 @@ export default function HomeLanding() {
           <div className="mx-auto max-w-2xl px-6 text-center">
             <p className="section-label">Cities</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-[#1A1A1A]"
+              className="mt-5 font-display font-bold tracking-tight text-[#1A1A1A]"
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
               Starting across Nepal
             </h2>
@@ -539,15 +576,15 @@ export default function HomeLanding() {
           ].map((city, i) => (
             <FadeIn key={city.name} delay={i * 70}>
               <div
-                className={`rounded-2xl px-5 py-8 text-center ${
+                className={`rounded-[22px] px-5 py-9 text-center transition duration-300 hover:-translate-y-0.5 ${
                   city.first
-                    ? 'bg-[#FAECE7]'
-                    : 'border border-[#E8E4DC] bg-[#F5F3EF]'
+                    ? 'bg-[#FAECE7] shadow-[var(--shadow-md)] ring-1 ring-[var(--primary)]/15'
+                    : 'border border-[#E8E4DC] bg-[#F5F3EF] shadow-[var(--shadow-sm)]'
                 }`}>
                 <p className="font-display text-xl font-bold text-[#1A1A1A]">{city.name}</p>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
                 <p
-                  className={`mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                  className={`mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] ${
                     city.first ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
                   }`}>
                   {city.first ? 'Launching first' : 'Coming soon'}
@@ -561,10 +598,10 @@ export default function HomeLanding() {
       {/* Download */}
       <section id="download" className="relative overflow-hidden bg-[#D85A30] py-24 md:py-28">
         <div
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0 opacity-50"
           style={{
             background:
-              'radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.25), transparent 50%)',
+              'radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.28), transparent 50%), radial-gradient(ellipse at 90% 90%, rgba(0,0,0,0.15), transparent 45%)',
           }}
         />
         <div className="relative mx-auto max-w-2xl px-6 text-center">
@@ -583,7 +620,7 @@ export default function HomeLanding() {
                 href="https://apps.apple.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white transition hover:bg-black">
+                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-black">
                 <AppleIcon />
                 <span className="text-left">
                   <span className="block text-[10px] text-white/55">Download on the</span>
@@ -594,7 +631,7 @@ export default function HomeLanding() {
                 href="https://play.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white transition hover:bg-black">
+                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-black">
                 <PlayIcon />
                 <span className="text-left">
                   <span className="block text-[10px] text-white/55">Get it on</span>
@@ -606,7 +643,7 @@ export default function HomeLanding() {
             <p className="mt-5 text-sm text-white/55">Coming soon to iOS and Android</p>
             <a
               href="#waitlist"
-              className="mt-3 inline-block text-sm text-[#9CA3AF] underline-offset-2 transition hover:underline">
+              className="mt-3 inline-block text-sm text-white/70 underline-offset-4 transition hover:text-white hover:underline">
               🔔 Notify me when it launches
             </a>
 
@@ -628,7 +665,7 @@ export default function HomeLanding() {
           <div className="mx-auto max-w-2xl px-6 text-center">
             <p className="section-label">FAQ</p>
             <h2
-              className="mt-4 font-display font-bold tracking-tight text-[#1A1A1A]"
+              className="mt-5 font-display font-bold tracking-tight text-[#1A1A1A]"
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
               Common questions
             </h2>

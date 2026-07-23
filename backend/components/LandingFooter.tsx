@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -11,19 +10,31 @@ export function LandingFooter() {
   if (!shouldShow) return null;
 
   return (
-    <footer className="bg-[#0F0F0F]">
-      <div className="mx-auto max-w-[1120px] px-6 pb-12 pt-20">
+    <footer className="relative overflow-hidden bg-[#0F0F0F]">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-40"
+        style={{
+          background:
+            'radial-gradient(ellipse 60% 100% at 20% 0%, rgba(216,90,48,0.12), transparent 60%)',
+        }}
+      />
+      <div className="relative mx-auto max-w-[1120px] px-6 pb-12 pt-20">
         <div className="border-b border-white/10 pb-14">
-          <Image
-            src="/lastbag-logo-light.png"
-            alt="LastBag"
-            width={140}
-            height={34}
-            className="h-8 w-auto"
-          />
-          <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-white/45">
-            Rescue food. Save money. Waste less.
-          </p>
+          <div className="mb-3 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/lastbag-icon.svg"
+              width={32}
+              height={32}
+              alt="LastBag"
+              className="rounded-lg"
+            />
+            <span className="text-lg font-black tracking-tight text-white">
+              Last<span className="text-[#D85A30]">Bag</span>
+            </span>
+          </div>
+          <p className="text-sm text-white/40">Rescue food. Save money.</p>
+          <p className="mt-1 text-xs text-white/25">Mamata Technologies · Nepal 🇳🇵</p>
         </div>
 
         <div className="grid grid-cols-2 gap-10 py-12 md:grid-cols-4">

@@ -11,6 +11,7 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 import { signUpWithEmail } from '@/lib/auth';
 import { hapticSuccess } from '@/lib/haptics';
 import { createPartnerAccount } from '@/lib/signupProfile';
+import { markTermsAcceptedLocally } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { resolvePartnerCoverUrl } from '@/lib/images';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -89,6 +90,10 @@ export default function PartnerVerifyScreen() {
         setSubmitError(accountError.message ?? 'Could not create your restaurant profile.');
         setLoading(false);
         return;
+      }
+
+      if (termsAccepted) {
+        await markTermsAcceptedLocally(userId);
       }
 
       setLoading(false);
