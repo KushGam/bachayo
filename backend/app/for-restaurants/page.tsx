@@ -41,31 +41,39 @@ export default function ForRestaurantsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* Hero — brand + one headline + support + CTAs */}
+      {/* Hero */}
       <section className="grain relative overflow-hidden pb-24 pt-32 md:pb-28 md:pt-36">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#d85a30] via-[#993c1d] to-[#3d1a0c]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(255,255,255,0.16),transparent_48%),radial-gradient(ellipse_at_85%_80%,rgba(61,107,79,0.25),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[var(--ink)]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 55% 50% at 75% 15%, rgba(216,90,48,0.3), transparent 58%)',
+          }}
+        />
 
-        <div className="relative mx-auto max-w-4xl px-6 text-center">
+        <div className="relative mx-auto max-w-3xl px-6 text-center">
           <FadeIn delay={0}>
-            <p className="font-display text-sm font-semibold uppercase tracking-[0.22em] text-white/70">
+            <p className="font-display text-[13px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
               For restaurants & cafés
             </p>
-            <h1 className="mt-5 font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl">
+            <h1
+              className="mt-5 font-display font-extrabold leading-[1.05] tracking-tight text-white"
+              style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)' }}>
               Turn tonight&apos;s surplus
-              <span className="mt-2 block text-white/85">into revenue.</span>
+              <span className="mt-2 block text-white/70">into revenue.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/55">
               List rescue bags in minutes. Reach nearby customers. Keep 100% of every sale — flat
               monthly pricing, zero commission.
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-              <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-[var(--primary)] shadow-xl shadow-black/20 transition hover:bg-[#fff7f3]">
+              <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-[var(--primary)] transition hover:bg-[#fff7f3]">
                 Start free 30-day trial
               </ContactTrialCta>
               <Link
                 href="#how-it-works"
-                className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                className="btn-ghost-light text-base">
                 See how it works
               </Link>
             </div>

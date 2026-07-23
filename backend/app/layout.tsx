@@ -1,10 +1,25 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { DM_Sans, Syne } from 'next/font/google';
 
 import '@/app/globals.css';
 
 import { LandingFooter } from '@/components/LandingFooter';
 import { LandingNavbar } from '@/components/LandingNavbar';
+
+const syne = Syne({
+  subsets: ['latin'],
+  variable: '--font-syne',
+  display: 'swap',
+  weight: ['500', '600', '700', '800'],
+});
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: 'LastBag — Rescue food. Save money.',
@@ -38,7 +53,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0F0F0F',
+  themeColor: '#0C0C0C',
 };
 
 export default function RootLayout({
@@ -47,8 +62,8 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full flex-col bg-[#F5F3EF] text-[#1A1A1A]">
+    <html lang="en" className={`h-full antialiased ${syne.variable} ${dmSans.variable}`}>
+      <body className="flex min-h-full flex-col bg-[var(--bg)] font-sans text-[var(--text)]">
         <LandingNavbar />
         <div className="flex-1">{children}</div>
         <LandingFooter />

@@ -20,117 +20,175 @@ function verifyCronRequest(request: NextRequest) {
   throw new Error('Unauthorized cron');
 }
 
-type PartnerBillingRow = {
-  id: string;
-  user_id: string;
-  subscription_tier: 'small' | 'medium' | 'large';
-  subscription_status: string;
-  trial_ends_at: string | null;
-  current_period_end: string | null;
-  payment_method_on_file: boolean | null;
-  payment_method_type: string | null;
-  current_period_start: string | null;
-};
-
-type TierPriceRow = {
-  tier: 'small' | 'medium' | 'large';
-  monthly_price_npr: number;
-};
-
-async function getTierPrices(supabase: ReturnType<typeof createSupabaseAdmin>) {
-  const { data } = await supabase.from('subscription_tier_pricing').select('tier, monthly_price_npr');
-  const map = new Map<string, number>();
-  for (const row of (data ?? []) as TierPriceRow[]) {
-    map.set(row.tier, row.monthly_price_npr);
+function getSiteUrl() {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
   }
-  return map;
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return 'http://localhost:3000';
 }
 
-function addOneMonthIso(from = new Date()) {
-  const next = new Date(from);
-  next.setMonth(next.getMonth() + 1);
-  return next.toISOString();
-}
-
-async function chargePartner(
-  supabase: ReturnType<typeof createSupabaseAdmin>,
-  partner: PartnerBillingRow,
-  amountNpr: number,
-) {
-  const now = new Date();
-  const periodEnd = addOneMonthIso(now);
-
-  await supabase.from('subscription_payments').insert({
-    partner_id: partner.id,
-    tier: partner.subscription_tier,
-    amount: amountNpr,
-    status: 'paid',
-    payment_method: partner.payment_method_type ?? 'saved',
-    payment_ref: `auto_${partner.id}_${Date.now()}`,
-    period_start: now.toISOString().slice(0, 10),
-    period_end: periodEnd.slice(0, 10),
-  });
-
-  await supabase
-    .from('partners')
-    .update({
-      subscription_status: 'active',
-      is_active: true,
-      current_period_start: now.toISOString(),
-      current_period_end: periodEnd,
-    })
-    .eq('id', partner.id);
-}
-
+/**
+ * Manual billing cron:
+ * - Remind partners whose subscription expires in ~7 days
+ * - Mark expired active subscriptions as past_due and hide bags
+ * - Keep trial-ending + review reminder jobs
+ *
+ * No automatic gateway charges — partners pay manually; admin marks paid.
+ */
 export async function GET(request: NextRequest) {
   try {
     verifyCronRequest(request);
 
     const supabase = createSupabaseAdmin();
-    const nowIso = new Date().toISOString();
-    const prices = await getTierPrices(supabase);
+    const now = new Date();
+    const nowIso = now.toISOString();
 
     const summary = {
-      trialConverted: 0,
+      expiringReminders: 0,
+      expired: 0,
       trialPastDue: 0,
-      renewed: 0,
-      renewalFailed: 0,
-      paused: 0,
       reviewReminders: 0,
+      trialWarnings: 0,
       errors: [] as string[],
     };
 
-    const { data: expiredTrials } = await supabase
+    // ---- Active subscriptions expiring within 7 days (but not yet expired) ----
+    const sevenDaysFromNow = new Date(now);
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    const { data: expiringSoon } = await supabase
       .from('partners')
-      .select(
-        'id, user_id, subscription_tier, subscription_status, trial_ends_at, payment_method_on_file, payment_method_type, current_period_start, current_period_end',
-      )
-      .eq('subscription_status', 'trial')
-      .lt('trial_ends_at', nowIso);
+      .select('id, name, user_id, subscription_tier, current_period_end')
+      .eq('subscription_status', 'active')
+      .lte('current_period_end', sevenDaysFromNow.toISOString())
+      .gte('current_period_end', nowIso);
 
-    for (const partner of (expiredTrials ?? []) as PartnerBillingRow[]) {
+    for (const partner of expiringSoon ?? []) {
       try {
-        const amount = prices.get(partner.subscription_tier) ?? 800;
-        if (partner.payment_method_on_file) {
-          await chargePartner(supabase, partner, amount);
-          summary.trialConverted += 1;
-        } else {
-          await supabase
-            .from('partners')
-            .update({ subscription_status: 'past_due' })
-            .eq('id', partner.id);
+        if (!partner.user_id || !partner.current_period_end) continue;
+        const daysLeft = Math.max(
+          0,
+          Math.ceil(
+            (new Date(partner.current_period_end).getTime() - now.getTime()) /
+              (1000 * 60 * 60 * 24),
+          ),
+        );
 
+        // Only ping once when roughly 7 days remain (same window as old trial warning)
+        if (daysLeft < 6 || daysLeft > 7) continue;
+
+        await callSendNotification(
+          partner.user_id,
+          `⚠️ Subscription expires in ${daysLeft} days`,
+          `Renew your ${partner.subscription_tier} plan to keep your bags live on LastBag.`,
+          {
+            type: 'subscription',
+            data: { partner_id: partner.id, type: 'subscription' },
+          },
+        );
+        summary.expiringReminders += 1;
+      } catch (err) {
+        summary.errors.push(
+          `expiring ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,
+        );
+      }
+    }
+
+    // ---- Expired active subscriptions → past_due + hide bags ----
+    const { data: expired } = await supabase
+      .from('partners')
+      .select('id, name, user_id')
+      .eq('subscription_status', 'active')
+      .lt('current_period_end', nowIso);
+
+    for (const partner of expired ?? []) {
+      try {
+        await supabase
+          .from('partners')
+          .update({
+            subscription_status: 'past_due',
+            is_active: false,
+          })
+          .eq('id', partner.id);
+
+        await supabase
+          .from('rescue_bags')
+          .update({ status: 'expired' })
+          .eq('partner_id', partner.id)
+          .eq('status', 'active');
+
+        if (partner.user_id) {
           await callSendNotification(
             partner.user_id,
-            'Trial ended',
-            'Your trial ended — add a payment method to keep your bags visible',
+            '🚫 Subscription expired',
+            'Your LastBag listings are now hidden. Renew to go live again.',
             {
               type: 'subscription',
               data: { partner_id: partner.id, type: 'subscription' },
             },
           );
-          summary.trialPastDue += 1;
         }
+
+        try {
+          await fetch(`${getSiteUrl()}/api/support/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: 'lastbagnp@gmail.com',
+              subject: `Partner subscription expired: ${partner.name}`,
+              message: `${partner.name} subscription has expired. Follow up needed.`,
+            }),
+          });
+        } catch {
+          // Support endpoint may be unavailable — don't fail the cron.
+        }
+
+        summary.expired += 1;
+      } catch (err) {
+        summary.errors.push(
+          `expired ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,
+        );
+      }
+    }
+
+    // ---- Trials that ended with no conversion → past_due ----
+    const { data: expiredTrials } = await supabase
+      .from('partners')
+      .select('id, user_id')
+      .eq('subscription_status', 'trial')
+      .lt('trial_ends_at', nowIso);
+
+    for (const partner of expiredTrials ?? []) {
+      try {
+        await supabase
+          .from('partners')
+          .update({ subscription_status: 'past_due', is_active: false })
+          .eq('id', partner.id);
+
+        await supabase
+          .from('rescue_bags')
+          .update({ status: 'expired' })
+          .eq('partner_id', partner.id)
+          .eq('status', 'active');
+
+        if (partner.user_id) {
+          await callSendNotification(
+            partner.user_id,
+            'Trial ended',
+            'Your free trial ended — renew on the billing screen to keep your bags visible',
+            {
+              type: 'subscription',
+              data: { partner_id: partner.id, type: 'subscription' },
+            },
+          );
+        }
+        summary.trialPastDue += 1;
       } catch (err) {
         summary.errors.push(
           `trial ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,
@@ -138,76 +196,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { data: dueRenewals } = await supabase
-      .from('partners')
-      .select(
-        'id, user_id, subscription_tier, subscription_status, payment_method_on_file, payment_method_type, current_period_start, current_period_end',
-      )
-      .eq('subscription_status', 'active')
-      .lt('current_period_end', nowIso);
-
-    for (const partner of (dueRenewals ?? []) as PartnerBillingRow[]) {
-      try {
-        const amount = prices.get(partner.subscription_tier) ?? 800;
-        if (partner.payment_method_on_file) {
-          await chargePartner(supabase, partner, amount);
-          summary.renewed += 1;
-        } else {
-          await supabase
-            .from('partners')
-            .update({ subscription_status: 'past_due' })
-            .eq('id', partner.id);
-          await callSendNotification(
-            partner.user_id,
-            'Subscription payment failed',
-            'Add a payment method to keep your rescue bags live',
-            {
-              type: 'subscription',
-              data: { partner_id: partner.id, type: 'subscription' },
-            },
-          );
-          summary.renewalFailed += 1;
-        }
-      } catch (err) {
-        summary.errors.push(
-          `renewal ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,
-        );
-      }
-    }
-
-    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: stalePastDue } = await supabase
-      .from('partners')
-      .select('id, user_id, trial_ends_at, current_period_end')
-      .eq('subscription_status', 'past_due');
-
-    for (const partner of stalePastDue ?? []) {
-      const lapsedAt = partner.current_period_end ?? partner.trial_ends_at;
-      if (!lapsedAt || lapsedAt > fiveDaysAgo) continue;
-
-      try {
-        await supabase
-          .from('partners')
-          .update({ subscription_status: 'paused', is_active: false })
-          .eq('id', partner.id);
-
-        await callSendNotification(
-          partner.user_id,
-          'Account paused',
-          'Your subscription lapsed — reactivate to show bags to customers again',
-          {
-            type: 'subscription',
-            data: { partner_id: partner.id, type: 'subscription' },
-          },
-        );
-        summary.paused += 1;
-      } catch (err) {
-        summary.errors.push(
-          `pause ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,
-        );
-      }
-    }
-
+    // ---- Review reminders (unchanged) ----
     const reviewWindowStart = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
     const reviewWindowEnd = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
 
@@ -228,7 +217,10 @@ export async function GET(request: NextRequest) {
 
         if (existingReview) continue;
 
-        const partner = order.partner as { id?: string; name?: string } | { id?: string; name?: string }[] | null;
+        const partner = order.partner as
+          | { id?: string; name?: string }
+          | { id?: string; name?: string }[]
+          | null;
         const partnerName = Array.isArray(partner)
           ? partner[0]?.name ?? 'your partner'
           : partner?.name ?? 'your partner';
@@ -248,20 +240,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    const sixDaysFromNow = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
+    // ---- Trial ending in 7 days ----
+    const sevenDaysAhead = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const sixDaysAhead = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: trialEndingSoon } = await supabase
       .from('partners')
       .select('id, user_id, trial_ends_at')
       .eq('subscription_status', 'trial')
-      .gt('trial_ends_at', sixDaysFromNow)
-      .lte('trial_ends_at', sevenDaysFromNow);
+      .gt('trial_ends_at', sixDaysAhead)
+      .lte('trial_ends_at', sevenDaysAhead);
 
     for (const partner of trialEndingSoon ?? []) {
       try {
         const payload = partnerTrialEnding({ partnerId: partner.id, daysLeft: 7 });
         await sendNotificationPayload(partner.user_id, payload);
+        summary.trialWarnings += 1;
       } catch (err) {
         summary.errors.push(
           `trial_warning ${partner.id}: ${err instanceof Error ? err.message : 'failed'}`,

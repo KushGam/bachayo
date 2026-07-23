@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+/**
+ * Client-side PKCE callback.
+ * (A server route with the service role cannot complete PKCE — the code verifier
+ * lives in the browser.)
+ */
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
@@ -28,18 +33,26 @@ export default function AuthCallbackPage() {
       }
 
       const params = new URLSearchParams(window.location.search);
+      const error = params.get('error');
+      if (error) {
+        console.error('[auth/callback]', error);
+        router.replace(`/auth/error?error=${encodeURIComponent(error)}`);
+        return;
+      }
+
       const code = params.get('code');
+      const next = params.get('next') || '/';
 
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error('[auth/callback]', error.message);
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          console.error('[auth/callback]', exchangeError.message);
           router.replace('/auth/error');
           return;
         }
       }
 
-      router.replace('/');
+      router.replace(next.startsWith('/') ? next : '/');
     })();
   }, [router]);
 

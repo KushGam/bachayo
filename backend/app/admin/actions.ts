@@ -125,18 +125,33 @@ export async function recordManualPayment(input: {
   amount: number;
   paymentMethod: string;
   paymentRef?: string;
+  tier?: 'small' | 'medium' | 'large';
+  months?: number;
+  notes?: string;
 }) {
   const supabase = await admin();
+  const months = Math.max(1, input.months ?? 1);
+
   const { data: partner } = await supabase
     .from('partners')
-    .select('subscription_tier')
+    .select('subscription_tier, current_period_end, name, user_id')
     .eq('id', input.partnerId)
     .single();
 
-  const tier = (partner?.subscription_tier ?? 'small') as 'small' | 'medium' | 'large';
+  const tier = (input.tier ?? partner?.subscription_tier ?? 'small') as
+    | 'small'
+    | 'medium'
+    | 'large';
+
   const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const currentExpiryRaw = partner?.current_period_end ?? null;
+  const currentExpiry = currentExpiryRaw ? new Date(currentExpiryRaw) : now;
+  const startFrom = currentExpiry.getTime() > now.getTime() ? currentExpiry : now;
+  const periodEnd = new Date(startFrom);
+  periodEnd.setMonth(periodEnd.getMonth() + months);
+
+  const periodStart = now.toISOString().slice(0, 10);
+  const refNote = [input.paymentRef, input.notes].filter(Boolean).join(' · ') || null;
 
   await supabase.from('subscription_payments').insert({
     partner_id: input.partnerId,
@@ -144,22 +159,50 @@ export async function recordManualPayment(input: {
     amount: input.amount,
     status: 'paid',
     payment_method: input.paymentMethod,
-    payment_ref: input.paymentRef ?? null,
-    period_start: now.toISOString().slice(0, 10),
+    payment_ref: refNote,
+    period_start: periodStart,
     period_end: periodEnd.toISOString().slice(0, 10),
   });
 
   await supabase
     .from('partners')
     .update({
+      subscription_tier: tier,
       subscription_status: 'active',
+      is_active: true,
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
+      payment_method_on_file: false,
+      payment_method_type: input.paymentMethod,
+      payment_method_mask: input.paymentMethod,
     })
     .eq('id', input.partnerId);
 
+  if (partner?.user_id) {
+    try {
+      await deliverNotification(
+        partner.user_id,
+        '✅ Payment received!',
+        `Your LastBag ${tier} plan is now active until ${periodEnd.toLocaleDateString('en-NP')}. Keep rescuing food!`,
+        {
+          type: 'subscription',
+          data: { partner_id: input.partnerId, type: 'subscription' },
+        },
+      );
+    } catch (err) {
+      console.warn('[admin] notify partner after payment failed:', err);
+    }
+  }
+
   revalidatePath('/admin/billing');
   revalidatePath('/admin/partners');
+  revalidatePath(`/admin/partners/${input.partnerId}`);
+
+  return {
+    success: true as const,
+    newExpiry: periodEnd.toISOString(),
+    partnerName: partner?.name ?? null,
+  };
 }
 
 export async function convertTrialPartner(partnerId: string, extendDays?: number) {

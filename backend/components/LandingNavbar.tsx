@@ -1,7 +1,8 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 const HOME_SECTIONS = ['how-it-works', 'for-restaurants', 'cities', 'impact'] as const;
@@ -13,12 +14,36 @@ export function LandingNavbar() {
   const [activeSection, setActiveSection] = useState<string>('');
   const [scrolled, setScrolled] = useState(false);
 
+  const isHome = pathname === '/';
+  const isMarketingDarkPage =
+    isHome || pathname.startsWith('/about') || pathname.startsWith('/for-restaurants');
+  /** Transparent dark hero treatment — only before scroll on dark marketing pages */
+  const onHero = isMarketingDarkPage && !scrolled;
+
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 80);
+    const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (pathname !== '/') {
@@ -35,7 +60,7 @@ export function LandingNavbar() {
         ([entry]) => {
           if (entry.isIntersecting) setActiveSection(sectionId);
         },
-        { threshold: 0.25 },
+        { threshold: 0.28 },
       );
       observer.observe(element);
       observers.push(observer);
@@ -46,113 +71,175 @@ export function LandingNavbar() {
 
   if (!shouldShow) return null;
 
-  const isHome = pathname === '/';
-  const onHero = isHome && !scrolled;
-
   const linkClass = (active: boolean) =>
-    `text-sm font-medium transition ${
+    `text-[13px] font-medium tracking-wide transition ${
       active
         ? onHero
           ? 'text-white'
-          : 'text-[#1A1A1A]'
+          : 'text-[var(--ink)]'
         : onHero
-          ? 'text-white/60 hover:text-white'
-          : 'text-[#6B7280] hover:text-[#1A1A1A]'
+          ? 'text-white/55 hover:text-white'
+          : 'text-[var(--text-secondary)] hover:text-[var(--ink)]'
     }`;
 
+  const navItems = [
+    { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works' },
+    { href: '/for-restaurants', label: 'For restaurants' },
+    { href: isHome ? '#cities' : '/#cities', label: 'Cities' },
+    { href: isHome ? '#impact' : '/#impact', label: 'Impact' },
+  ];
+
   return (
-    <header
-      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
-        onHero
-          ? 'border-b border-transparent bg-transparent'
-          : 'border-b border-[#F0EDE8] bg-white/90 backdrop-blur'
-      }`}>
-      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between px-6">
-        <Link href="/" className="inline-flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#D85A30] text-sm">
-            🛍
-          </span>
-          <span
-            className={`text-xl font-bold ${onHero ? 'text-white' : 'text-[#1A1A1A]'}`}>
-            LastBag
-          </span>
-        </Link>
-
-        <nav className="hidden items-center gap-8 md:flex">
-          <a
-            className={linkClass(isHome && activeSection === 'how-it-works')}
-            href={isHome ? '#how-it-works' : '/#how-it-works'}>
-            How it works
-          </a>
-          <a
-            className={linkClass(isHome && activeSection === 'for-restaurants')}
-            href={isHome ? '#for-restaurants' : '/#for-restaurants'}>
-            For restaurants
-          </a>
-          <a
-            className={linkClass(isHome && activeSection === 'cities')}
-            href={isHome ? '#cities' : '/#cities'}>
-            Cities
-          </a>
-          <a
-            className={linkClass(isHome && activeSection === 'impact')}
-            href={isHome ? '#impact' : '/#impact'}>
-            Impact
-          </a>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href={isHome ? '#for-restaurants' : '/for-restaurants'}
-            className="hidden rounded-full bg-[#D85A30] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#993C1D] md:inline-flex">
-            For restaurants →
+    <>
+      <header
+        className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+          onHero
+            ? 'border-b border-transparent bg-transparent'
+            : 'border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-xl'
+        }`}>
+        <div className="mx-auto flex h-[72px] max-w-[1120px] items-center justify-between px-5 sm:px-6">
+          <Link href="/" className="inline-flex items-center gap-2.5" onClick={() => setOpen(false)}>
+            <Image
+              src={onHero ? '/lastbag-logo-light.png' : '/lastbag-logo.png'}
+              alt="LastBag"
+              width={132}
+              height={32}
+              className="h-8 w-auto"
+              priority
+            />
+            <span className="text-base leading-none" aria-hidden="true">
+              🇳🇵
+            </span>
           </Link>
 
-          <button
-            type="button"
-            className={`flex h-10 w-10 items-center justify-center rounded-full border md:hidden ${
-              onHero
-                ? 'border-white/20 bg-white/10 text-white'
-                : 'border-[#F0EDE8] bg-white text-[#1A1A1A]'
-            }`}
-            aria-label="Open menu"
-            onClick={() => setOpen((v) => !v)}>
-            <span className="text-lg font-bold">{open ? '×' : '≡'}</span>
-          </button>
-        </div>
-      </div>
+          <nav className="hidden items-center gap-9 md:flex">
+            <a
+              className={linkClass(isHome && activeSection === 'how-it-works')}
+              href={isHome ? '#how-it-works' : '/#how-it-works'}>
+              How it works
+            </a>
+            <a
+              className={linkClass(isHome && activeSection === 'for-restaurants')}
+              href={isHome ? '#for-restaurants' : '/for-restaurants'}>
+              For restaurants
+            </a>
+            <a
+              className={linkClass(isHome && activeSection === 'cities')}
+              href={isHome ? '#cities' : '/#cities'}>
+              Cities
+            </a>
+            <a
+              className={linkClass(isHome && activeSection === 'impact')}
+              href={isHome ? '#impact' : '/#impact'}>
+              Impact
+            </a>
+          </nav>
 
-      <div
-        className={`overflow-hidden transition-all duration-300 md:hidden ${
-          open
-            ? 'max-h-screen border-b border-[#F0EDE8] bg-white opacity-100'
-            : 'max-h-0 opacity-0'
-        }`}>
-        <div className="mx-auto max-w-[1200px] px-6 pb-6 pt-2">
-          <nav className="flex flex-col gap-3 pt-2">
-            {[
-              { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works' },
-              { href: isHome ? '#for-restaurants' : '/#for-restaurants', label: 'For restaurants' },
-              { href: isHome ? '#cities' : '/#cities', label: 'Cities' },
-              { href: isHome ? '#impact' : '/#impact', label: 'Impact' },
-            ].map((item) => (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/for-restaurants"
+              className="hidden rounded-full bg-[#D85A30] px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#993C1D] md:inline-flex">
+              For restaurants →
+            </Link>
+
+            <button
+              type="button"
+              className={`relative z-[60] flex h-11 w-11 items-center justify-center rounded-full border md:hidden ${
+                open || !onHero
+                  ? 'border-[var(--border)] bg-white text-[var(--ink)]'
+                  : 'border-white/20 bg-white/10 text-white'
+              }`}
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}>
+              <span className="relative flex h-3.5 w-4 flex-col justify-between">
+                <span
+                  className={`block h-[1.5px] w-full origin-center rounded-full bg-current transition duration-300 ${
+                    open ? 'translate-y-[6px] rotate-45' : ''
+                  }`}
+                />
+                <span
+                  className={`block h-[1.5px] w-full rounded-full bg-current transition duration-300 ${
+                    open ? 'opacity-0' : ''
+                  }`}
+                />
+                <span
+                  className={`block h-[1.5px] w-full origin-center rounded-full bg-current transition duration-300 ${
+                    open ? '-translate-y-[6px] -rotate-45' : ''
+                  }`}
+                />
+              </span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile drawer */}
+      <div className="md:hidden" aria-hidden={!open}>
+        <button
+          type="button"
+          aria-label="Close menu"
+          className={`fixed inset-0 z-[55] bg-black/50 transition-opacity duration-300 ${
+            open ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+          onClick={() => setOpen(false)}
+        />
+
+        <aside
+          className={`fixed right-0 top-0 z-[56] flex h-[100dvh] w-[min(100%,20rem)] flex-col bg-[var(--surface)] shadow-2xl transition-transform duration-300 ease-out ${
+            open ? 'translate-x-0' : 'translate-x-full'
+          }`}>
+          <div className="flex h-[72px] items-center justify-between border-b border-[var(--border)] px-5">
+            <Image
+              src="/lastbag-logo.png"
+              alt="LastBag"
+              width={120}
+              height={28}
+              className="h-7 w-auto"
+            />
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] text-[var(--ink)]"
+              aria-label="Close menu"
+              onClick={() => setOpen(false)}>
+              <span className="text-xl leading-none">×</span>
+            </button>
+          </div>
+
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-5">
+            {navItems.map((item) => (
               <a
                 key={item.href}
-                className="text-sm font-medium text-[#6B7280] transition hover:text-[#1A1A1A]"
+                className="rounded-xl px-4 py-3.5 text-[15px] font-medium text-[var(--ink)] transition hover:bg-[var(--bg)]"
                 href={item.href}
                 onClick={() => setOpen(false)}>
                 {item.label}
               </a>
             ))}
+            <a
+              className="rounded-xl px-4 py-3.5 text-[15px] font-medium text-[var(--ink)] transition hover:bg-[var(--bg)]"
+              href="/about"
+              onClick={() => setOpen(false)}>
+              About
+            </a>
+          </nav>
+
+          <div className="border-t border-[var(--border)] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             <Link
-              href={isHome ? '#for-restaurants' : '/for-restaurants'}
-              className="mt-3 inline-flex justify-center rounded-full bg-[#D85A30] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#993C1D]"
+              href="/for-restaurants"
+              className="flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-dark)]"
               onClick={() => setOpen(false)}>
               For restaurants →
             </Link>
-          </nav>
-        </div>
+            <a
+              href="tel:+9779762623241"
+              className="mt-3 flex w-full items-center justify-center rounded-full border border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)]"
+              onClick={() => setOpen(false)}>
+              Call 9762623241
+            </a>
+          </div>
+        </aside>
       </div>
-    </header>
+    </>
   );
 }

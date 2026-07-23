@@ -3,7 +3,7 @@
 import { Mail, MessageCircle, Phone, X } from 'lucide-react';
 
 const WHATSAPP_URL =
-  'https://wa.me/61405290710?text=Hi%2C%20I%20run%20a%20restaurant%20and%20I%27m%20interested%20in%20joining%20LastBag%20as%20a%20partner.%20Can%20you%20help%20me%20get%20started%3F';
+  'https://wa.me/9779762623241?text=Hi%2C%20I%20run%20a%20restaurant%20and%20I%27m%20interested%20in%20joining%20LastBag%20as%20a%20partner.%20Can%20you%20help%20me%20get%20started%3F';
 
 const EMAIL_URL =
   'mailto:hello@lastbag.app?subject=I want to join LastBag as a restaurant partner&body=Hi, I run a restaurant and I\'m interested in joining LastBag. Please contact me to get started.';
@@ -59,14 +59,14 @@ export function ContactModal({
 
           <div className="space-y-3">
             <a
-              href="tel:0405290710"
+              href="tel:+9779762623241"
               className="group flex items-center gap-4 rounded-2xl border-2 border-[#D85A30] bg-[#D85A30] p-4 text-white transition hover:border-[#993C1D] hover:bg-[#993C1D]">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:bg-white/25">
                 <Phone size={20} className="text-white" />
               </div>
               <div className="flex-1">
                 <div className="text-base font-bold">Call us now</div>
-                <div className="text-sm text-white/80">0405 290 710 · Available 9am–8pm</div>
+                <div className="text-sm text-white/80">9762623241 · Available 9am–8pm</div>
               </div>
               <div className="text-sm font-medium text-white/60">Fastest →</div>
             </a>
