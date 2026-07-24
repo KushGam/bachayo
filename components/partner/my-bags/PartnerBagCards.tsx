@@ -49,13 +49,13 @@ import {
   getBagDisplayStatus,
   getBagPotentialRevenuePaisa,
   getSavingsPct,
+  markBagUnavailableWithNotification,
   shouldShowBagEarnedRevenue,
 } from '@/lib/partnerBags';
 import { hapticButtonPress, hapticHeavy, hapticSuccess, hapticWarning } from '@/lib/haptics';
 import { confirmPartnerPickup } from '@/lib/orders';
 import { applyFetchedOrdersWithPickupGuard, protectPendingPickup } from '@/lib/pendingPickups';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
-import { supabase } from '@/lib/supabase';
 import { usePartnerStore } from '@/store/usePartnerStore';
 import { useBagsStore } from '@/store/useBagsStore';
 
@@ -265,9 +265,31 @@ export function PartnerTodayBagCard({
   const closeSwipe = () => swipeRef.current?.close();
 
   const updateStatus = async (status: 'sold_out' | 'cancelled') => {
-    const { error } = await supabase.from('rescue_bags').update({ status }).eq('id', bag.id);
-    if (error) Alert.alert('Error', error.message);
-    else onRefresh();
+    const partnerName = usePartnerStore.getState().partner?.name ?? 'The restaurant';
+    const result = await markBagUnavailableWithNotification({
+      bagId: bag.id,
+      reason: status,
+      partnerName,
+    });
+
+    if (!result.success) {
+      Alert.alert('Error', result.error || 'Could not update bag.');
+      return;
+    }
+
+    useBagsStore.getState().applyBagStock(bag.id, {
+      status,
+      quantity_reserved: 0,
+    });
+
+    Alert.alert(
+      status === 'sold_out' ? 'Bag marked sold out' : 'Bag cancelled',
+      result.notifiedCount > 0
+        ? `${result.notifiedCount} customer(s) have been notified that their reservation was cancelled.`
+        : 'Bag updated successfully.',
+      [{ text: 'OK' }],
+    );
+    onRefresh();
   };
 
   const markSoldOut = async () => {
@@ -279,21 +301,11 @@ export function PartnerTodayBagCard({
 
   const confirmDeleteBag = () => {
     const reservedGuess = Math.max(bag.quantity_reserved, bag.reserved_orders);
-    if (reservedGuess > 0) {
-      Alert.alert(
-        "Can't delete",
-        `${reservedGuess} customer${reservedGuess === 1 ? '' : 's'} reserved — mark as sold out instead`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
-        ],
-      );
-      return;
-    }
-
     Alert.alert(
       'Delete this bag?',
-      'This removes the listing from customers. Past pickups stay in your history.',
+      reservedGuess > 0
+        ? `${reservedGuess} customer${reservedGuess === 1 ? '' : 's'} reserved — they will be notified and their reservations cancelled.`
+        : 'This removes the listing from customers. Past pickups stay in your history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -309,13 +321,6 @@ export function PartnerTodayBagCard({
               });
 
               if (!result.ok) {
-                if (result.reason === 'has_reservations') {
-                  Alert.alert("Can't delete", result.message, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Mark sold out', onPress: () => void updateStatus('sold_out') },
-                  ]);
-                  return;
-                }
                 Alert.alert('Error', result.message);
                 return;
               }
@@ -324,6 +329,15 @@ export function PartnerTodayBagCard({
                 status: 'cancelled',
                 quantity_reserved: 0,
               });
+
+              Alert.alert(
+                'Bag deleted',
+                result.notifiedCount > 0
+                  ? `${result.notifiedCount} customer(s) have been notified that their reservation was cancelled.`
+                  : 'Bag removed successfully.',
+                [{ text: 'OK' }],
+              );
+
               onDeleted?.(bag.id);
               onRefresh();
             })();

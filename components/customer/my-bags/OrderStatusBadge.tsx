@@ -7,9 +7,14 @@ import type { OrderStatus } from '@/types/database';
 
 type OrderStatusBadgeProps = {
   status: string;
+  cancellationReason?: string | null;
 };
 
-function labelFor(status: OrderStatus) {
+function isPartnerCancelled(reason?: string | null) {
+  return Boolean(reason && reason.toLowerCase().includes('partner cancelled'));
+}
+
+function labelFor(status: OrderStatus, cancellationReason?: string | null) {
   switch (status) {
     case 'pending':
       return 'Pending';
@@ -18,7 +23,9 @@ function labelFor(status: OrderStatus) {
     case 'picked_up':
       return 'Picked up';
     case 'cancelled':
-      return 'Cancelled';
+      return isPartnerCancelled(cancellationReason)
+        ? 'Cancelled by restaurant'
+        : 'Cancelled by you';
     case 'missed':
       return 'Missed';
     default:
@@ -26,7 +33,7 @@ function labelFor(status: OrderStatus) {
   }
 }
 
-function colorsFor(status: OrderStatus) {
+function colorsFor(status: OrderStatus, cancellationReason?: string | null) {
   switch (status) {
     case 'pending':
       return { bg: Palette.warningBg, text: Palette.warning, border: '#E8D9A8' };
@@ -35,7 +42,10 @@ function colorsFor(status: OrderStatus) {
     case 'picked_up':
       return { bg: Palette.successBg, text: Palette.success, border: '#C5D9CB' };
     case 'cancelled':
-      return { bg: Palette.surfaceMuted, text: Palette.textSecondary, border: Palette.borderSubtle };
+      if (isPartnerCancelled(cancellationReason)) {
+        return { bg: '#FEF3C7', text: '#92400E', border: '#F5D98A' };
+      }
+      return { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB' };
     case 'missed':
       return { bg: '#FEF3C7', text: '#B45309', border: '#F5D98A' };
     default:
@@ -43,13 +53,15 @@ function colorsFor(status: OrderStatus) {
   }
 }
 
-export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+export function OrderStatusBadge({ status, cancellationReason }: OrderStatusBadgeProps) {
   const normalized = normalizeOrderStatus(status);
-  const colors = colorsFor(normalized);
+  const colors = colorsFor(normalized, cancellationReason);
 
   return (
     <View style={[styles.badge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-      <Text style={[styles.text, { color: colors.text }]}>{labelFor(normalized)}</Text>
+      <Text style={[styles.text, { color: colors.text }]}>
+        {labelFor(normalized, cancellationReason)}
+      </Text>
     </View>
   );
 }

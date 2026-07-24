@@ -88,6 +88,7 @@ function RootLayoutNav() {
         <Stack.Screen name="loading" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="(landing)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="bag/[id]"

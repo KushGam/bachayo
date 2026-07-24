@@ -129,6 +129,20 @@ export async function resolveInitialRoute(): Promise<string> {
         console.log('[boot] terms not accepted — routing to accept-terms');
         return '/(auth)/accept-terms';
       }
+
+      if (role === 'customer') {
+        const { data: onboardingRow } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', userId)
+          .maybeSingle();
+        const completed = (onboardingRow as { onboarding_completed?: boolean | null } | null)
+          ?.onboarding_completed;
+        if (completed === false) {
+          console.log('[boot] customer onboarding incomplete');
+          return '/(onboarding)/customer';
+        }
+      }
     }
 
     return resolveAuthenticatedRoute(userId, role);

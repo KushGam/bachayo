@@ -44,6 +44,7 @@ type CustomerOrderCardProps = {
   onViewRestaurant: () => void;
   onChat: () => void;
   onPrivacySettings?: () => void;
+  onFindNearby?: () => void;
   unreadMessages: number;
 };
 
@@ -87,6 +88,7 @@ export function CustomerOrderCard({
   onViewRestaurant,
   onChat,
   onPrivacySettings,
+  onFindNearby,
   unreadMessages,
 }: CustomerOrderCardProps) {
   const status = normalizeOrderStatus(order.status);
@@ -96,6 +98,11 @@ export function CustomerOrderCard({
   const serviceType = (order.service_type ?? 'takeaway') as OrderServiceType;
   const needsReview = isPast && status === 'picked_up' && !order.review;
   const hasReview = isPast && status === 'picked_up' && Boolean(order.review);
+  const cancellationReason =
+    (order as { cancellation_reason?: string | null }).cancellation_reason ?? null;
+  const cancelledByPartner =
+    status === 'cancelled' &&
+    Boolean(cancellationReason?.toLowerCase().includes('partner cancelled'));
 
   return (
     <View style={[styles.card, isPast && styles.cardPast]}>
@@ -115,13 +122,25 @@ export function CustomerOrderCard({
             <Text style={styles.partner} numberOfLines={1}>
               {order.partner.name}
             </Text>
-            <OrderStatusBadge status={order.status} />
+            <OrderStatusBadge status={order.status} cancellationReason={cancellationReason} />
           </View>
 
           <Text style={styles.bagTitle} numberOfLines={1}>
             {order.bag?.title ?? 'Rescue bag'}
           </Text>
 
+          {cancelledByPartner ? (
+            <Text style={styles.partnerCancelHint}>
+              😔 This restaurant cancelled their bag.{' '}
+              {onFindNearby ? (
+                <Text style={styles.partnerCancelLink} onPress={onFindNearby}>
+                  Find another bag nearby →
+                </Text>
+              ) : (
+                'Find another bag nearby →'
+              )}
+            </Text>
+          ) : null}
           {isActiveOrder && countdown ? (
             <View style={[styles.countdownRow, urgent && styles.countdownRowUrgent]}>
               <Clock
@@ -465,6 +484,17 @@ const styles = StyleSheet.create({
     color: '#D85A30',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  partnerCancelHint: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  partnerCancelLink: {
+    fontSize: 13,
+    color: Palette.primary,
+    fontWeight: '700',
   },
   chatRow: {
     width: '100%',

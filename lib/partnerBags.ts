@@ -456,6 +456,7 @@ export type DeletePartnerBagResult =
       ok: true;
       mode: 'soft_cancelled' | 'hard_deleted';
       cancelledOrders: number;
+      notifiedCount: number;
     }
   | {
       ok: false;
@@ -463,12 +464,156 @@ export type DeletePartnerBagResult =
       message: string;
     };
 
+type BagCancelReason = 'deleted' | 'sold_out' | 'cancelled';
+
+type NestedBagPartner = {
+  title?: string | null;
+  partners?: { name?: string | null } | { name?: string | null }[] | null;
+};
+
+function unwrapPartnerName(bag: NestedBagPartner | NestedBagPartner[] | null | undefined) {
+  const row = Array.isArray(bag) ? bag[0] : bag;
+  const partners = row?.partners;
+  const partner = Array.isArray(partners) ? partners[0] : partners;
+  return partner?.name?.trim() || 'The restaurant';
+}
+
+function unwrapBagTitle(bag: NestedBagPartner | NestedBagPartner[] | null | undefined) {
+  const row = Array.isArray(bag) ? bag[0] : bag;
+  return row?.title?.trim() || 'Rescue bag';
+}
+
+/**
+ * Cancel confirmed (and pending) reservations for a bag and notify each customer.
+ * Used when a partner marks sold out, cancels, or deletes a bag.
+ */
+export async function cancelBagWithCustomerNotification(input: {
+  bagId: string;
+  reason: BagCancelReason;
+  partnerName?: string;
+}): Promise<{ success: boolean; notifiedCount: number; error?: string }> {
+  const { bagId, reason, partnerName: partnerNameOverride } = input;
+
+  const { data: activeOrders, error: ordersError } = await supabase
+    .from('orders')
+    .select(
+      `
+      id,
+      customer_id,
+      quantity,
+      rescue_bags (
+        title,
+        partners (name)
+      )
+    `,
+    )
+    .eq('bag_id', bagId)
+    .in('status', ['pending', 'confirmed']);
+
+  if (ordersError) {
+    return { success: false, notifiedCount: 0, error: ordersError.message };
+  }
+
+  const rows = activeOrders ?? [];
+  const bagTitle = unwrapBagTitle(
+    rows[0]?.rescue_bags as NestedBagPartner | NestedBagPartner[] | null | undefined,
+  );
+  const partnerName =
+    partnerNameOverride?.trim() ||
+    unwrapPartnerName(
+      rows[0]?.rescue_bags as NestedBagPartner | NestedBagPartner[] | null | undefined,
+    );
+
+  if (rows.length > 0) {
+    const { error: cancelOrdersError } = await supabase
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancellation_reason: 'Partner cancelled this bag',
+        cancelled_at: new Date().toISOString(),
+      } as never)
+      .eq('bag_id', bagId)
+      .in('status', ['pending', 'confirmed']);
+
+    if (cancelOrdersError) {
+      return { success: false, notifiedCount: 0, error: cancelOrdersError.message };
+    }
+
+    await supabase
+      .from('rescue_bags')
+      .update({ quantity_reserved: 0 } as never)
+      .eq('id', bagId);
+
+    let notifiedCount = 0;
+    const title = 'Reservation cancelled 😔';
+    const body = `${partnerName} has cancelled their ${bagTitle} bag today. Your reservation has been automatically cancelled.`;
+
+    for (const order of rows) {
+      if (!order.customer_id) continue;
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            user_id: order.customer_id,
+            title,
+            body,
+            type: 'bag_cancelled',
+            data: {
+              order_id: order.id,
+              bag_id: bagId,
+              orderId: order.id,
+              bagId,
+              type: 'bag_cancelled',
+              reason,
+            },
+          },
+        });
+        notifiedCount += 1;
+      } catch (notifyError) {
+        console.warn('[cancelBagWithCustomerNotification] notify failed:', notifyError);
+      }
+    }
+
+    return { success: true, notifiedCount };
+  }
+
+  return { success: true, notifiedCount: 0 };
+}
+
+/**
+ * Mark bag sold_out / cancelled and notify customers with active reservations.
+ */
+export async function markBagUnavailableWithNotification(input: {
+  bagId: string;
+  reason: 'sold_out' | 'cancelled';
+  partnerName?: string;
+}): Promise<{ success: boolean; notifiedCount: number; error?: string }> {
+  const notifyResult = await cancelBagWithCustomerNotification({
+    bagId: input.bagId,
+    reason: input.reason,
+    partnerName: input.partnerName,
+  });
+
+  if (!notifyResult.success) {
+    return notifyResult;
+  }
+
+  const { error } = await supabase
+    .from('rescue_bags')
+    .update({ status: input.reason })
+    .eq('id', input.bagId);
+
+  if (error) {
+    return { success: false, notifiedCount: notifyResult.notifiedCount, error: error.message };
+  }
+
+  return notifyResult;
+}
+
 /**
  * Partner My Bags → Delete:
- * - Active reservations (pending/confirmed) → block, suggest sold out
- * - Otherwise soft-cancel bag (status=cancelled) so it leaves customer home
+ * - Cancels active reservations + notifies customers
+ * - Soft-cancel bag (status=cancelled) so it leaves customer home
  * - Hard-delete only when the bag never had orders (no FK)
- * - Race safety: any leftover active orders are cancelled + customers notified
  */
 export async function deletePartnerBagListing(input: {
   bagId: string;
@@ -476,26 +621,14 @@ export async function deletePartnerBagListing(input: {
 }): Promise<DeletePartnerBagResult> {
   const { bagId, partnerName } = input;
 
-  const { data: activeOrders, error: activeError } = await supabase
-    .from('orders')
-    .select('id, customer_id, quantity, status, customer_name')
-    .eq('bag_id', bagId)
-    .in('status', ['pending', 'confirmed']);
+  const notifyResult = await cancelBagWithCustomerNotification({
+    bagId,
+    reason: 'deleted',
+    partnerName,
+  });
 
-  if (activeError) {
-    return { ok: false, reason: 'error', message: activeError.message };
-  }
-
-  const reservedRows = activeOrders ?? [];
-  const reservedCount = reservedRows.reduce((sum, row) => sum + (row.quantity ?? 1), 0);
-
-  if (reservedCount > 0) {
-    return {
-      ok: false,
-      reason: 'has_reservations',
-      reservedCount,
-      message: `${reservedCount} customer${reservedCount === 1 ? '' : 's'} reserved — mark as sold out instead`,
-    };
+  if (!notifyResult.success) {
+    return { ok: false, reason: 'error', message: notifyResult.error || 'Could not cancel reservations' };
   }
 
   const { count: totalOrderCount, error: countError } = await supabase
@@ -507,7 +640,6 @@ export async function deletePartnerBagListing(input: {
     return { ok: false, reason: 'error', message: countError.message };
   }
 
-  // Soft-cancel so history stays intact and the bag leaves customer home (active-only feeds).
   const { error: cancelBagError } = await supabase
     .from('rescue_bags')
     .update({ status: 'cancelled' })
@@ -517,60 +649,23 @@ export async function deletePartnerBagListing(input: {
     return { ok: false, reason: 'error', message: cancelBagError.message };
   }
 
-  // Race: reservations created between the check and soft-cancel.
-  const { data: racedOrders } = await supabase
-    .from('orders')
-    .select('id, customer_id, status')
-    .eq('bag_id', bagId)
-    .in('status', ['pending', 'confirmed']);
-
-  let cancelledOrders = 0;
-  for (const order of racedOrders ?? []) {
-    const { error: orderError } = await supabase
-      .from('orders')
-      .update({
-        status: 'cancelled',
-        cancellation_reason: 'Partner cancelled this bag',
-        cancelled_at: new Date().toISOString(),
-      } as never)
-      .eq('id', order.id)
-      .in('status', ['pending', 'confirmed']);
-
-    if (orderError) continue;
-    cancelledOrders += 1;
-
-    if (order.customer_id) {
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            user_id: order.customer_id,
-            title: 'Bag cancelled',
-            body: `Sorry, ${partnerName} cancelled this bag. Your reservation has been released.`,
-            type: 'cancellation',
-            data: {
-              order_id: order.id,
-              bag_id: bagId,
-              orderId: order.id,
-              bagId,
-              type: 'cancellation',
-            },
-          },
-        });
-      } catch (notifyError) {
-        console.warn('[deletePartnerBagListing] customer notify failed:', notifyError);
-      }
-    }
-  }
-
-  // Optional hard delete when never ordered — keeps My Bags tidy.
-  if ((totalOrderCount ?? 0) === 0 && cancelledOrders === 0) {
+  if ((totalOrderCount ?? 0) === 0 && notifyResult.notifiedCount === 0) {
     const { error: deleteError } = await supabase.from('rescue_bags').delete().eq('id', bagId);
     if (!deleteError) {
-      return { ok: true, mode: 'hard_deleted', cancelledOrders: 0 };
+      return {
+        ok: true,
+        mode: 'hard_deleted',
+        cancelledOrders: 0,
+        notifiedCount: 0,
+      };
     }
-    // Soft-cancel already applied; treat FK/delete failure as success.
   }
 
-  return { ok: true, mode: 'soft_cancelled', cancelledOrders };
+  return {
+    ok: true,
+    mode: 'soft_cancelled',
+    cancelledOrders: notifyResult.notifiedCount,
+    notifiedCount: notifyResult.notifiedCount,
+  };
 }
 

@@ -128,11 +128,70 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
 
+        const { data: activeBags } = await supabase
+          .from('rescue_bags')
+          .select('id, title')
+          .eq('partner_id', partnerId)
+          .eq('status', 'active');
+
+        const { data: partnerRow } = await supabase
+          .from('partners')
+          .select('name')
+          .eq('id', partnerId)
+          .maybeSingle();
+
+        const partnerName = partnerRow?.name?.trim() || 'The restaurant';
+
         await supabase
           .from('rescue_bags')
           .update({ status: 'cancelled' })
           .eq('partner_id', partnerId)
           .eq('status', 'active');
+
+        const bagIds = (activeBags ?? []).map((bag) => bag.id);
+        if (bagIds.length > 0) {
+          const { data: activeOrders } = await supabase
+            .from('orders')
+            .select('id, customer_id, bag_id, rescue_bags(title)')
+            .in('bag_id', bagIds)
+            .in('status', ['pending', 'confirmed']);
+
+          if (activeOrders && activeOrders.length > 0) {
+            await supabase
+              .from('orders')
+              .update({
+                status: 'cancelled',
+                cancellation_reason: 'Partner cancelled this bag',
+                cancelled_at: new Date().toISOString(),
+              })
+              .in(
+                'id',
+                activeOrders.map((order) => order.id),
+              );
+
+            for (const order of activeOrders) {
+              if (!order.customer_id) continue;
+              const bagRel = order.rescue_bags as
+                | { title?: string | null }
+                | { title?: string | null }[]
+                | null;
+              const bagTitle = Array.isArray(bagRel)
+                ? bagRel[0]?.title
+                : bagRel?.title;
+              await sendNotificationPayload(order.customer_id, {
+                title: 'Reservation cancelled 😔',
+                body: `${partnerName} has cancelled their ${bagTitle || 'Rescue bag'} bag today. Your reservation has been automatically cancelled.`,
+                type: 'bag_cancelled',
+                data: {
+                  order_id: order.id,
+                  bag_id: order.bag_id,
+                  type: 'bag_cancelled',
+                  reason: 'suspended',
+                },
+              }).catch(console.error);
+            }
+          }
+        }
 
         await notifyPartner(partnerId, {
           title: 'Account suspended',

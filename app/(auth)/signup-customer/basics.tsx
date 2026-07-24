@@ -1,3 +1,4 @@
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -16,14 +17,15 @@ import { SignupFieldGroup } from '@/components/auth/SignupFieldGroup';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   emailProfileExists,
   fetchUserRole,
   navigateAfterGoogleSignIn,
   phoneProfileExists,
-  sendPhoneOtp,
 } from '@/lib/auth';
+import app from '@/lib/firebase';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -55,6 +57,12 @@ export default function CustomerBasicsScreen() {
     termsAccepted,
     setTermsAccepted,
   } = useSignupStore();
+  const {
+    sendOTP,
+    loading: phoneLoading,
+    error: phoneAuthError,
+    recaptchaVerifier,
+  } = useFirebasePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -132,19 +140,16 @@ export default function CustomerBasicsScreen() {
         setPendingRole('customer');
         setPendingName(values.fullName);
 
-        const { error: otpError } = await sendPhoneOtp(values.phone);
-        if (otpError) {
-          setSubmitError(otpError.message || 'Could not send verification code.');
+        const result = await sendOTP(values.phone);
+        if (!result.success) {
+          setSubmitError(result.error || phoneAuthError || 'Could not send verification code.');
           setChecking(false);
           return;
         }
 
         setOtpSentForPhone(values.phone);
         await hapticStepAdvance();
-        router.push({
-          pathname: '/(auth)/verify',
-          params: { mode: 'signup', role: 'customer', name: values.fullName },
-        });
+        router.push('/(auth)/verify-phone' as never);
         return;
       }
 
@@ -190,117 +195,74 @@ export default function CustomerBasicsScreen() {
 
   return (
     <>
-    <SignupStepShell
-      currentStep={1}
-      totalSteps={TOTAL_STEPS}
-      title="Let's get you set up"
-      subtitle="Create your account in a few quick steps"
-      showBack
-      onBack={goBack}
-      onContinue={onContinue}
-      continueDisabled={!isValid || checking || !termsAccepted}
-      continueLoading={checking}
-      secondaryAction={
-        <View style={styles.googleBlock}>
-          <GoogleSignInButton
-            label="Continue with Google"
-            onPress={() => void handleGoogleSignIn()}
-            loading={googleLoading}
-          />
-          <AuthDivider />
-        </View>
-      }>
-      <Controller
-        control={control}
-        name="authMethod"
-        render={({ field: { value, onChange } }) => (
-          <AuthMethodToggle value={value} onChange={onChange} />
-        )}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={app.options}
+        attemptInvisibleVerification
+        title="Verify you're human"
+        cancelLabel="Cancel"
       />
+      <SignupStepShell
+        currentStep={1}
+        totalSteps={TOTAL_STEPS}
+        title="Let's get you set up"
+        subtitle="Create your account in a few quick steps"
+        showBack
+        onBack={goBack}
+        onContinue={onContinue}
+        continueLabel={authMethod === 'phone' ? 'Send verification code →' : 'Continue'}
+        continueDisabled={!isValid || checking || phoneLoading || !termsAccepted}
+        continueLoading={checking || phoneLoading}
+        secondaryAction={
+          <View style={styles.googleBlock}>
+            <GoogleSignInButton
+              label="Continue with Google"
+              onPress={() => void handleGoogleSignIn()}
+              loading={googleLoading}
+            />
+            <AuthDivider />
+          </View>
+        }>
+        <Controller
+          control={control}
+          name="authMethod"
+          render={({ field: { value, onChange } }) => (
+            <AuthMethodToggle value={value} onChange={onChange} />
+          )}
+        />
 
-      <SignupFieldGroup label="About you" required>
-        <AuthFormCard style={styles.cardCompact}>
-          <Controller
-            control={control}
-            name="fullName"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FormField
-                label="Full name"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                placeholder="Your name"
-                autoCapitalize="words"
-                error={errors.fullName?.message}
-              />
-            )}
-          />
-        </AuthFormCard>
-      </SignupFieldGroup>
-
-      <SignupFieldGroup
-        label="Sign-in details"
-        hint="How you'll log in to LastBag"
-        required>
-        <AuthFormCard style={styles.cardCompact}>
-          {authMethod === 'email' ? (
+        <SignupFieldGroup label="About you" required>
+          <AuthFormCard style={styles.cardCompact}>
             <Controller
               control={control}
-              name="email"
+              name="fullName"
               render={({ field: { value, onChange, onBlur } }) => (
                 <FormField
-                  label="Email"
-                  value={value ?? ''}
+                  label="Full name"
+                  value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  placeholder="you@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  error={errors.email?.message}
+                  placeholder="Your name"
+                  autoCapitalize="words"
+                  error={errors.fullName?.message}
                 />
               )}
             />
-          ) : (
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { value, onChange } }) => (
-                <PhoneInput
-                  label="Phone number"
-                  value={value}
-                  onChange={onChange}
-                  placeholder="98XXXXXXXX"
-                  error={errors.phone?.message}
-                />
-              )}
-            />
-          )}
+          </AuthFormCard>
+        </SignupFieldGroup>
 
-          {authMethod === 'email' ? (
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { value, onChange } }) => (
-                <>
-                  <PhoneInput
-                    label="Phone (optional)"
-                    value={value}
-                    onChange={onChange}
-                    placeholder="98XXXXXXXX"
-                    error={errors.phone?.message}
-                  />
-                  <Text style={styles.fieldHint}>For pickup updates</Text>
-                </>
-              )}
-            />
-          ) : (
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { value, onChange, onBlur } }) => (
-                <>
+        <SignupFieldGroup
+          label="Sign-in details"
+          hint="How you'll log in to LastBag"
+          required>
+          <AuthFormCard style={styles.cardCompact}>
+            {authMethod === 'email' ? (
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { value, onChange, onBlur } }) => (
                   <FormField
-                    label="Email (optional)"
+                    label="Email"
                     value={value ?? ''}
                     onChangeText={onChange}
                     onBlur={onBlur}
@@ -309,77 +271,129 @@ export default function CustomerBasicsScreen() {
                     autoCapitalize="none"
                     error={errors.email?.message}
                   />
-                  <Text style={styles.fieldHint}>We&apos;ll send your receipts here</Text>
-                </>
+                )}
+              />
+            ) : (
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { value, onChange } }) => (
+                  <PhoneInput
+                    label="Phone number"
+                    value={value}
+                    onChange={onChange}
+                    placeholder="98XXXXXXXX"
+                    error={errors.phone?.message}
+                  />
+                )}
+              />
+            )}
+
+            {authMethod === 'email' ? (
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { value, onChange } }) => (
+                  <>
+                    <PhoneInput
+                      label="Phone (optional)"
+                      value={value}
+                      onChange={onChange}
+                      placeholder="98XXXXXXXX"
+                      error={errors.phone?.message}
+                      showHelper={false}
+                    />
+                    <Text style={styles.fieldHint}>For pickup updates</Text>
+                  </>
+                )}
+              />
+            ) : (
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <>
+                    <FormField
+                      label="Email (optional — for receipts)"
+                      value={value ?? ''}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      placeholder="you@email.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      error={errors.email?.message}
+                    />
+                    <Text style={styles.fieldHint}>We&apos;ll send your receipts here</Text>
+                  </>
+                )}
+              />
+            )}
+          </AuthFormCard>
+        </SignupFieldGroup>
+
+        <SignupFieldGroup label="Security" hint="At least 8 characters" required>
+          <AuthFormCard style={styles.cardCompact}>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <PasswordField
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  autoComplete="password-new"
+                  error={errors.password?.message}
+                />
               )}
             />
-          )}
-        </AuthFormCard>
-      </SignupFieldGroup>
 
-      <SignupFieldGroup label="Security" hint="At least 8 characters" required>
-        <AuthFormCard style={styles.cardCompact}>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <PasswordField
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                autoComplete="password-new"
-                error={errors.password?.message}
-              />
-            )}
-          />
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <PasswordField
+                  label="Confirm password"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Re-enter your password"
+                  autoComplete="password-new"
+                  error={errors.confirmPassword?.message}
+                />
+              )}
+            />
+          </AuthFormCard>
+        </SignupFieldGroup>
 
-          <Controller
-            control={control}
-            name="confirmPassword"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <PasswordField
-                label="Confirm password"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                placeholder="Re-enter your password"
-                autoComplete="password-new"
-                error={errors.confirmPassword?.message}
-              />
-            )}
-          />
-        </AuthFormCard>
-      </SignupFieldGroup>
+        {submitError ? <AuthErrorBanner message={submitError} /> : null}
 
-      {submitError ? <AuthErrorBanner message={submitError} /> : null}
+        <TermsCheckbox
+          accepted={termsAccepted}
+          onToggle={() => setTermsAccepted(!termsAccepted)}
+        />
+      </SignupStepShell>
 
-      <TermsCheckbox
-        accepted={termsAccepted}
-        onToggle={() => setTermsAccepted(!termsAccepted)}
+      <TermsAcceptanceModal
+        visible={showTermsModal}
+        onAccept={async () => {
+          if (!pendingGoogleUserId) return;
+          const { error } = await recordTermsAcceptance(pendingGoogleUserId);
+          if (error) {
+            Alert.alert('Could not save', error.message);
+            return;
+          }
+          setShowTermsModal(false);
+          const role = await fetchUserRole(pendingGoogleUserId);
+          setAuthRole(role ?? 'customer');
+          router.replace(await resolveAuthenticatedRoute(pendingGoogleUserId, role ?? 'customer'));
+        }}
+        onCancel={async () => {
+          setShowTermsModal(false);
+          setPendingGoogleUserId(null);
+          await supabase.auth.signOut();
+          Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');
+        }}
       />
-    </SignupStepShell>
-
-    <TermsAcceptanceModal
-      visible={showTermsModal}
-      onAccept={async () => {
-        if (!pendingGoogleUserId) return;
-        const { error } = await recordTermsAcceptance(pendingGoogleUserId);
-        if (error) {
-          Alert.alert('Could not save', error.message);
-          return;
-        }
-        setShowTermsModal(false);
-        const role = await fetchUserRole(pendingGoogleUserId);
-        setAuthRole(role ?? 'customer');
-        router.replace(await resolveAuthenticatedRoute(pendingGoogleUserId, role ?? 'customer'));
-      }}
-      onCancel={async () => {
-        setShowTermsModal(false);
-        setPendingGoogleUserId(null);
-        await supabase.auth.signOut();
-        Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');
-      }}
-    />
     </>
   );
 }

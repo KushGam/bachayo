@@ -52,6 +52,20 @@ export async function resolveAuthenticatedRoute(
     return resolvePartnerRoute(userId);
   }
 
+  if (role === 'customer') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const completed = (profile as { onboarding_completed?: boolean | null } | null)
+      ?.onboarding_completed;
+    if (completed === false) {
+      return '/(onboarding)/customer' as Href;
+    }
+  }
+
   return getTabsRouteForRole(role);
 }
 

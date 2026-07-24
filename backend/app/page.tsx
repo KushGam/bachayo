@@ -318,11 +318,81 @@ export default function HomeLanding() {
               <p className="mt-3 max-w-sm text-[15px] text-[var(--text-secondary)]">
                 Browse freely. Reserve with your details — no payment until pickup.
               </p>
-              <div className="mt-10 max-w-xs rounded-2xl border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-md)]">
-                <div className="mb-2 h-8 rounded-lg bg-[var(--bg)]" />
-                <div className="mb-3 h-8 rounded-lg bg-[var(--bg)]" />
-                <div className="rounded-lg bg-[var(--primary)] py-2.5 text-center text-xs font-semibold text-white">
-                  Confirm reservation
+              <div
+                style={{
+                  background: 'white',
+                  borderRadius: 16,
+                  padding: 20,
+                  marginTop: 24,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                  border: '1px solid #F0EDE8',
+                  transform: 'rotate(2deg)',
+                }}>
+                <div style={{ marginBottom: 10 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#9CA3AF',
+                      marginBottom: 4,
+                      fontWeight: 600,
+                    }}>
+                    YOUR NAME
+                  </div>
+                  <div
+                    style={{
+                      background: '#F5F3EF',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                      fontSize: 14,
+                      color: '#1A1A1A',
+                    }}>
+                    Kushal Gautam
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#9CA3AF',
+                      marginBottom: 4,
+                      fontWeight: 600,
+                    }}>
+                    PHONE
+                  </div>
+                  <div
+                    style={{
+                      background: '#F5F3EF',
+                      borderRadius: 8,
+                      padding: '10px 14px',
+                      fontSize: 14,
+                      color: '#1A1A1A',
+                    }}>
+                    +977 9762XXXXXX
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: '#D85A30',
+                    borderRadius: 999,
+                    padding: '12px 20px',
+                    textAlign: 'center',
+                    color: 'white',
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}>
+                  Confirm reservation →
+                </div>
+
+                <div
+                  style={{
+                    textAlign: 'center',
+                    fontSize: 11,
+                    color: '#9CA3AF',
+                    marginTop: 8,
+                  }}>
+                  Free to reserve · Pay at pickup
                 </div>
               </div>
             </div>
@@ -341,15 +411,108 @@ export default function HomeLanding() {
               <p className="relative mt-3 text-[15px] text-white/50">
                 Show your code, pay at the counter, done.
               </p>
-              <div className="relative mt-10 grid grid-cols-4 gap-1.5 opacity-85">
-                {Array.from({ length: 16 }).map((_, i) => (
+              <div
+                className="relative"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  marginTop: 24,
+                }}>
+                <div
+                  style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    padding: 16,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                  }}>
+                  <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden>
+                    <rect x="10" y="10" width="40" height="40" rx="4" fill="#1A1A1A" />
+                    <rect x="16" y="16" width="28" height="28" rx="2" fill="white" />
+                    <rect x="22" y="22" width="16" height="16" rx="1" fill="#1A1A1A" />
+
+                    <rect x="90" y="10" width="40" height="40" rx="4" fill="#1A1A1A" />
+                    <rect x="96" y="16" width="28" height="28" rx="2" fill="white" />
+                    <rect x="102" y="22" width="16" height="16" rx="1" fill="#1A1A1A" />
+
+                    <rect x="10" y="90" width="40" height="40" rx="4" fill="#1A1A1A" />
+                    <rect x="16" y="96" width="28" height="28" rx="2" fill="white" />
+                    <rect x="22" y="102" width="16" height="16" rx="1" fill="#1A1A1A" />
+
+                    <rect x="60" y="10" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="72" y="10" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="22" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="72" y="34" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="10" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="22" y="72" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="10" y="72" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="72" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="84" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="72" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="84" y="72" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="84" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="72" y="84" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="96" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="108" y="72" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="120" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="108" y="84" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="120" y="84" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="96" y="96" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="120" y="96" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="96" y="108" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="108" y="108" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="120" y="108" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="34" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="46" y="60" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="34" y="84" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="46" y="96" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="34" y="108" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="46" y="120" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="96" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="72" y="108" width="8" height="8" rx="1" fill="#1A1A1A" />
+                    <rect x="60" y="120" width="8" height="8" rx="1" fill="#1A1A1A" />
+
+                    <rect x="54" y="54" width="32" height="32" rx="6" fill="#D85A30" />
+                    <rect x="60" y="60" width="20" height="16" rx="3" fill="white" />
+                    <path
+                      d="M 64,60 L 64,55 Q 64,51 70,51 Q 76,51 76,55 L 76,60"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    background: '#F5F3EF',
+                    borderRadius: 10,
+                    padding: '8px 20px',
+                    textAlign: 'center',
+                  }}>
                   <div
-                    key={i}
-                    className={`aspect-square rounded-sm ${
-                      [0, 1, 2, 4, 5, 8, 10, 12, 13, 14].includes(i) ? 'bg-white' : 'bg-white/15'
-                    }`}
-                  />
-                ))}
+                    style={{
+                      fontSize: 11,
+                      color: '#9CA3AF',
+                      letterSpacing: 1,
+                      marginBottom: 4,
+                    }}>
+                    ORDER CODE
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 900,
+                      color: '#1A1A1A',
+                      letterSpacing: 8,
+                      fontFamily: 'monospace',
+                    }}>
+                    A3F2K9
+                  </div>
+                </div>
               </div>
             </div>
           </FadeIn>
@@ -360,9 +523,118 @@ export default function HomeLanding() {
               <p className="mt-3 text-[15px] text-[var(--text-secondary)]">
                 Partners get notified the moment a bag is reserved.
               </p>
-              <div className="mt-8 flex items-center gap-2">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--primary)]" />
-                <span className="text-xs font-medium text-[var(--text-muted)]">New reservation</span>
+              <div style={{ marginTop: 24 }}>
+                <div
+                  style={{
+                    background: 'white',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    marginBottom: 8,
+                    border: '1px solid #F0EDE8',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                  }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      background: '#FAECE7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}>
+                    🛍
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>
+                      New reservation!
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                      Kushal reserved 2× Dal Bhat
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>now</div>
+                </div>
+
+                <div
+                  style={{
+                    background: 'white',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    marginBottom: 8,
+                    border: '1px solid #F0EDE8',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    opacity: 0.85,
+                  }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      background: '#FEF3C7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}>
+                    ⭐
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>
+                      New 5-star review!
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                      &quot;Generous bag, delicious food!&quot;
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>2m</div>
+                </div>
+
+                <div
+                  style={{
+                    background: 'white',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    border: '1px solid #F0EDE8',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    opacity: 0.65,
+                  }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      background: '#ECFDF5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}>
+                    🎉
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A' }}>
+                      All bags sold out!
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                      5 of 5 bags reserved today
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>5m</div>
+                </div>
               </div>
             </div>
           </FadeIn>

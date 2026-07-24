@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.lastbag.app",
       "icon": "./assets/images/app-icon.png",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "LastBag uses the camera to scan pickup QR codes. LastBag ले पिकअपका लागि QR कोड स्क्यान गर्न क्यामेरा चाहिन्छ।",
         "NSLocationWhenInUseUsageDescription": "LastBag ले नजिकका रेस्क्यू ब्यागहरू देखाउन तपाईंको स्थान प्रयोग गर्छ।",
@@ -20,6 +21,7 @@
     },
     "android": {
       "package": "com.lastbag.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
@@ -82,7 +84,9 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true

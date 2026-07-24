@@ -19,6 +19,7 @@ import { DashboardHeroBlock } from '@/components/partner/DashboardHeroBlock';
 import { DashboardCtaCard } from '@/components/partner/DashboardCtaCard';
 import { buildDashboardStats } from '@/components/partner/DashboardStatsRow';
 import { PartnerEmptyState } from '@/components/partner/PartnerEmptyState';
+import { PartnerOnboardingChecklistCard } from '@/components/partner/PartnerOnboardingChecklistCard';
 import { PartnerOrderRow } from '@/components/partner/PartnerOrderRow';
 import { PartnerSectionHeader } from '@/components/partner/PartnerSectionHeader';
 import { DashboardQuickActions } from '@/components/partner/DashboardQuickActions';
@@ -547,6 +548,16 @@ export default function PartnerDashboardScreen() {
           <View style={styles.retryWrap}>
             <RetryState message={fetchError} onRetry={loadData} />
           </View>
+        ) : null}
+
+        {partner ? (
+          <PartnerOnboardingChecklistCard
+            partnerId={partner.id}
+            coverImageUrl={partner.cover_image_url}
+            description={partner.description}
+            address={partner.address}
+            createdAt={partner.created_at}
+          />
         ) : null}
 
         {partner ? (

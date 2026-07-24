@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
@@ -6,40 +5,58 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 
 type PhoneInputProps = {
   value: string;
-  onChange: (value: string) => void;
+  /** Preferred callback used across existing auth forms */
+  onChange?: (value: string) => void;
+  /** Spec alias */
+  onChangeText?: (text: string) => void;
   placeholder?: string;
   label?: string;
   error?: string;
+  showHelper?: boolean;
 };
 
-export function PhoneInput({ value, onChange, placeholder, label, error }: PhoneInputProps) {
-  const [focused, setFocused] = useState(false);
+export function PhoneInput({
+  value,
+  onChange,
+  onChangeText,
+  placeholder = '98XXXXXXXX',
+  label = 'Phone number',
+  error,
+  showHelper = true,
+}: PhoneInputProps) {
+  const handleChange = (text: string) => {
+    const clean = text.replace(/\D/g, '').slice(0, 10);
+    onChange?.(clean);
+    onChangeText?.(clean);
+  };
 
   return (
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View
-        style={[
-          styles.container,
-          focused && !error ? styles.containerFocused : null,
-          error ? styles.containerError : null,
-        ]}>
-        <Text style={styles.flag}>🇳🇵</Text>
-        <Text style={styles.prefix}>+977</Text>
-        <View style={styles.divider} />
+
+      <View style={[styles.container, error ? styles.containerError : null]}>
+        <View style={styles.prefixBlock}>
+          <Text style={styles.flag}>🇳🇵</Text>
+          <Text style={styles.prefix}>+977</Text>
+        </View>
+
         <TextInput
           value={value}
-          onChangeText={(text) => onChange(text.replace(/\D/g, '').slice(0, 10))}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onChangeText={handleChange}
           placeholder={placeholder}
-          placeholderTextColor={Palette.textTertiary}
+          placeholderTextColor="#9CA3AF"
           keyboardType="phone-pad"
           maxLength={10}
           style={styles.input}
         />
+
+        <Text style={styles.counter}>{value.length}/10</Text>
       </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!error && showHelper ? (
+        <Text style={styles.helper}>NTC or Ncell number</Text>
+      ) : null}
     </View>
   );
 }
@@ -47,57 +64,63 @@ export function PhoneInput({ value, onChange, placeholder, label, error }: Phone
 const styles = StyleSheet.create({
   wrap: {
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
   },
   label: {
-    ...Type.label,
-    color: Palette.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Palette.white,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Palette.border,
-    minHeight: 52,
-    paddingHorizontal: Spacing.lg,
-  },
-  containerFocused: {
-    borderColor: Palette.primary,
-    borderWidth: 2,
-    shadowColor: Palette.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    overflow: 'hidden',
   },
   containerError: {
-    borderColor: Palette.dangerBorder,
+    borderColor: '#E24B4A',
+  },
+  prefixBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRightWidth: 1,
+    borderRightColor: '#F0EDE8',
+    gap: 6,
   },
   flag: {
-    fontSize: 20,
-    marginRight: Spacing.sm,
+    fontSize: 18,
   },
   prefix: {
-    ...Type.bodyMedium,
-    color: Palette.textPrimary,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  divider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Palette.border,
-    marginHorizontal: Spacing.md,
+    color: '#374151',
   },
   input: {
     flex: 1,
-    fontSize: Type.body.fontSize,
-    lineHeight: Type.body.lineHeight,
-    color: Palette.textPrimary,
-    paddingVertical: Spacing.md,
+    fontSize: 16,
+    color: '#1A1A1A',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontWeight: '500',
+  },
+  counter: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    paddingRight: 12,
   },
   error: {
-    ...Type.caption,
-    color: Palette.dangerText,
+    fontSize: 12,
+    color: '#E24B4A',
+    marginTop: 6,
+  },
+  helper: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
   },
 });

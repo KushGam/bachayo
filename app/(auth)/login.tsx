@@ -1,15 +1,16 @@
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { z } from 'zod';
 
 import { AuthButton } from '@/components/auth/AuthButton';
 import { AuthDivider } from '@/components/auth/AuthDivider';
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthFormCard } from '@/components/auth/AuthFormCard';
-import { AuthMethodToggle } from '@/components/auth/AuthMethodToggle';
 import { AuthScreenHeader } from '@/components/auth/AuthScreenHeader';
 import { FormField } from '@/components/auth/FormField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
@@ -20,6 +21,7 @@ import { Screen } from '@/components/Screen';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   fetchUserRole,
@@ -28,15 +30,31 @@ import {
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
+import app from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
-import { loginSchema, type LoginFormValues } from '@/lib/validation/auth';
+import { passwordField, phoneSchema } from '@/lib/validation/auth';
 import { useAuthStore } from '@/store/useAuthStore';
+
+type LoginTab = 'phone' | 'email' | 'password';
+
+const emailLoginSchema = z.object({
+  email: z.string().email('Enter a valid email address'),
+  password: passwordField,
+});
+
+const passwordLoginSchema = z.object({
+  phone: phoneSchema.shape.phone,
+  password: passwordField,
+});
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { locale, setAuthRole } = useAuthStore();
+  const { locale, setAuthRole, setPendingPhone, setPendingMode } = useAuthStore();
+  const [tab, setTab] = useState<LoginTab>('phone');
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -45,58 +63,97 @@ export default function LoginScreen() {
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      authMethod: 'phone',
-      email: '',
-      phone: '',
-      password: '',
-    },
+    sendOTP,
+    loading: phoneLoading,
+    recaptchaVerifier,
+    validatePhone,
+  } = useFirebasePhoneAuth();
+
+  const emailForm = useForm({
+    resolver: zodResolver(emailLoginSchema),
+    defaultValues: { email: '', password: '' },
   });
 
-  const authMethod = watch('authMethod');
+  const passwordForm = useForm({
+    resolver: zodResolver(passwordLoginSchema),
+    defaultValues: { phone: '', password: '' },
+  });
 
-  const onSubmit = async (values: LoginFormValues) => {
+  const handleSendPhoneCode = async () => {
     setSubmitError(null);
+    setPhoneError(null);
+
+    if (!validatePhone(phone)) {
+      setPhoneError('Enter a valid Nepal number');
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const { data, error } =
-        values.authMethod === 'email'
-          ? await signInWithEmail(values.email, values.password)
-          : await signInWithPhone(values.phone, values.password);
-
-      if (error || !data.user) {
-        setSubmitError(
-          error?.message?.toLowerCase().includes('invalid login credentials')
-            ? 'Incorrect email/phone or password.'
-            : error?.message || t(locale, 'authError'),
-        );
-        setLoading(false);
+      const result = await sendOTP(phone);
+      if (!result.success) {
+        setSubmitError(result.error || 'Could not send verification code.');
         return;
       }
 
-      const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
-      if (!result.ok) {
-        setSubmitError(result.error);
-      }
-    } catch {
-      setSubmitError(t(locale, 'authError'));
+      setPendingPhone(phone);
+      setPendingMode('login');
+      router.push({
+        pathname: '/(auth)/verify-phone',
+        params: { mode: 'login' },
+      } as never);
     } finally {
       setLoading(false);
     }
   };
 
+  const onEmailSubmit = emailForm.handleSubmit(async (values) => {
+    setSubmitError(null);
+    setLoading(true);
+    try {
+      const { data, error } = await signInWithEmail(values.email, values.password);
+      if (error || !data.user) {
+        setSubmitError(
+          error?.message?.toLowerCase().includes('invalid login credentials')
+            ? 'Incorrect email or password.'
+            : error?.message || t(locale, 'authError'),
+        );
+        return;
+      }
+      const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
+      if (!result.ok) setSubmitError(result.error);
+    } catch {
+      setSubmitError(t(locale, 'authError'));
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  const onPasswordSubmit = passwordForm.handleSubmit(async (values) => {
+    setSubmitError(null);
+    setLoading(true);
+    try {
+      const { data, error } = await signInWithPhone(values.phone, values.password);
+      if (error || !data.user) {
+        setSubmitError(
+          error?.message?.toLowerCase().includes('invalid login credentials')
+            ? 'Incorrect phone or password.'
+            : error?.message || t(locale, 'authError'),
+        );
+        return;
+      }
+      const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
+      if (!result.ok) setSubmitError(result.error);
+    } catch {
+      setSubmitError(t(locale, 'authError'));
+    } finally {
+      setLoading(false);
+    }
+  });
+
   const handleGoogleSignIn = async () => {
     setSubmitError(null);
     setGoogleLoading(true);
-
     try {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
       if (!result.ok) {
@@ -115,91 +172,149 @@ export default function LoginScreen() {
     }
   };
 
+  const tabs: { key: LoginTab; label: string }[] = [
+    { key: 'phone', label: '📱 Phone' },
+    { key: 'email', label: '📧 Email' },
+    { key: 'password', label: '🔑 Password' },
+  ];
+
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
       <StatusBar style="dark" />
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={app.options}
+        attemptInvisibleVerification
+      />
 
       <AuthScreenHeader
         title="Welcome back"
-        subtitle="Log in with your email or phone and password"
+        subtitle="Log in with phone, email, or password"
         onBack={goBack}
       />
 
-      <Controller
-        control={control}
-        name="authMethod"
-        render={({ field: { value, onChange } }) => (
-          <AuthMethodToggle
-            value={value}
-            onChange={(method) => {
-              onChange(method);
-              setValue('email', '');
-              setValue('phone', '');
-            }}
-          />
-        )}
-      />
+      <View style={styles.track}>
+        {tabs.map(({ key, label }) => {
+          const active = tab === key;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => {
+                setTab(key);
+                setSubmitError(null);
+                setPhoneError(null);
+              }}
+              style={[styles.option, active && styles.optionActive]}>
+              <Text style={[styles.optionText, active && styles.optionTextActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <AuthFormCard>
-        {authMethod === 'email' ? (
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FormField
-                label="Email"
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                placeholder="you@email.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.email?.message}
-              />
-            )}
-          />
-        ) : (
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { value, onChange } }) => (
-              <PhoneInput
-                label="Phone number"
-                value={value}
-                onChange={onChange}
-                placeholder={t(locale, 'phonePlaceholder')}
-                error={errors.phone?.message}
-              />
-            )}
-          />
-        )}
-
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <PasswordField
-              value={value}
-              onChangeText={onChange}
-              onBlur={onBlur}
-              placeholder="Your password"
-              error={errors.password?.message}
+        {tab === 'phone' ? (
+          <>
+            <PhoneInput
+              value={phone}
+              onChangeText={setPhone}
+              error={phoneError ?? undefined}
             />
-          )}
-        />
+            {submitError ? <AuthErrorBanner message={submitError} /> : null}
+            <AuthButton
+              label="Send code →"
+              onPress={() => void handleSendPhoneCode()}
+              loading={loading || phoneLoading}
+              style={styles.submit}
+            />
+          </>
+        ) : null}
 
-        {submitError ? <AuthErrorBanner message={submitError} /> : null}
+        {tab === 'email' ? (
+          <>
+            <Controller
+              control={emailForm.control}
+              name="email"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <FormField
+                  label="Email"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="you@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  error={emailForm.formState.errors.email?.message}
+                />
+              )}
+            />
+            <Controller
+              control={emailForm.control}
+              name="password"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <PasswordField
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Your password"
+                  error={emailForm.formState.errors.password?.message}
+                />
+              )}
+            />
+            {submitError ? <AuthErrorBanner message={submitError} /> : null}
+            <AuthButton
+              label="Log in"
+              onPress={onEmailSubmit}
+              loading={loading}
+              style={styles.submit}
+            />
+          </>
+        ) : null}
 
-        <AuthButton
-          label="Log in"
-          onPress={handleSubmit(onSubmit)}
-          loading={loading}
-          style={styles.submit}
-        />
+        {tab === 'password' ? (
+          <>
+            <Controller
+              control={passwordForm.control}
+              name="phone"
+              render={({ field: { value, onChange } }) => (
+                <PhoneInput
+                  label="Phone number"
+                  value={value}
+                  onChange={onChange}
+                  placeholder={t(locale, 'phonePlaceholder')}
+                  error={passwordForm.formState.errors.phone?.message}
+                />
+              )}
+            />
+            <Controller
+              control={passwordForm.control}
+              name="password"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <PasswordField
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Your password"
+                  error={passwordForm.formState.errors.password?.message}
+                />
+              )}
+            />
+            {submitError ? <AuthErrorBanner message={submitError} /> : null}
+            <AuthButton
+              label="Log in"
+              onPress={onPasswordSubmit}
+              loading={loading}
+              style={styles.submit}
+            />
+          </>
+        ) : null}
       </AuthFormCard>
 
       <View style={styles.footer}>
-        <Pressable onPress={() => router.push('/(auth)/signup-customer/basics')} style={styles.textLink}>
+        <Pressable
+          onPress={() => router.push('/(auth)/signup-customer/basics')}
+          style={styles.textLink}>
           <Text style={styles.textLinkMuted}>New here? </Text>
           <Text style={styles.textLinkAccent}>Create an account</Text>
         </Pressable>
@@ -241,6 +356,38 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingBottom: Spacing.xxl,
+  },
+  track: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: Palette.primaryLight,
+    borderWidth: 1,
+    borderColor: 'rgba(216, 90, 48, 0.12)',
+    marginBottom: Spacing.lg,
+  },
+  option: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: 999,
+  },
+  optionActive: {
+    backgroundColor: Palette.white,
+    shadowColor: '#1A1A1A',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  optionText: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    fontWeight: '600',
+  },
+  optionTextActive: {
+    color: Palette.primaryDark,
   },
   submit: {
     marginTop: Spacing.sm,

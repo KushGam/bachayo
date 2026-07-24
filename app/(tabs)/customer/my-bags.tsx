@@ -329,6 +329,7 @@ export default function MyBagsScreen() {
           onViewRestaurant={() => router.push(`/partner/${item.partner_id}`)}
           onChat={() => router.push(`/order/chat/${item.id}`)}
           onPrivacySettings={() => router.push('/profile/privacy')}
+          onFindNearby={() => router.push('/(tabs)/customer/home')}
           unreadMessages={unreadByOrder[item.id] ?? 0}
         />
       );

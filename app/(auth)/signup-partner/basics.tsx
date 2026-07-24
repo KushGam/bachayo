@@ -1,3 +1,4 @@
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -17,14 +18,15 @@ import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { Spacing } from '@/constants/theme';
+import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   emailProfileExists,
   fetchUserRole,
   navigateAfterGoogleSignIn,
   phoneProfileExists,
-  sendPhoneOtp,
 } from '@/lib/auth';
+import app from '@/lib/firebase';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -54,6 +56,12 @@ export default function PartnerBasicsScreen() {
     termsAccepted,
     setTermsAccepted,
   } = useSignupStore();
+  const {
+    sendOTP,
+    loading: phoneLoading,
+    error: phoneAuthError,
+    recaptchaVerifier,
+  } = useFirebasePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -132,19 +140,16 @@ export default function PartnerBasicsScreen() {
         setPendingRole('partner');
         setPendingName(values.ownerName);
 
-        const { error: otpError } = await sendPhoneOtp(values.phone);
-        if (otpError) {
-          setSubmitError(otpError.message || 'Could not send verification code.');
+        const result = await sendOTP(values.phone);
+        if (!result.success) {
+          setSubmitError(result.error || phoneAuthError || 'Could not send verification code.');
           setChecking(false);
           return;
         }
 
         setOtpSentForPhone(values.phone);
         await hapticStepAdvance();
-        router.push({
-          pathname: '/(auth)/verify',
-          params: { mode: 'signup', role: 'partner', name: values.ownerName },
-        });
+        router.push('/(auth)/verify-phone' as never);
         return;
       }
 
@@ -190,6 +195,13 @@ export default function PartnerBasicsScreen() {
 
   return (
     <>
+    <FirebaseRecaptchaVerifierModal
+      ref={recaptchaVerifier}
+      firebaseConfig={app.options}
+      attemptInvisibleVerification
+      title="Verify you're human"
+      cancelLabel="Cancel"
+    />
     <SignupStepShell
       currentStep={1}
       totalSteps={TOTAL_STEPS}
@@ -198,8 +210,9 @@ export default function PartnerBasicsScreen() {
       showBack
       onBack={goBack}
       onContinue={onContinue}
-      continueDisabled={!isValid || checking || !termsAccepted}
-      continueLoading={checking}
+      continueLabel={authMethod === 'phone' ? 'Send verification code →' : 'Continue'}
+      continueDisabled={!isValid || checking || phoneLoading || !termsAccepted}
+      continueLoading={checking || phoneLoading}
       secondaryAction={
         <View style={styles.googleBlock}>
           <GoogleSignInButton
@@ -363,7 +376,6 @@ export default function PartnerBasicsScreen() {
         setPendingRole('partner');
         const role = await fetchUserRole(pendingGoogleUserId);
         setAuthRole(role ?? 'partner');
-        // New partners still need phone / business onboarding
         router.replace(
           role === 'partner'
             ? await resolveAuthenticatedRoute(pendingGoogleUserId, 'partner')
