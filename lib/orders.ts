@@ -63,7 +63,7 @@ export async function fetchPartnerOrders(partnerId: string, today: string) {
       .select(`
       *,
       bag:rescue_bags(*),
-      customer:profiles(id, full_name, phone)
+      customer:profiles(id, full_name, phone, privacy_settings)
     `)
       .eq('partner_id', partnerId)
       .order('created_at', { ascending: false }),
@@ -93,7 +93,7 @@ export async function fetchOrderByManualCode(code: string, partnerId: string) {
     .select(`
       *,
       bag:rescue_bags(*),
-      customer:profiles(id, full_name, phone)
+      customer:profiles(id, full_name, phone, privacy_settings)
     `)
     .eq('partner_id', partnerId);
 
@@ -127,7 +127,7 @@ export async function fetchPartnerReviews(partnerId: string) {
     .from('reviews')
     .select(`
       *,
-      customer:profiles(id, full_name, phone),
+      customer:profiles(id, full_name, phone, privacy_settings),
       order:orders(bag:rescue_bags(title))
     `)
     .eq('partner_id', partnerId)
@@ -218,7 +218,7 @@ export async function fetchOrderByQrCode(qrCode: string) {
     .select(`
       *,
       bag:rescue_bags(*),
-      customer:profiles(id, full_name, phone)
+      customer:profiles(id, full_name, phone, privacy_settings)
     `)
     .eq('qr_code', qrCode)
     .maybeSingle();
@@ -230,7 +230,7 @@ export async function fetchOrderByQrCode(qrCode: string) {
 const PARTNER_ORDER_SELECT = `
   *,
   bag:rescue_bags(*),
-  customer:profiles(id, full_name, phone)
+  customer:profiles(id, full_name, phone, privacy_settings)
 `;
 
 export async function lookupOrderByPartnerCode(code: string, partnerId: string) {

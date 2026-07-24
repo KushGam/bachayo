@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import { track } from '@/lib/analytics';
 import { hapticSuccess } from '@/lib/haptics';
 import { confirmPartnerPickup, type PickupConfirmedBy } from '@/lib/orders';
+import { getDisplayName } from '@/lib/privacy';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 
@@ -52,11 +53,7 @@ export function usePartnerPickupFlow(partnerName?: string) {
       void hapticSuccess();
       void celebrateMilestoneOnce('pickupConfirmed');
 
-      const name =
-        foundOrder.customer_name ||
-        foundOrder.customer.full_name ||
-        foundOrder.customer.phone ||
-        'Customer';
+      const name = getDisplayName(foundOrder.customer) || foundOrder.customer_name || 'Customer';
 
       setSuccessCustomerName(name);
       setSheetVisible(false);

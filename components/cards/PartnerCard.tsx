@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { formatNprPaisa } from '@/lib/helpers';
+import { getDisplayName } from '@/lib/privacy';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 import type { OrderStatus } from '@/types/database';
 
@@ -34,7 +35,7 @@ export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps
     <View style={styles.orderCard}>
       <View style={styles.orderTop}>
         <Text style={styles.customerName}>
-          {order.customer.full_name || order.customer.phone || 'Customer'}
+          {getDisplayName(order.customer)}
         </Text>
         <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
           <Text style={[styles.statusText, { color: statusStyle.text }]}>

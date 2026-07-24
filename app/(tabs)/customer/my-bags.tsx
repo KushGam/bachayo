@@ -71,6 +71,7 @@ export default function MyBagsScreen() {
   const [showPickupToast, setShowPickupToast] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [showPhoneToRestaurants, setShowPhoneToRestaurants] = useState(true);
   const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
   const [, tick] = useState(0);
   const refreshOrdersRef = useRef<() => Promise<void>>(async () => {});
@@ -100,7 +101,19 @@ export default function MyBagsScreen() {
     setCustomerId(userId);
 
     try {
-      const rows = await fetchCustomerOrders(userId);
+      const [{ data: privacyRow }, rows] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('privacy_settings')
+          .eq('id', userId)
+          .maybeSingle(),
+        fetchCustomerOrders(userId),
+      ]);
+
+      const settings = (privacyRow as { privacy_settings?: { show_phone?: boolean } } | null)
+        ?.privacy_settings;
+      setShowPhoneToRestaurants(settings?.show_phone ?? true);
+
       ordersCacheRef.current = rows;
       setOrders(rows);
       const counts = await fetchUnreadCountsByOrder(
@@ -305,6 +318,7 @@ export default function MyBagsScreen() {
           urgent={urgent}
           cancelEligibility={cancelEligibility}
           showCancelRow={showCancelRow}
+          showPhoneToRestaurants={showPhoneToRestaurants}
           onToggleExpand={() => toggleExpand(item.id)}
           onCancelPress={() => handleCancelPress(item)}
           onDirections={() =>
@@ -314,11 +328,12 @@ export default function MyBagsScreen() {
           onHelp={() => router.push('/support/help')}
           onViewRestaurant={() => router.push(`/partner/${item.partner_id}`)}
           onChat={() => router.push(`/order/chat/${item.id}`)}
+          onPrivacySettings={() => router.push('/profile/privacy')}
           unreadMessages={unreadByOrder[item.id] ?? 0}
         />
       );
     },
-    [expandedId, router, tab, unreadByOrder],
+    [expandedId, router, showPhoneToRestaurants, tab, unreadByOrder],
   );
 
   return (

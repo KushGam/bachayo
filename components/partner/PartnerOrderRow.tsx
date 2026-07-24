@@ -17,6 +17,7 @@ import {
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { confirmPartnerPickup } from '@/lib/orders';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
+import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 import type { OrderStatus } from '@/types/database';
 
@@ -81,8 +82,10 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   }, [onMarkPickedUp, order.status]);
 
   const customerName =
-    order.customer_name || order.customer.full_name || order.customer.phone || 'Customer';
-  const phone = order.customer_phone || order.customer.phone;
+    getDisplayName(order.customer) ||
+    order.customer_name ||
+    'Customer';
+  const phone = getDisplayPhone(order.customer);
   const normalizedStatus = normalizeOrderStatus(localStatus);
   const statusStyle = STATUS_STYLES[normalizedStatus] ?? STATUS_STYLES.pending;
   const isCancelled = normalizedStatus === 'cancelled' || normalizedStatus === 'missed';
@@ -211,7 +214,9 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
               <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)}>
                 <Text style={styles.detailPhone}>{phone}</Text>
               </Pressable>
-            ) : null}
+            ) : (
+              <Text style={styles.phoneHidden}>📵 Phone hidden by customer</Text>
+            )}
             {order.customer_note ? (
               <Text style={styles.detailNote}>{order.customer_note}</Text>
             ) : null}
@@ -396,6 +401,12 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Palette.textSecondary,
     textDecorationLine: 'underline',
+  },
+  phoneHidden: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    fontStyle: 'italic',
+    fontSize: 13,
   },
   detailNote: {
     ...Type.caption,

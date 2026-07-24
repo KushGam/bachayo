@@ -1,7 +1,6 @@
-import { Image, StyleSheet, View, type ViewStyle } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
 
-const logoMark = require('@/assets/images/logo-mark.png');
-const logoMarkLight = require('@/assets/images/logo-mark-light.png');
+import { LastBagBagIcon } from '@/components/brand/LastBagBagIcon';
 
 type AppMarkSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -15,34 +14,17 @@ const SIZES: Record<AppMarkSize, number> = {
 
 type AppMarkProps = {
   size?: AppMarkSize;
-  /** When true, use white mark only (no terracotta tile) */
+  /** kept for API compat — icon already includes terracotta tile */
   onDark?: boolean;
   style?: ViewStyle;
 };
 
-export function AppMark({ size = 'lg', onDark = false, style }: AppMarkProps) {
+export function AppMark({ size = 'lg', style }: AppMarkProps) {
   const dimension = SIZES[size];
-  const source = onDark ? logoMarkLight : logoMark;
 
   return (
-    <View style={[styles.wrap, style]}>
-      <Image
-        source={source}
-        style={{
-          width: dimension,
-          height: dimension,
-          borderRadius: onDark ? 0 : dimension * 0.22,
-        }}
-        resizeMode="contain"
-        accessibilityLabel="LastBag"
-      />
+    <View style={[{ alignItems: 'center', justifyContent: 'center' }, style]}>
+      <LastBagBagIcon size={dimension} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

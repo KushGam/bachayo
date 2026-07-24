@@ -11,6 +11,7 @@ import Animated, {
 import { formatRelativeTime, getInitials } from '@/lib/helpers';
 import { isConfirmedOrderStatus, isReservedOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
 import { formatNprFromPaisa, type PartnerBagOrder } from '@/lib/partnerBags';
+import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 
 type OrderSummaryInput = {
   quantity?: number;
@@ -110,8 +111,8 @@ export function BagExpandedOrderRow({
   onOpenChat,
   unreadMessages = 0,
 }: BagExpandedOrderRowProps) {
-  const customerName = order.customer?.full_name || 'Customer';
-  const phone = order.customer?.phone;
+  const customerName = getDisplayName(order.customer);
+  const phone = getDisplayPhone(order.customer);
   const normalizedStatus = normalizeOrderStatus(order.status);
   const isPickedUp = normalizedStatus === 'picked_up';
   const isCancelled = normalizedStatus === 'cancelled';
@@ -167,7 +168,9 @@ export function BagExpandedOrderRow({
             <Phone size={12} color="#6B7280" strokeWidth={2} />
             <Text style={styles.phoneText}>{phone}</Text>
           </Pressable>
-        ) : null}
+        ) : (
+          <Text style={styles.phoneHidden}>📵 Phone hidden by customer</Text>
+        )}
         {order.customer_note ? (
           <Text style={styles.orderNote}>&quot;{order.customer_note}&quot;</Text>
         ) : null}
@@ -383,6 +386,12 @@ const styles = StyleSheet.create({
   phoneText: {
     fontSize: 13,
     color: '#D85A30',
+  },
+  phoneHidden: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
   orderNote: {
     fontSize: 12,

@@ -6,6 +6,7 @@ import {
   Globe,
   HelpCircle,
   Info,
+  Lock,
   LogIn,
   LogOut,
   MapPin,
@@ -271,6 +272,12 @@ export default function ProfileScreen() {
                 label="Notifications"
                 subtitle="Manage alerts and reminders"
                 onPress={() => router.push('/notifications/preferences')}
+              />
+              <ProfileMenuRow
+                icon={Lock}
+                label="Privacy & Safety"
+                subtitle="Control what restaurants see"
+                onPress={() => router.push('/profile/privacy')}
               />
               <ProfileMenuRow
                 icon={Globe}

@@ -1,4 +1,4 @@
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -9,6 +9,7 @@ import {
   getOrderShortCode,
 } from '@/lib/helpers';
 import { hapticMedium } from '@/lib/haptics';
+import { getDisplayName, getDisplayPhone, getMaskedPhone } from '@/lib/privacy';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 
 const TERRACOTTA = '#D85A30';
@@ -55,8 +56,9 @@ export function PickupOrderSheet({
   if (!order) return null;
 
   const customerName =
-    order.customer_name || order.customer.full_name || order.customer.phone || 'Customer';
-  const phone = order.customer_phone || order.customer.phone;
+    getDisplayName(order.customer) || order.customer_name || 'Customer';
+  const displayPhone = getDisplayPhone(order.customer);
+  const maskedPhone = displayPhone ? getMaskedPhone(displayPhone) : null;
   const pickupWindow = `${formatTime12h(order.bag.pickup_start)} – ${formatTime12h(order.bag.pickup_end)}`;
   const alreadyPickedUp = order.status === 'picked_up';
 
@@ -74,11 +76,11 @@ export function PickupOrderSheet({
             </View>
             <View style={styles.customerCopy}>
               <Text style={styles.customerName}>{customerName}</Text>
-              {phone ? (
-                <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)}>
-                  <Text style={styles.customerPhone}>{phone}</Text>
-                </Pressable>
-              ) : null}
+              {maskedPhone ? (
+                <Text style={styles.customerPhone}>{maskedPhone}</Text>
+              ) : (
+                <Text style={styles.phoneHidden}>📵 Phone hidden by customer</Text>
+              )}
             </View>
           </View>
 
@@ -176,7 +178,11 @@ const styles = StyleSheet.create({
   customerPhone: {
     fontSize: 14,
     color: '#6B7280',
-    textDecorationLine: 'underline',
+  },
+  phoneHidden: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
   divider: {
     height: 1,

@@ -37,6 +37,11 @@ export type Database = {
           role: UserRole;
           push_token: string | null;
           created_at: string;
+          privacy_settings?: {
+            show_phone?: boolean;
+            show_full_name?: boolean;
+            name_display?: string;
+          } | null;
         };
         Insert: {
           id: string;
@@ -46,6 +51,11 @@ export type Database = {
           role?: UserRole;
           push_token?: string | null;
           created_at?: string;
+          privacy_settings?: {
+            show_phone?: boolean;
+            show_full_name?: boolean;
+            name_display?: string;
+          } | null;
         };
         Update: {
           id?: string;
@@ -55,6 +65,11 @@ export type Database = {
           role?: UserRole;
           push_token?: string | null;
           created_at?: string;
+          privacy_settings?: {
+            show_phone?: boolean;
+            show_full_name?: boolean;
+            name_display?: string;
+          } | null;
         };
         Relationships: [];
       };

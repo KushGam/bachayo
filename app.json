@@ -4,14 +4,14 @@
     "slug": "lastbag",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "lastbag",
     "userInterfaceStyle": "light",
     "primaryColor": "#D85A30",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lastbag.app",
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/app-icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "LastBag uses the camera to scan pickup QR codes. LastBag ले पिकअपका लागि QR कोड स्क्यान गर्न क्यामेरा चाहिन्छ।",
         "NSLocationWhenInUseUsageDescription": "LastBag ले नजिकका रेस्क्यू ब्यागहरू देखाउन तपाईंको स्थान प्रयोग गर्छ।",
@@ -40,7 +40,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "splash": {
-      "image": "./assets/images/splash-mark.png",
+      "image": "./assets/images/splash-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#D85A30"
     },
@@ -49,7 +49,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-mark.png",
+          "image": "./assets/images/splash-logo.png",
           "resizeMode": "contain",
           "backgroundColor": "#D85A30",
           "imageWidth": 180
@@ -70,7 +70,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/app-icon.png",
           "color": "#D85A30"
         }
       ],

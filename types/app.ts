@@ -17,7 +17,9 @@ export type CustomerOrderWithDetails = Order & {
 
 export type PartnerOrderWithCustomer = Order & {
   bag: RescueBag;
-  customer: Pick<Profile, 'id' | 'full_name' | 'phone'>;
+  customer: Pick<Profile, 'id' | 'full_name' | 'phone'> & {
+    privacy_settings?: Profile['privacy_settings'];
+  };
 };
 
 export type PartnerWithStats = Partner & {

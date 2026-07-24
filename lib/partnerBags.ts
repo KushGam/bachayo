@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabase';
 import type { Order, Profile } from '@/types/database';
 
 export type PartnerBagOrder = Order & {
-  customer: Pick<Profile, 'id' | 'full_name' | 'phone'>;
+  customer: Pick<Profile, 'id' | 'full_name' | 'phone'> & {
+    privacy_settings?: Profile['privacy_settings'];
+  };
 };
 import type { RescueBag, RescueBagStatus } from '@/types/database';
 
@@ -208,7 +210,7 @@ export async function fetchPartnerBagOrders(
     .from('orders')
     .select(`
       *,
-      customer:profiles(id, full_name, phone)
+      customer:profiles(id, full_name, phone, privacy_settings)
     `)
     .eq('bag_id', bagId)
     .in('status', [...statuses])

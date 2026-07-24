@@ -35,6 +35,7 @@ type CustomerOrderCardProps = {
   urgent: boolean;
   cancelEligibility: CancellationEligibility;
   showCancelRow: boolean;
+  showPhoneToRestaurants?: boolean;
   onToggleExpand: () => void;
   onCancelPress: () => void;
   onDirections: () => void;
@@ -42,6 +43,7 @@ type CustomerOrderCardProps = {
   onHelp: () => void;
   onViewRestaurant: () => void;
   onChat: () => void;
+  onPrivacySettings?: () => void;
   unreadMessages: number;
 };
 
@@ -76,6 +78,7 @@ export function CustomerOrderCard({
   urgent,
   cancelEligibility,
   showCancelRow,
+  showPhoneToRestaurants = true,
   onToggleExpand,
   onCancelPress,
   onDirections,
@@ -83,6 +86,7 @@ export function CustomerOrderCard({
   onHelp,
   onViewRestaurant,
   onChat,
+  onPrivacySettings,
   unreadMessages,
 }: CustomerOrderCardProps) {
   const status = normalizeOrderStatus(order.status);
@@ -167,6 +171,22 @@ export function CustomerOrderCard({
           </View>
           <OrderShortCode qrCode={order.qr_code} />
           <Text style={styles.scanHint}>Show this QR at the counter to confirm pickup</Text>
+          <View style={styles.privacyRow}>
+            <Text
+              style={[
+                styles.privacyText,
+                !showPhoneToRestaurants && styles.privacyTextHidden,
+              ]}>
+              {showPhoneToRestaurants
+                ? '📞 Restaurant can see your phone'
+                : '🔒 Phone hidden from restaurant'}
+            </Text>
+            {onPrivacySettings ? (
+              <Pressable onPress={onPrivacySettings} hitSlop={6}>
+                <Text style={styles.privacyLink}>Change in Privacy settings →</Text>
+              </Pressable>
+            ) : null}
+          </View>
           <View style={styles.chatRow}>
             <Pressable
               onPress={onChat}
@@ -425,6 +445,26 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Palette.textSecondary,
     fontWeight: '600',
+  },
+  privacyRow: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  privacyText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  privacyTextHidden: {
+    color: '#10B981',
+  },
+  privacyLink: {
+    fontSize: 11,
+    color: '#D85A30',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   chatRow: {
     width: '100%',

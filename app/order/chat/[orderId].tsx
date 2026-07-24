@@ -27,6 +27,7 @@ import {
   type OrderMessage,
 } from '@/lib/orderMessages';
 import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
+import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 import { supabase } from '@/lib/supabase';
 
 type ChatOrder = {
@@ -36,7 +37,15 @@ type ChatOrder = {
   total_price: number;
   bag: { title: string; pickup_start: string };
   partner: { id: string; name: string; category: string; phone: string | null; user_id: string };
-  customer: { full_name: string | null; phone: string | null };
+  customer: {
+    full_name: string | null;
+    phone: string | null;
+    privacy_settings?: {
+      show_phone?: boolean;
+      show_full_name?: boolean;
+      name_display?: string;
+    } | null;
+  };
 };
 
 function toDateLabel(iso: string) {
@@ -93,7 +102,7 @@ export default function OrderChatScreen() {
           *,
           bag:rescue_bags(title, pickup_start),
           partner:partners(id, name, category, phone, user_id),
-          customer:profiles!orders_customer_id_fkey(full_name, phone)
+          customer:profiles!orders_customer_id_fkey(full_name, phone, privacy_settings)
         `)
         .eq('id', orderId)
         .maybeSingle();
@@ -175,7 +184,9 @@ export default function OrderChatScreen() {
         await supabase.functions.invoke('send-notification', {
           body: {
             user_id: receiverUserId,
-            title: isPartner ? order?.partner.name : order?.customer.full_name ?? order?.partner.name,
+            title: isPartner
+              ? order?.partner.name
+              : getDisplayName(order?.customer ?? { full_name: null }) || order?.partner.name,
             body: text.slice(0, 100),
             type: 'order_message',
             data: { order_id: orderId },
@@ -211,7 +222,9 @@ export default function OrderChatScreen() {
         <View style={[styles.bubbleWrap, mine ? styles.bubbleMineWrap : styles.bubbleOtherWrap]}>
           {showSender ? (
             <Text style={styles.senderName}>
-              {isPartner ? order?.customer.full_name ?? 'Customer' : order?.partner.name}
+              {isPartner
+                ? getDisplayName(order?.customer ?? { full_name: null })
+                : order?.partner.name}
             </Text>
           ) : null}
           <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
@@ -232,10 +245,14 @@ export default function OrderChatScreen() {
     : '';
   const otherName = order
     ? isPartner
-      ? order.customer.full_name ?? 'Customer'
+      ? getDisplayName(order.customer)
       : order.partner.name
     : 'Chat';
-  const phone = order ? (isPartner ? order.customer.phone : order.partner.phone) : null;
+  const phone = order
+    ? isPartner
+      ? getDisplayPhone(order.customer)
+      : order.partner.phone
+    : null;
 
   return (
     <KeyboardAvoidingView
