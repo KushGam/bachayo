@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 export type PartnerOnboardingChecklist = {
