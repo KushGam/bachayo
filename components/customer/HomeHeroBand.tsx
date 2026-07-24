@@ -1,10 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
-import { LocationPicker } from '@/components/ui/LocationPicker';
 import { MessageIconBadge } from '@/components/ui/MessageIconBadge';
 import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
 import { Palette } from '@/constants/Colors';
@@ -14,8 +13,8 @@ import { getGreeting, getInitials } from '@/lib/helpers';
 type HomeHeroBandProps = {
   userName: string;
   locale: 'en' | 'np';
-  areaId: string;
-  onLocationChange: (cityId: string, areaId: string) => void;
+  neighbourhoodLabel: string;
+  onLocationPress: () => void;
 };
 
 function getGreetingLabel(locale: 'en' | 'np') {
@@ -28,7 +27,12 @@ function getGreetingLabel(locale: 'en' | 'np') {
   return getGreeting();
 }
 
-export function HomeHeroBand({ userName, locale, areaId, onLocationChange }: HomeHeroBandProps) {
+export function HomeHeroBand({
+  userName,
+  locale,
+  neighbourhoodLabel,
+  onLocationPress,
+}: HomeHeroBandProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const firstName = userName.split(/\s+/)[0] || userName;
@@ -45,10 +49,17 @@ export function HomeHeroBand({ userName, locale, areaId, onLocationChange }: Hom
       <View style={styles.glowPrimary} pointerEvents="none" />
 
       <View style={styles.topRow}>
-        <Text style={styles.greeting} numberOfLines={1}>
-          {greeting},{' '}
-          <Text style={styles.greetingName}>{firstName}</Text>
-        </Text>
+        <View style={styles.greetingBlock}>
+          <Text style={styles.greeting} numberOfLines={1}>
+            {greeting},{' '}
+            <Text style={styles.greetingName}>{firstName}</Text>
+          </Text>
+          <Pressable onPress={onLocationPress} hitSlop={8}>
+            <Text style={styles.locationLabel} numberOfLines={1}>
+              {neighbourhoodLabel}
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.actions}>
           <MessageIconBadge
             variant="dark"
@@ -68,10 +79,6 @@ export function HomeHeroBand({ userName, locale, areaId, onLocationChange }: Hom
             <Text style={styles.avatarText}>{getInitials(userName)}</Text>
           </Pressable>
         </View>
-      </View>
-
-      <View style={styles.locationWrap}>
-        <LocationPicker variant="pill" tone="dark" value={areaId} onChange={onLocationChange} />
       </View>
     </LinearGradient>
   );
@@ -101,8 +108,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  greeting: {
+  greetingBlock: {
     flex: 1,
+    gap: 2,
+  },
+  greeting: {
     ...Type.h2,
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '500',
@@ -110,6 +120,11 @@ const styles = StyleSheet.create({
   greetingName: {
     color: Palette.white,
     fontWeight: '700',
+  },
+  locationLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.78)',
   },
   actions: {
     flexDirection: 'row',
@@ -131,8 +146,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.88,
-  },
-  locationWrap: {
-    alignSelf: 'flex-start',
   },
 });

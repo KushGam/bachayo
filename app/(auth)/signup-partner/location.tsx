@@ -142,6 +142,13 @@ export default function PartnerLocationScreen() {
         onRegionChange={setRegion}
       />
 
+      <View style={styles.nepalNote}>
+        <Text style={styles.nepalNoteText}>
+          🇳🇵 LastBag is available across Nepal. Customers near your restaurant will see your bags
+          automatically.
+        </Text>
+      </View>
+
       {fieldErrors.latitude ? <Text style={styles.error}>{fieldErrors.latitude}</Text> : null}
     </SignupStepShell>
   );
@@ -175,5 +182,16 @@ const styles = StyleSheet.create({
     color: Palette.danger,
     textAlign: 'center',
     marginTop: Spacing.sm,
+  },
+  nepalNote: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  nepalNoteText: {
+    fontSize: 12,
+    color: '#065F46',
+    lineHeight: 18,
   },
 });

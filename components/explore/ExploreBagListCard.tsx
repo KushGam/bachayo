@@ -3,7 +3,7 @@ import { ChevronRight, MapPin, Package } from 'lucide-react-native';
 
 import { Palette } from '@/constants/Colors';
 import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
-import { formatDistanceKm } from '@/lib/helpers';
+import { formatDistance, getDistanceColor, isTooFarToReserve } from '@/lib/distance';
 import type { HomeBag } from '@/store/useBagsStore';
 
 type ExploreBagListCardProps = {
@@ -24,6 +24,9 @@ export function ExploreBagListCard({
   selected = false,
 }: ExploreBagListCardProps) {
   const remaining = Math.max(0, bag.quantity_available - bag.quantity_reserved);
+  const tooFar = isTooFarToReserve(bag.distance_km);
+  const distanceColor =
+    bag.distance_km != null ? getDistanceColor(bag.distance_km) : Palette.textTertiary;
 
   return (
     <Pressable
@@ -31,6 +34,7 @@ export function ExploreBagListCard({
       style={({ pressed }) => [
         styles.card,
         selected && styles.cardSelected,
+        tooFar && styles.cardTooFar,
         pressed && styles.pressed,
       ]}>
       <View style={styles.copy}>
@@ -44,9 +48,9 @@ export function ExploreBagListCard({
         </Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
-            <MapPin size={12} color={Palette.textTertiary} strokeWidth={2} />
-            <Text style={styles.meta}>
-              {bag.distance_km == null ? 'Nearby' : formatDistanceKm(bag.distance_km)}
+            <MapPin size={12} color={distanceColor} strokeWidth={2} />
+            <Text style={[styles.meta, { color: distanceColor }]}>
+              {bag.distance_km == null ? 'Nearby' : formatDistance(bag.distance_km)}
             </Text>
           </View>
           <Text style={styles.metaDot}>·</Text>
@@ -78,6 +82,9 @@ const styles = StyleSheet.create({
   cardSelected: {
     borderColor: Palette.primaryMid,
     backgroundColor: Palette.primaryLight,
+  },
+  cardTooFar: {
+    opacity: 0.6,
   },
   pressed: {
     opacity: 0.92,

@@ -15,7 +15,6 @@ import { createCustomerProfile } from '@/lib/signupProfile';
 import { markTermsAcceptedLocally } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useLocationStore } from '@/store/useLocationStore';
 import { useSignupStore } from '@/store/useSignupStore';
 
 const TOTAL_STEPS = 4;
@@ -25,7 +24,6 @@ export default function CustomerVerifyScreen() {
   const { customer, customerAuthMethod, signupPassword, termsAccepted, resetCustomer } =
     useSignupStore();
   const { setAuthRole } = useAuthStore();
-  const setLocation = useLocationStore((s) => s.setLocation);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -38,14 +36,13 @@ export default function CustomerVerifyScreen() {
 
   const finishSignup = useCallback(async () => {
     await hapticSuccess();
-    setLocation(customer.cityId, customer.areaId);
     setSuccess(true);
     setAuthRole('customer');
     setTimeout(() => {
       resetCustomer();
       router.replace(getTabsRouteForRole('customer'));
     }, 1800);
-  }, [customer.areaId, customer.cityId, resetCustomer, router, setLocation, setAuthRole]);
+  }, [resetCustomer, router, setAuthRole]);
 
   const onFinish = async () => {
     if (!signupPassword) return;

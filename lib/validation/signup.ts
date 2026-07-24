@@ -128,19 +128,11 @@ export const customerBasicsSchema = z
     }
   });
 
-export const customerLocationSchema = z
-  .object({
-    cityId: cityIdField,
-    areaId: areaIdField,
-    homeAddress: z.string().trim().max(220, 'Address is too long').optional(),
-    homeLatitude: z.number(),
-    homeLongitude: z.number(),
-  })
-  .refine(
-    ({ cityId, homeLatitude, homeLongitude }) =>
-      isWithinCityBounds(cityId, homeLatitude, homeLongitude),
-    { message: 'Move the pin inside your selected city', path: ['homeLatitude'] },
-  );
+export const customerLocationSchema = z.object({
+  homeLatitude: z.number(),
+  homeLongitude: z.number(),
+  homeAddress: z.string().trim().max(220, 'Address is too long').optional(),
+});
 
 export const partnerBasicsSchema = z
   .object({

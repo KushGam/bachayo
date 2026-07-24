@@ -20,7 +20,7 @@ import { Spacing, Type } from '@/constants/theme';
 import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { setAuthPassword } from '@/lib/auth';
-import app from '@/lib/firebase';
+import app, { isFirebaseConfigured } from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSignupStore } from '@/store/useSignupStore';
@@ -219,13 +219,15 @@ export default function VerifyPhoneScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification
-        title="Verify you're human"
-        cancelLabel="Cancel"
-      />
+      {isFirebaseConfigured && app ? (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={app.options}
+          attemptInvisibleVerification
+          title="Verify you're human"
+          cancelLabel="Cancel"
+        />
+      ) : null}
 
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
         <Pressable onPress={goBack} style={styles.backBtn} hitSlop={8}>

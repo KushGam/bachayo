@@ -33,6 +33,11 @@ export default function ForRestaurantsPage() {
       a: 'Customers can cancel until 30 minutes before pickup starts. After that, cancellation is blocked so your kitchen can prepare with confidence.',
     },
     {
+      id: 'cities',
+      q: 'Is LastBag available in my city?',
+      a: 'Yes! LastBag is available across Nepal. Sign up and start listing your rescue bags today — customers near you will see them immediately.',
+    },
+    {
       id: 'subscription',
       q: 'What happens after the trial ends?',
       a: 'Subscriptions renew monthly. If your subscription is paused or past due, new listings are paused until billing is active again.',
@@ -159,6 +164,41 @@ export default function ForRestaurantsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Cities */}
+      <section className="bg-[var(--bg)] py-24">
+        <div className="mx-auto max-w-4xl px-6 text-center">
+          <p className="section-label">Cities</p>
+          <h2 className="mt-3 font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
+            Available for restaurants across Nepal
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-[var(--text-secondary)]">
+            Sign up from anywhere in Nepal. Customers near your restaurant will see your bags
+            automatically.
+          </p>
+          <div className="mx-auto mt-12 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
+            {[
+              { name: 'Kathmandu', np: 'काठमाडौं' },
+              { name: 'Lalitpur', np: 'ललितपुर' },
+              { name: 'Pokhara', np: 'पोखरा' },
+              { name: 'Bhaktapur', np: 'भक्तपुर' },
+            ].map((city) => (
+              <div
+                key={city.name}
+                className="rounded-2xl border-2 border-[#A7F3D0] bg-[#F0FDF4] px-5 py-6 text-center">
+                <p className="font-display text-lg font-bold text-[#1A1A1A]">{city.name}</p>
+                <p className="mt-1 text-sm text-[#6B7280]">{city.np}</p>
+                <span className="mt-3 inline-block rounded-full bg-[#10B981] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+                  Available now ✓
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-center text-sm text-[#6B7280]">
+            + Available in all cities across Nepal
+          </p>
         </div>
       </section>
 

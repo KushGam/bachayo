@@ -15,7 +15,6 @@ import { markTermsAcceptedLocally } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { resolvePartnerCoverUrl } from '@/lib/images';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useLocationStore } from '@/store/useLocationStore';
 import { useSignupStore } from '@/store/useSignupStore';
 
 const TOTAL_STEPS = 5;
@@ -25,7 +24,6 @@ export default function PartnerVerifyScreen() {
   const { partner, partnerAuthMethod, signupPassword, termsAccepted, resetPartner } =
     useSignupStore();
   const { setAuthRole } = useAuthStore();
-  const setLocation = useLocationStore((s) => s.setLocation);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -38,14 +36,13 @@ export default function PartnerVerifyScreen() {
 
   const finishSignup = useCallback(async () => {
     await hapticSuccess();
-    setLocation(partner.cityId, partner.areaId);
     setSuccess(true);
     setAuthRole('partner');
     setTimeout(() => {
       resetPartner();
       router.replace('/(auth)/partner-pending');
     }, 2200);
-  }, [partner.areaId, partner.cityId, resetPartner, router, setLocation, setAuthRole]);
+  }, [resetPartner, router, setAuthRole]);
 
   const onFinish = async () => {
     if (!signupPassword) return;

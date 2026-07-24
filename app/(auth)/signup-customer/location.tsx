@@ -1,35 +1,26 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import type { MapRegion } from '@/types/map';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LocationFormFields } from '@/components/auth/LocationFormFields';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
-import { getAreaById } from '@/lib/locations';
+import { Palette } from '@/constants/Colors';
+import { Spacing, Type } from '@/constants/theme';
+import { getNeighbourhood } from '@/lib/geocoding';
 import { hapticStepAdvance } from '@/lib/haptics';
-import { customerLocationSchema } from '@/lib/validation/signup';
+import { findNearestLocation } from '@/lib/locations';
+import { useLocationStore } from '@/store/useLocationStore';
 import { useSignupStore } from '@/store/useSignupStore';
 
 const TOTAL_STEPS = 4;
 
 export default function CustomerLocationScreen() {
   const router = useRouter();
-  const { customer, customerAuthMethod, phoneOtpVerified, setCustomer } = useSignupStore();
-  const [cityId, setCityId] = useState(customer.cityId);
-  const [areaId, setAreaId] = useState<string | null>(customer.areaId);
-  const [address, setAddress] = useState(customer.homeAddress);
-  const [coords, setCoords] = useState({
-    latitude: customer.homeLatitude,
-    longitude: customer.homeLongitude,
-  });
-  const [region, setRegion] = useState<MapRegion>({
-    ...coords,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
-  const [fieldErrors, setFieldErrors] = useState<{
-    area?: string;
-    address?: string;
-  }>({});
+  const { customerAuthMethod, phoneOtpVerified, setCustomer } = useSignupStore();
+  const requestLocation = useLocationStore((s) => s.requestLocation);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [granted, setGranted] = useState(false);
+  const [label, setLabel] = useState<string | null>(null);
 
   useEffect(() => {
     if (customerAuthMethod === 'phone' && !phoneOtpVerified) {
@@ -37,71 +28,140 @@ export default function CustomerLocationScreen() {
     }
   }, [customerAuthMethod, phoneOtpVerified, router]);
 
-  const onContinue = async () => {
-    const parsed = customerLocationSchema.safeParse({
-      cityId,
-      areaId,
-      homeAddress: address,
-      homeLatitude: coords.latitude,
-      homeLongitude: coords.longitude,
-    });
+  const enableLocation = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const ok = await requestLocation();
+      if (!ok) {
+        setGranted(false);
+        setError('Location permission is needed to show bags near you.');
+        return;
+      }
 
-    if (!parsed.success) {
-      const issues = parsed.error.flatten().fieldErrors;
-      setFieldErrors({
-        area: issues.areaId?.[0] ?? issues.cityId?.[0],
+      const { latitude, longitude, neighbourhood } = useLocationStore.getState();
+      if (latitude == null || longitude == null) {
+        setError('Could not read your location. Try again.');
+        return;
+      }
+
+      const nearest = findNearestLocation(latitude, longitude);
+      const place =
+        neighbourhood || (await getNeighbourhood(latitude, longitude));
+
+      setCustomer({
+        cityId: nearest.cityId,
+        areaId: nearest.areaId,
+        homeAddress: place,
+        homeLatitude: latitude,
+        homeLongitude: longitude,
       });
-      return;
+      setLabel(place);
+      setGranted(true);
+    } catch {
+      setError('Could not get your location. Try again.');
+    } finally {
+      setLoading(false);
     }
-
-    const area = getAreaById(parsed.data.areaId);
-    setFieldErrors({});
-    setCustomer({
-      cityId: parsed.data.cityId,
-      areaId: parsed.data.areaId,
-      homeAddress: parsed.data.homeAddress?.trim() || area?.name || '',
-      homeLatitude: parsed.data.homeLatitude,
-      homeLongitude: parsed.data.homeLongitude,
-    });
-    await hapticStepAdvance();
-    router.push('/(auth)/signup-customer/preferences');
   };
 
-  const handleLocationChange = (nextCityId: string, nextAreaId: string) => {
-    setCityId(nextCityId);
-    setAreaId(nextAreaId);
-    setFieldErrors((prev) => ({ ...prev, area: undefined }));
+  const onContinue = async () => {
+    if (!granted) {
+      setError('Allow location access to continue.');
+      return;
+    }
+    await hapticStepAdvance();
+    router.push('/(auth)/signup-customer/preferences');
   };
 
   return (
     <SignupStepShell
       currentStep={2}
       totalSteps={TOTAL_STEPS}
-      title="Where do you usually eat?"
-      subtitle="We'll show you rescue bags near here first"
+      title="Allow location access"
+      subtitle="We'll show rescue bags near you automatically"
       showBack
       onBack={() => router.back()}
       onContinue={onContinue}
-      continueDisabled={!areaId}>
-      <LocationFormFields
-        areaId={areaId}
-        onLocationChange={handleLocationChange}
-        areaError={fieldErrors.area}
-        address={address}
-        onAddressChange={(value) => {
-          setAddress(value);
-          setFieldErrors((prev) => ({ ...prev, address: undefined }));
-        }}
-        addressLabel="Home address"
-        addressHint="Optional — helps us show bags closest to you"
-        addressPlaceholder="Street, tole, or landmark near you"
-        addressError={fieldErrors.address}
-        latitude={coords.latitude}
-        longitude={coords.longitude}
-        onCoordsChange={(latitude, longitude) => setCoords({ latitude, longitude })}
-        region={region}
-        onRegionChange={setRegion}
-      />
+      continueDisabled={!granted || loading}>
+      <View style={styles.card}>
+        <Text style={styles.emoji}>📍</Text>
+        <Text style={styles.title}>Find bags near you</Text>
+        <Text style={styles.body}>
+          LastBag uses your GPS location to show nearby rescue bags. We never store or share your
+          precise location with restaurants.
+        </Text>
+
+        {label ? (
+          <Text style={styles.detected}>📍 {label}</Text>
+        ) : null}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Pressable
+          onPress={() => void enableLocation()}
+          disabled={loading}
+          style={({ pressed }) => [styles.btn, pressed && { opacity: 0.9 }, loading && { opacity: 0.7 }]}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.btnText}>
+              {granted ? 'Location enabled ✓' : 'Allow location access'}
+            </Text>
+          )}
+        </Pressable>
+      </View>
     </SignupStepShell>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#F5F3EF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emoji: {
+    fontSize: 40,
+  },
+  title: {
+    ...Type.h2,
+    color: Palette.textPrimary,
+    marginTop: Spacing.md,
+    textAlign: 'center',
+  },
+  body: {
+    ...Type.body,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 22,
+  },
+  detected: {
+    marginTop: Spacing.md,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Palette.primaryDark,
+  },
+  error: {
+    marginTop: Spacing.sm,
+    color: Palette.danger,
+    textAlign: 'center',
+    fontSize: 13,
+  },
+  btn: {
+    marginTop: Spacing.lg,
+    backgroundColor: Palette.primary,
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  btnText: {
+    color: Palette.white,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+});

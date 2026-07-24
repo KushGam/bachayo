@@ -21,8 +21,16 @@ import { track } from '@/lib/analytics';
 import { getRescueBagImageUrl } from '@/lib/images';
 import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import { formatNprPaisa, formatTime12h, getBagDineInExtraPaisa, getBagServiceType } from '@/lib/helpers';
+import {
+  calculateDistance,
+  formatDistance,
+  getDistanceColor,
+  isTooFarToReserve,
+  MAX_RESERVE_DISTANCE_KM,
+} from '@/lib/distance';
 import { findActiveReservationForBag } from '@/lib/reservations';
 import { supabase } from '@/lib/supabase';
+import { useLocationStore } from '@/store/useLocationStore';
 import type { RescueBagWithPartner } from '@/types/app';
 
 type ExistingReservation = {
@@ -49,6 +57,7 @@ function maybeGetCategoryBundle(category: string) {
 export default function RescueBagDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { latitude, longitude } = useLocationStore();
 
   const [bag, setBag] = useState<RescueBagWithPartner | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +76,26 @@ export default function RescueBagDetailScreen() {
     if (!bag) return 1;
     return Math.max(1, Math.min(3, remaining));
   }, [bag, remaining]);
+
+  const distanceKm = useMemo(() => {
+    if (
+      latitude == null ||
+      longitude == null ||
+      bag?.partner?.latitude == null ||
+      bag?.partner?.longitude == null
+    ) {
+      return null;
+    }
+    return calculateDistance(
+      latitude,
+      longitude,
+      bag.partner.latitude,
+      bag.partner.longitude,
+    );
+  }, [bag?.partner?.latitude, bag?.partner?.longitude, latitude, longitude]);
+
+  const tooFar = isTooFarToReserve(distanceKm);
+  const hasLocation = latitude != null && longitude != null;
 
   useEffect(() => {
     setQuantity((q) => Math.min(q, maxQty));
@@ -362,47 +391,83 @@ export default function RescueBagDetailScreen() {
       </ScrollView>
 
       <View style={styles.stickyBar}>
-        <View style={styles.stickyLeft}>
-          <Text style={styles.stickyPrice}>{formatNprPaisa(stickyTotal)}</Text>
-          {!soldOut && !existingOrder ? (
-            <Text style={styles.stickyHint}>
-              {selectedServiceType === 'dinein' ? 'Dine-in' : 'Takeaway'}
-              {quantity > 1 ? ` · ×${quantity}` : ''}
+        {tooFar && distanceKm != null && !existingOrder && !soldOut ? (
+          <View style={styles.tooFarCard}>
+            <Text style={styles.tooFarEmoji}>📍</Text>
+            <Text style={styles.tooFarTitle}>Too far to reserve</Text>
+            <Text style={styles.tooFarBody}>
+              You're {formatDistance(distanceKm)} away. LastBag reservations are only available
+              within {MAX_RESERVE_DISTANCE_KM}km of the restaurant.
             </Text>
-          ) : null}
-        </View>
-        {existingOrder ? (
-          <Pressable
-            onPress={() => router.push(`/order/${existingOrder.id}`)}
-            style={({ pressed }) => [styles.reservedCard, pressed && { opacity: 0.92 }]}>
-            <View style={styles.reservedCheck}>
-              <Text style={styles.reservedCheckText}>✓</Text>
+            <View style={styles.tooFarDistanceRow}>
+              <Text style={styles.tooFarDistanceMuted}>Your distance:</Text>
+              <Text style={styles.tooFarDistanceValue}>{formatDistance(distanceKm)}</Text>
+              <Text style={styles.tooFarDistanceMuted}>
+                · Limit: {MAX_RESERVE_DISTANCE_KM}km
+              </Text>
             </View>
-            <View style={styles.reservedCopy}>
-              <Text style={styles.reservedTitle}>You already reserved this bag!</Text>
-              <Text style={styles.reservedSubtitle}>{pickupLabel}</Text>
-            </View>
-            <Text style={styles.reservedLink}>View →</Text>
-          </Pressable>
-        ) : soldOut ? (
-          <View style={styles.soldOutBtn}>
-            <Text style={styles.soldOutBtnText}>Sold out</Text>
+            <Pressable
+              style={({ pressed }) => [styles.tooFarCta, pressed && { opacity: 0.9 }]}
+              onPress={() => router.push('/(tabs)/customer/home')}>
+              <Text style={styles.tooFarCtaText}>Find bags near me →</Text>
+            </Pressable>
           </View>
         ) : (
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/reserve/[bagId]',
-                params: {
-                  bagId: bag.id,
-                  qty: String(quantity),
-                  service: selectedServiceType,
-                },
-              })
-            }
-            style={({ pressed }) => [styles.reserveBtn, pressed && { opacity: 0.92 }]}>
-            <Text style={styles.reserveBtnText}>Reserve this bag →</Text>
-          </Pressable>
+          <>
+            <View style={styles.stickyLeft}>
+              <Text style={styles.stickyPrice}>{formatNprPaisa(stickyTotal)}</Text>
+              {!soldOut && !existingOrder ? (
+                <Text style={styles.stickyHint}>
+                  {selectedServiceType === 'dinein' ? 'Dine-in' : 'Takeaway'}
+                  {quantity > 1 ? ` · ×${quantity}` : ''}
+                </Text>
+              ) : null}
+            </View>
+            {existingOrder ? (
+              <Pressable
+                onPress={() => router.push(`/order/${existingOrder.id}`)}
+                style={({ pressed }) => [styles.reservedCard, pressed && { opacity: 0.92 }]}>
+                <View style={styles.reservedCheck}>
+                  <Text style={styles.reservedCheckText}>✓</Text>
+                </View>
+                <View style={styles.reservedCopy}>
+                  <Text style={styles.reservedTitle}>You already reserved this bag!</Text>
+                  <Text style={styles.reservedSubtitle}>{pickupLabel}</Text>
+                </View>
+                <Text style={styles.reservedLink}>View →</Text>
+              </Pressable>
+            ) : soldOut ? (
+              <View style={styles.soldOutBtn}>
+                <Text style={styles.soldOutBtnText}>Sold out</Text>
+              </View>
+            ) : (
+              <View style={styles.reserveWrap}>
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/reserve/[bagId]',
+                      params: {
+                        bagId: bag.id,
+                        qty: String(quantity),
+                        service: selectedServiceType,
+                      },
+                    })
+                  }
+                  style={({ pressed }) => [styles.reserveBtn, pressed && { opacity: 0.92 }]}>
+                  <Text style={styles.reserveBtnText}>Reserve this bag →</Text>
+                </Pressable>
+                {!hasLocation ? (
+                  <Text style={styles.locationHint}>
+                    Enable location to see distance from this restaurant
+                  </Text>
+                ) : distanceKm != null ? (
+                  <Text style={[styles.locationHint, { color: getDistanceColor(distanceKm) }]}>
+                    {formatDistance(distanceKm)}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+          </>
         )}
       </View>
     </View>
@@ -768,6 +833,75 @@ const styles = StyleSheet.create({
     ...Type.bodyMedium,
     fontWeight: '700',
     color: Palette.white,
+  },
+  reserveWrap: {
+    flex: 1,
+  },
+  locationHint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  tooFarCard: {
+    width: '100%',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  tooFarEmoji: {
+    fontSize: 28,
+  },
+  tooFarTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#991B1B',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  tooFarBody: {
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+    opacity: 0.85,
+  },
+  tooFarDistanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: Palette.white,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tooFarDistanceMuted: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  tooFarDistanceValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  tooFarCta: {
+    marginTop: 12,
+    backgroundColor: '#D85A30',
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  tooFarCtaText: {
+    color: Palette.white,
+    fontWeight: '700',
+    fontSize: 13,
   },
   serviceWrap: {
     marginTop: Spacing.md,

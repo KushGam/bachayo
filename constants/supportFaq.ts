@@ -53,13 +53,14 @@ export const CUSTOMER_FAQ: FaqItem[] = [
     audience: 'customer',
     question: 'Is LastBag available outside Kathmandu?',
     answer:
-      "We're currently launching in Kathmandu, Lalitpur, Pokhara, and Bharatpur. More cities coming soon!",
+      "We're available across Nepal. Open the app, allow location, and you'll see rescue bags near you.",
   },
   {
     id: 'change-location',
     audience: 'customer',
     question: 'How do I change my location?',
-    answer: 'Go to Profile → Home location and select your area.',
+    answer:
+      'LastBag uses your phone GPS automatically. Open Profile → Location and tap Refresh, or enable location in your phone Settings.',
   },
   {
     id: 'otp',

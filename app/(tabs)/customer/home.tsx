@@ -2,7 +2,7 @@ import { ClosingSoonCard } from '@/components/customer/ClosingSoonCard';
 import { BrowsePartnersLink } from '@/components/customer/BrowsePartnersLink';
 import { CustomerSectionHeader } from '@/components/customer/CustomerSectionHeader';
 import { HomeActiveOrderCard } from '@/components/customer/HomeActiveOrderCard';
-import { HomeFilters } from '@/components/customer/HomeFilters';
+import { HomeFilters, HOME_DISTANCE_OPTIONS } from '@/components/customer/HomeFilters';
 import { HomeHeroBand } from '@/components/customer/HomeHeroBand';
 import { HomeSearchStrip } from '@/components/customer/HomeSearchStrip';
 import { HomeMarketDigest } from '@/components/customer/HomeMarketDigest';
@@ -10,9 +10,17 @@ import { HomeNearbyEmpty } from '@/components/customer/HomeNearbyEmpty';
 import { HomeRecentSearches } from '@/components/customer/HomeRecentSearches';
 import { HomeSearchResultRow, HomeSearchResultSkeleton } from '@/components/customer/HomeSearchResultRow';
 import { useRouter, useFocusEffect } from 'expo-router';
-import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Keyboard,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 
 import { RescueBagCard } from '@/components/cards/RescueBagCard';
@@ -52,7 +60,6 @@ type HeaderUser = {
 };
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed'];
-const DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
 
 function getTimeLeftLabel(availableDate: string, pickupEnd: string) {
   const end = parsePickupDateTimeLocal(availableDate, pickupEnd);
@@ -94,11 +101,28 @@ export default function HomeScreen() {
   const router = useRouter();
   const locale = useAuthStore((s) => s.locale);
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
-  const { cityId, areaId, maxDistanceKm, setLocation, setMaxDistanceKm } = useLocationStore();
+  const {
+    maxDistanceKm,
+    setMaxDistanceKm,
+    latitude,
+    longitude,
+    isDefault,
+    permissionDenied,
+    browseAllBags,
+    setBrowseAllBags,
+    neighbourhood,
+    requestLocation,
+  } = useLocationStore();
 
   const [user, setUser] = useState<HeaderUser>({ name: 'Guest' });
   const [activeOrder, setActiveOrder] = useState<CustomerOrderWithDetails | null>(null);
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(() => {
+    const state = useLocationStore.getState();
+    if (state.latitude != null && state.longitude != null) {
+      return { latitude: state.latitude, longitude: state.longitude };
+    }
+    return null;
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -113,12 +137,11 @@ export default function HomeScreen() {
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   const today = getTodayIsoDateLocal();
-  const fetchBagsRef = useRef<() => Promise<void>>(() => Promise.resolve());
-
-  const origin = useMemo(
-    () => resolveNearbyOrigin(areaId, cityId, coords),
-    [areaId, cityId, coords],
+  const fetchBagsRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(
+    () => Promise.resolve(),
   );
+
+  const origin = useMemo(() => resolveNearbyOrigin(coords), [coords]);
 
   useEffect(() => {
     const timer = setInterval(() => forceTick((t) => t + 1), 60_000);
@@ -300,20 +323,21 @@ export default function HomeScreen() {
   }, [loadActiveOrder, loadImpactStats, loadReservedBagIds]);
 
   useEffect(() => {
+    if (latitude != null && longitude != null) {
+      setCoords({ latitude, longitude });
+    }
+  }, [latitude, longitude]);
+
+  useEffect(() => {
     void (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      setCoords({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+      const ok = await requestLocation();
+      if (!ok) return;
+      const { latitude: lat, longitude: lng } = useLocationStore.getState();
+      if (lat != null && lng != null) {
+        setCoords({ latitude: lat, longitude: lng });
+      }
     })();
-  }, []);
+  }, [requestLocation]);
 
   const fetchBags = useCallback(async (options?: { silent?: boolean }) => {
     setErrorText(null);
@@ -329,14 +353,14 @@ export default function HomeScreen() {
       return;
     }
 
-    const visible = filterVisibleNearbyBags(data, cityId);
+    const visible = filterVisibleNearbyBags(data ?? []);
     const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
     const withDistance = attachNearbyBagDistances(withStock, origin);
 
     setBags(withDistance);
     await loadReservedBagIds();
     setLoading(false);
-  }, [cityId, loadReservedBagIds, origin, setBags, today]);
+  }, [loadReservedBagIds, origin, setBags, today]);
 
   fetchBagsRef.current = fetchBags;
 
@@ -387,14 +411,8 @@ export default function HomeScreen() {
         const filtered = (data ?? []).filter((row) => {
           const bag = row as HomeBag;
           if (!bagMatchesSearch(bag, q)) return false;
-          const partner = bag.partner as {
-            city_id?: string | null;
-            is_active?: boolean | null;
-            subscription_status?: string | null;
-          } | undefined;
-          if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
-          if (!partner?.city_id) return cityId === 'kathmandu';
-          return partner.city_id === cityId;
+          if (!isPartnerVisibleToCustomers(bag.partner as PartnerSubscriptionFields)) return false;
+          return true;
         }) as HomeBag[];
 
         setSearchResults(filtered);
@@ -403,7 +421,7 @@ export default function HomeScreen() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [cityId, isSearching, searchQuery, today]);
+  }, [isSearching, searchQuery, today]);
 
   const handleSearchFocus = useCallback(() => {
     setIsSearching(true);
@@ -450,8 +468,13 @@ export default function HomeScreen() {
         ? bags
         : bags.filter((b) => b.partner.category === selectedCategory);
 
-    return byCategory.filter((bag) => bagPassesNearbyDistanceFilter(bag, maxDistanceKm));
-  }, [bags, maxDistanceKm, selectedCategory]);
+    const effectiveDistance =
+      browseAllBags || !coords ? null : maxDistanceKm;
+
+    return byCategory.filter((bag) =>
+      bagPassesNearbyDistanceFilter(bag, effectiveDistance),
+    );
+  }, [bags, browseAllBags, coords, maxDistanceKm, selectedCategory]);
 
   const closingSoon = useMemo(
     () => filteredBags.filter((b) => isClosingSoon(b.available_date, b.pickup_end)),
@@ -553,12 +576,30 @@ export default function HomeScreen() {
     [reservedBagIds, router],
   );
 
+  const neighbourhoodLabel = !isDefault && neighbourhood
+    ? `📍 ${neighbourhood}`
+    : '📍 Enable location';
+
   const heroBand = (
     <HomeHeroBand
       userName={user.name}
       locale={locale}
-      areaId={areaId}
-      onLocationChange={setLocation}
+      neighbourhoodLabel={neighbourhoodLabel}
+      onLocationPress={() => {
+        if (isDefault || permissionDenied) {
+          void (async () => {
+            const ok = await requestLocation();
+            if (!ok) {
+              void Linking.openSettings();
+              return;
+            }
+            const { latitude: lat, longitude: lng } = useLocationStore.getState();
+            if (lat != null && lng != null) {
+              setCoords({ latitude: lat, longitude: lng });
+            }
+          })();
+        }
+      }}
     />
   );
 
@@ -621,6 +662,60 @@ export default function HomeScreen() {
   const listHeader = (
     <View style={styles.headerWrap}>
       {heroBand}
+
+      {!isDefault && neighbourhood ? (
+        <View style={styles.cityPill}>
+          <Text style={styles.cityPillText}>📍 {neighbourhood}</Text>
+        </View>
+      ) : null}
+
+      {isDefault ? (
+        <Pressable
+          onPress={() => {
+            void (async () => {
+              const ok = await requestLocation();
+              if (!ok) {
+                void Linking.openSettings();
+                return;
+              }
+              const { latitude: lat, longitude: lng } = useLocationStore.getState();
+              if (lat != null && lng != null) {
+                setCoords({ latitude: lat, longitude: lng });
+              }
+            })();
+          }}
+          style={styles.enableLocationHint}
+          hitSlop={8}>
+          <Text style={styles.enableLocationHintText}>
+            📍 Enable location to see bags near you
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {permissionDenied && !browseAllBags ? (
+        <View style={styles.permissionCard}>
+          <Text style={styles.permissionEmoji}>📍</Text>
+          <Text style={styles.permissionTitle}>Enable location for best experience</Text>
+          <Text style={styles.permissionBody}>
+            We use your location to show rescue bags near you. Your location is never stored or
+            shared.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.permissionBtn, pressed && { opacity: 0.9 }]}
+            onPress={() => void Linking.openSettings()}>
+            <Text style={styles.permissionBtnText}>Enable in Settings →</Text>
+          </Pressable>
+          <Pressable
+            style={{ marginTop: 10 }}
+            onPress={() => {
+              setBrowseAllBags(true);
+              setMaxDistanceKm(null);
+            }}>
+            <Text style={styles.permissionBrowseAnyway}>Browse all bags anyway</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {searchStrip}
 
       {!isSearching ? (
@@ -680,7 +775,7 @@ export default function HomeScreen() {
           categories={categoryOptions}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
-          distances={DISTANCE_OPTIONS}
+          distances={HOME_DISTANCE_OPTIONS}
           maxDistanceKm={maxDistanceKm}
           onDistanceChange={setMaxDistanceKm}
         />
@@ -689,8 +784,12 @@ export default function HomeScreen() {
           title={locale === 'np' ? 'नजिकका रेस्क्यू ब्यागहरू' : 'Nearby rescue bags'}
           subtitle={
             locale === 'np'
-              ? `${maxDistanceKm} किमी भित्र उपलब्ध`
-              : `Available within ${maxDistanceKm} km`
+              ? maxDistanceKm == null
+                ? 'सबै सहरहरू'
+                : `${maxDistanceKm} किमी भित्र उपलब्ध`
+              : maxDistanceKm == null
+                ? 'All launch cities'
+                : `Available within ${maxDistanceKm} km`
           }
           count={filteredBags.length}
           actionLabel={filteredBags.length > 0 ? (locale === 'np' ? 'नक्सा' : 'Map') : undefined}
@@ -770,6 +869,71 @@ const styles = StyleSheet.create({
   },
   headerWrap: {
     marginBottom: 4,
+  },
+  cityPill: {
+    alignSelf: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  cityPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  enableLocationHint: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  enableLocationHintText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  permissionCard: {
+    backgroundColor: '#F5F3EF',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  permissionEmoji: {
+    fontSize: 36,
+  },
+  permissionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  permissionBody: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  permissionBtn: {
+    backgroundColor: '#D85A30',
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 16,
+  },
+  permissionBtnText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  permissionBrowseAnyway: {
+    color: '#9CA3AF',
+    fontSize: 13,
   },
   contentSheet: {
     paddingTop: Spacing.lg,

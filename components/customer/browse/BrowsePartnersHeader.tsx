@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LocationPicker } from '@/components/ui/LocationPicker';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
@@ -11,15 +10,13 @@ import { hapticButtonPress } from '@/lib/haptics';
 type BrowsePartnersHeaderProps = {
   paddingTop: number;
   locale: 'en' | 'np';
-  areaId: string;
-  onLocationChange: (cityId: string, areaId: string) => void;
+  neighbourhoodLabel: string;
 };
 
 export function BrowsePartnersHeader({
   paddingTop,
   locale,
-  areaId,
-  onLocationChange,
+  neighbourhoodLabel,
 }: BrowsePartnersHeaderProps) {
   const router = useRouter();
   const isNp = locale === 'np';
@@ -47,12 +44,10 @@ export function BrowsePartnersHeader({
       </View>
 
       <Text style={styles.subtitle}>
-        {isNp ? 'तपाईंको क्षेत्रका पार्टनरहरू' : 'Partners in your selected area'}
+        {isNp ? 'तपाईं नजिकका पार्टनरहरू' : 'Partners near you'}
       </Text>
 
-      <View style={styles.locationWrap}>
-        <LocationPicker variant="pill" tone="dark" value={areaId} onChange={onLocationChange} />
-      </View>
+      <Text style={styles.locationLabel}>{neighbourhoodLabel}</Text>
     </LinearGradient>
   );
 }
@@ -110,8 +105,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  locationWrap: {
-    alignSelf: 'center',
-    marginTop: Spacing.xs,
+  locationLabel: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
   },
 });

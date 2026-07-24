@@ -36,7 +36,14 @@ import {
 import { getRescueBagImageUrl } from '@/lib/images';
 import { createReservation, findActiveReservationForBag } from '@/lib/reservations';
 import { dismissModalsAndReplace } from '@/lib/navigation';
+import {
+  calculateDistance,
+  formatDistance,
+  isTooFarToReserve,
+  MAX_RESERVE_DISTANCE_KM,
+} from '@/lib/distance';
 import { supabase } from '@/lib/supabase';
+import { useLocationStore } from '@/store/useLocationStore';
 import type { RescueBagWithPartner } from '@/types/app';
 
 const NOTE_MAX = 100;
@@ -44,6 +51,7 @@ const NOTE_MAX = 100;
 export default function ReserveBagScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { latitude, longitude } = useLocationStore();
   const { bagId, qty: qtyParam, service: serviceParam } = useLocalSearchParams<{
     bagId: string;
     qty?: string;
@@ -231,6 +239,17 @@ export default function ReserveBagScreen() {
         );
         return;
       }
+      if (result.message?.includes('DISTANCE_EXCEEDED')) {
+        Alert.alert(
+          'Too far to reserve',
+          'You are more than 10km from this restaurant. Find bags closer to you.',
+          [
+            { text: 'Find nearby', onPress: () => router.replace('/(tabs)/customer/home') },
+            { text: 'OK', style: 'cancel' },
+          ],
+        );
+        return;
+      }
       Alert.alert('Could not reserve', result.message ?? 'Please check your connection and try again.', [
         { text: 'Retry', onPress: () => void handleSubmit() },
         { text: 'Cancel', style: 'cancel' },
@@ -240,6 +259,23 @@ export default function ReserveBagScreen() {
 
     dismissModalsAndReplace(router, `/order/confirmed/${result.orderId}`);
   };
+
+  const distanceKm = useMemo(() => {
+    if (
+      latitude == null ||
+      longitude == null ||
+      bag?.partner?.latitude == null ||
+      bag?.partner?.longitude == null
+    ) {
+      return null;
+    }
+    return calculateDistance(
+      latitude,
+      longitude,
+      bag.partner.latitude,
+      bag.partner.longitude,
+    );
+  }, [bag?.partner?.latitude, bag?.partner?.longitude, latitude, longitude]);
 
   if (loading) {
     return (
@@ -257,6 +293,30 @@ export default function ReserveBagScreen() {
         <RetryState message={fetchError ?? 'Bag not found'} onRetry={() => setReloadKey((k) => k + 1)} />
         <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (isTooFarToReserve(distanceKm) && distanceKm != null) {
+    return (
+      <View style={styles.tooFarScreen}>
+        <StatusBar style="dark" />
+        <Text style={styles.tooFarEmoji}>📍</Text>
+        <Text style={styles.tooFarTitle}>Too far to reserve</Text>
+        <Text style={styles.tooFarBody}>
+          You're {formatDistance(distanceKm)} away from this restaurant. Reservations are only
+          available within {MAX_RESERVE_DISTANCE_KM}km.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.tooFarBtn, pressed && { opacity: 0.9 }]}
+          onPress={() => router.back()}>
+          <Text style={styles.tooFarBtnText}>Go back</Text>
+        </Pressable>
+        <Pressable
+          style={{ marginTop: 12 }}
+          onPress={() => router.replace('/(tabs)/customer/home')}>
+          <Text style={styles.tooFarLink}>Find bags near me →</Text>
         </Pressable>
       </View>
     );
@@ -980,5 +1040,46 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: Spacing.sm,
+  },
+  tooFarScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#F5F3EF',
+  },
+  tooFarEmoji: {
+    fontSize: 48,
+  },
+  tooFarTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  tooFarBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 22,
+  },
+  tooFarBtn: {
+    marginTop: 24,
+    backgroundColor: '#D85A30',
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  tooFarBtnText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  tooFarLink: {
+    color: '#D85A30',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

@@ -27,8 +27,8 @@ export function HomeNearbyEmpty({ locale }: HomeNearbyEmptyProps) {
       <View style={styles.cityPill}>
         <Text style={styles.cityPillText}>
           {isNp
-            ? 'काठमाडौं · पोखरा · ललितपुर · भरतपुर'
-            : 'Kathmandu · Pokhara · Lalitpur · Bharatpur'}
+            ? 'नेपालभर उपलब्ध'
+            : 'Available across Nepal'}
         </Text>
       </View>
     </View>

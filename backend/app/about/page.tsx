@@ -146,14 +146,14 @@ export default function AboutPage() {
             Where we&apos;re launching
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-[var(--text-secondary)]">
-            Rolling out across Nepal, starting with Kathmandu.
+            Available for customers and restaurants across Nepal.
           </p>
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
             {[
-              { name: 'Kathmandu', np: 'काठमाडौं', status: 'First city' },
-              { name: 'Lalitpur', np: 'ललितपुर', status: 'Coming soon' },
-              { name: 'Pokhara', np: 'पोखरा', status: 'Coming soon' },
-              { name: 'Bharatpur', np: 'भरतपुर', status: 'Coming soon' },
+              { name: 'Kathmandu', np: 'काठमाडौं', status: 'Available now' },
+              { name: 'Lalitpur', np: 'ललितपुर', status: 'Available now' },
+              { name: 'Pokhara', np: 'पोखरा', status: 'Available now' },
+              { name: 'Bhaktapur', np: 'भक्तपुर', status: 'Available now' },
             ].map((city) => (
               <div
                 key={city.name}

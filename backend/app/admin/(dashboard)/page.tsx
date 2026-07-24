@@ -12,7 +12,7 @@ import {
 
 import { PageHeader, StatCard } from '@/components/admin/StatCard';
 import { CategoryBadge } from '@/components/admin/StatusBadge';
-import { ADMIN_CITIES, CATEGORY_LABELS } from '@/lib/admin/constants';
+import { CATEGORY_LABELS } from '@/lib/admin/constants';
 import {
   cityLabel,
   formatActivityTime,
@@ -243,25 +243,44 @@ export default async function AdminOverviewPage() {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 20);
 
-  const cityRows = await Promise.all(
-    ADMIN_CITIES.map(async (city) => {
-      const [{ count: partners }, { data: cityPartnerIds }] = await Promise.all([
-        supabase.from('partners').select('*', { count: 'exact', head: true }).eq('city_id', city.id),
-        supabase.from('partners').select('id').eq('city_id', city.id),
-      ]);
-      const ids = (cityPartnerIds ?? []).map((p) => p.id);
-      let bags = 0;
-      if (ids.length) {
-        const { count } = await supabase
+  const { data: partnerCityRows } = await supabase
+    .from('partners')
+    .select('id, city_id');
+
+  const cityPartnerMap = new Map<string, string[]>();
+  for (const row of partnerCityRows ?? []) {
+    const cityId = (row as { city_id?: string | null }).city_id || 'unknown';
+    const list = cityPartnerMap.get(cityId) ?? [];
+    list.push(row.id);
+    cityPartnerMap.set(cityId, list);
+  }
+
+  const cityRows = (
+    await Promise.all(
+      [...cityPartnerMap.entries()].map(async ([cityId, ids]) => {
+        const { count: bags } = await supabase
           .from('rescue_bags')
           .select('*', { count: 'exact', head: true })
           .eq('available_date', today)
           .in('partner_id', ids);
-        bags = count ?? 0;
-      }
-      return { city, partners: partners ?? 0, bags, orders: 0 };
-    }),
-  );
+
+        const { count: orders } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', `${today}T00:00:00`)
+          .in('partner_id', ids);
+
+        return {
+          city: { id: cityId, name: cityLabel(cityId) },
+          partners: ids.length,
+          bags: bags ?? 0,
+          orders: orders ?? 0,
+        };
+      }),
+    )
+  )
+    .sort((a, b) => b.partners - a.partners)
+    .slice(0, 10);
 
   const totals = cityRows.reduce(
     (acc, row) => ({
@@ -354,7 +373,7 @@ export default async function AdminOverviewPage() {
       </div>
 
       <section className="mb-8">
-        <h2 className="admin-section-label">City breakdown</h2>
+        <h2 className="admin-section-label">Top cities</h2>
         <div className="mt-2 overflow-hidden rounded-2xl border border-[#F0EDE8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
           <table className="min-w-full">
             <thead className="border-b border-[#F0EDE8] bg-[#FFFCFA]">

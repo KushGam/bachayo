@@ -30,7 +30,7 @@ import {
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
-import app from '@/lib/firebase';
+import app, { isFirebaseConfigured } from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
@@ -181,11 +181,13 @@ export default function LoginScreen() {
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
       <StatusBar style="dark" />
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification
-      />
+      {isFirebaseConfigured && app ? (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={app.options}
+          attemptInvisibleVerification
+        />
+      ) : null}
 
       <AuthScreenHeader
         title="Welcome back"

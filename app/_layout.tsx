@@ -15,6 +15,7 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
 import Colors, { Palette } from '@/constants/Colors';
+import { useLocationStore } from '@/store/useLocationStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -34,6 +35,10 @@ export default function RootLayout() {
     } catch (error) {
       console.error('[boot] initAnalytics failed:', error);
     }
+  }, []);
+
+  useEffect(() => {
+    void useLocationStore.getState().requestLocation();
   }, []);
 
   return (

@@ -66,7 +66,7 @@ export function PartnersFilters() {
         <option value="kathmandu">Kathmandu</option>
         <option value="lalitpur">Lalitpur</option>
         <option value="pokhara">Pokhara</option>
-        <option value="bharatpur">Bharatpur</option>
+        <option value="bhaktapur">Bhaktapur</option>
       </select>
       <select className={selectClass} defaultValue={params.get('category') ?? ''} onChange={(e) => update('category', e.target.value)}>
         <option value="">All categories</option>

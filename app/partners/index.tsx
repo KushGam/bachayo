@@ -1,4 +1,3 @@
-import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -15,12 +14,11 @@ import {
 } from '@/components/customer/browse/BrowsePartnersQuickBar';
 import { BrowsePartnersSkeleton } from '@/components/customer/browse/BrowsePartnersSkeleton';
 import { BrowsePartnersToolbar } from '@/components/customer/browse/BrowsePartnersToolbar';
-import { HomeFilters } from '@/components/customer/HomeFilters';
+import { HomeFilters, HOME_DISTANCE_OPTIONS } from '@/components/customer/HomeFilters';
 import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
 import { HOME_CATEGORY_FILTERS, type HomeCategoryFilter } from '@/constants/partnerCategories';
 import { Spacing, Type, Radius } from '@/constants/theme';
-import { formatLocationLabel, getAreaById, getCityById } from '@/lib/locations';
 import {
   computeBrowsePartnerDistance,
   countPartnersHiddenByDistance,
@@ -28,11 +26,13 @@ import {
   partnerPassesBrowseDistanceFilter,
 } from '@/lib/partnerBrowse';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useLocationStore } from '@/store/useLocationStore';
+import { useLocationStore, type MaxDistanceKm } from '@/store/useLocationStore';
 import type { PartnerWithStats } from '@/types/app';
 import type { Partner } from '@/types/database';
 
-const DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
+/** Ascending widen order: next larger km, then All (null). */
+const WIDEN_DISTANCE_OPTIONS: readonly MaxDistanceKm[] = [1, 2, 5, 10, null];
+const DEFAULT_MAX_DISTANCE_KM = 5;
 
 type BrowsePartner = PartnerWithStats & {
   area_id?: string | null;
@@ -81,7 +81,14 @@ export default function BrowsePartnersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const locale = useAuthStore((s) => s.locale);
-  const { cityId, areaId, maxDistanceKm, setLocation, setMaxDistanceKm } = useLocationStore();
+  const {
+    latitude,
+    longitude,
+    neighbourhood,
+    maxDistanceKm,
+    setMaxDistanceKm,
+    requestLocation,
+  } = useLocationStore();
 
   const [partners, setPartners] = useState<PartnerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,44 +98,39 @@ export default function BrowsePartnersScreen() {
   const [sortBy, setSortBy] = useState<BrowseSortKey>('nearest');
   const [bagsTodayOnly, setBagsTodayOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(() => {
+    if (latitude != null && longitude != null) {
+      return { latitude, longitude };
+    }
+    return null;
+  });
 
-  const areaLabel = useMemo(() => {
-    const area = getAreaById(areaId);
-    if (area) return locale === 'np' ? area.nameNp : area.name;
-    return formatLocationLabel(cityId, areaId, locale);
-  }, [areaId, cityId, locale]);
+  const neighbourhoodName = neighbourhood ?? (locale === 'np' ? 'नजिक' : 'Near you');
+  const neighbourhoodLabel = `📍 ${neighbourhoodName}`;
 
   useEffect(() => {
     void (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      setCoords({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+      const ok = await requestLocation();
+      if (!ok) return;
+      const { latitude: lat, longitude: lng } = useLocationStore.getState();
+      if (lat != null && lng != null) {
+        setCoords({ latitude: lat, longitude: lng });
+      }
     })();
-  }, []);
+  }, [requestLocation]);
 
   const origin = useMemo(() => {
-    const area = getAreaById(areaId);
-    if (area) return { latitude: area.latitude, longitude: area.longitude };
-    const city = getCityById(cityId);
-    if (city) return { latitude: city.latitude, longitude: city.longitude };
-    if (coords) return coords;
-    return null;
-  }, [areaId, cityId, coords]);
+    if (latitude != null && longitude != null) {
+      return { latitude, longitude };
+    }
+    return coords;
+  }, [coords, latitude, longitude]);
 
   const loadPartners = useCallback(async () => {
     setErrorText(null);
     setLoading(true);
     try {
-      const rows = await fetchBrowsePartners(cityId);
+      const rows = await fetchBrowsePartners();
       setPartners(rows);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Failed to load restaurants');
@@ -136,7 +138,7 @@ export default function BrowsePartnersScreen() {
     } finally {
       setLoading(false);
     }
-  }, [cityId]);
+  }, []);
 
   useEffect(() => {
     void loadPartners();
@@ -229,14 +231,27 @@ export default function BrowsePartnersScreen() {
     setSearchQuery('');
     setBagsTodayOnly(false);
     setSelectedCategory('all');
+    setMaxDistanceKm(DEFAULT_MAX_DISTANCE_KM);
     Keyboard.dismiss();
-  }, []);
+  }, [setMaxDistanceKm]);
 
   const widenDistance = useCallback(() => {
-    const currentIndex = DISTANCE_OPTIONS.findIndex((km) => km === maxDistanceKm);
-    const next = DISTANCE_OPTIONS[Math.min(currentIndex + 1, DISTANCE_OPTIONS.length - 1)];
-    setMaxDistanceKm(next);
+    const currentIndex = WIDEN_DISTANCE_OPTIONS.findIndex((km) => km === maxDistanceKm);
+    const nextIndex =
+      currentIndex < 0
+        ? WIDEN_DISTANCE_OPTIONS.indexOf(DEFAULT_MAX_DISTANCE_KM) + 1
+        : Math.min(currentIndex + 1, WIDEN_DISTANCE_OPTIONS.length - 1);
+    setMaxDistanceKm(WIDEN_DISTANCE_OPTIONS[nextIndex] ?? null);
   }, [maxDistanceKm, setMaxDistanceKm]);
+
+  const resultsMeta =
+    locale === 'np'
+      ? maxDistanceKm == null
+        ? `सबै · ${neighbourhoodName}`
+        : `${maxDistanceKm} किमी · ${neighbourhoodName}`
+      : maxDistanceKm == null
+        ? `All · ${neighbourhoodName}`
+        : `Within ${maxDistanceKm} km · ${neighbourhoodName}`;
 
   const renderItem = useCallback(
     ({ item }: { item: BrowsePartner }) => (
@@ -268,7 +283,7 @@ export default function BrowsePartnersScreen() {
         categories={categoryOptions}
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
-        distances={DISTANCE_OPTIONS}
+        distances={HOME_DISTANCE_OPTIONS}
         maxDistanceKm={maxDistanceKm}
         onDistanceChange={setMaxDistanceKm}
       />
@@ -289,14 +304,10 @@ export default function BrowsePartnersScreen() {
             ? 'रेस्टुरेन्ट'
             : `restaurant${filteredPartners.length === 1 ? '' : 's'}`}
         </Text>
-        <Text style={styles.resultsMeta}>
-          {locale === 'np'
-            ? `${maxDistanceKm} किमी · ${areaLabel}`
-            : `Within ${maxDistanceKm} km · ${areaLabel}`}
-        </Text>
+        <Text style={styles.resultsMeta}>{resultsMeta}</Text>
       </View>
 
-      {hiddenByDistanceCount > 0 && filteredPartners.length === 0 ? (
+      {hiddenByDistanceCount > 0 && filteredPartners.length === 0 && maxDistanceKm != null ? (
         <Pressable onPress={widenDistance} style={styles.hintBanner}>
           <Text style={styles.hintText}>
             {locale === 'np'
@@ -313,8 +324,7 @@ export default function BrowsePartnersScreen() {
       <BrowsePartnersHeader
         paddingTop={insets.top + Spacing.sm}
         locale={locale}
-        areaId={areaId}
-        onLocationChange={setLocation}
+        neighbourhoodLabel={neighbourhoodLabel}
       />
       <View style={styles.contentInset}>{headerContent}</View>
     </Pressable>

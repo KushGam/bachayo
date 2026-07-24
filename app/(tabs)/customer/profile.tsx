@@ -37,7 +37,6 @@ import { LanguageToggle } from '@/components/auth/LanguageToggle';
 import { CustomerProfileHero } from '@/components/customer/profile/CustomerProfileHero';
 import { CustomerProfileImpactCard } from '@/components/customer/profile/CustomerProfileImpactCard';
 import { ProfileMenuRow } from '@/components/partner/ProfileMenuRow';
-import { LocationPicker } from '@/components/ui/LocationPicker';
 import { FOOD_PREFERENCE_OPTIONS } from '@/constants/foodPreferences';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
@@ -86,7 +85,7 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { areaId, setLocation } = useLocationStore();
+  const { neighbourhood, isDefault, requestLocation } = useLocationStore();
   const { locale, setLocale, reset } = useAuthStore();
   const [user, setUser] = useState<ProfileUser>({
     name: 'Guest',
@@ -253,13 +252,40 @@ export default function ProfileScreen() {
                 <View style={styles.locationIconWrap}>
                   <MapPin size={16} color={Palette.primary} strokeWidth={2} />
                 </View>
-                <Text style={styles.locationLabel}>Home location</Text>
-                <LocationPicker
-                  variant="valueOnly"
-                  value={areaId}
-                  onChange={(cityId, nextAreaId) => setLocation(cityId, nextAreaId)}
-                  placeholder="Choose location"
-                />
+                <View style={styles.locationCopy}>
+                  <Text style={styles.locationLabel}>Location</Text>
+                  <Text style={styles.locationValue} numberOfLines={1}>
+                    {isDefault
+                      ? 'Not detected yet'
+                      : neighbourhood
+                        ? `📍 ${neighbourhood}`
+                        : '📍 Nepal'}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void (async () => {
+                      const ok = await requestLocation();
+                      if (!ok) {
+                        Alert.alert(
+                          'Location',
+                          'Enable location in Settings so we can show bags near you.',
+                          [
+                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                            { text: 'Cancel', style: 'cancel' },
+                          ],
+                        );
+                        return;
+                      }
+                      Alert.alert(
+                        'Location',
+                        'Your location is automatically detected. We use it to show you bags nearby.',
+                      );
+                    })();
+                  }}
+                  hitSlop={8}>
+                  <Text style={styles.locationRefresh}>Refresh</Text>
+                </Pressable>
               </View>
               <ProfileMenuRow
                 icon={Store}
@@ -363,13 +389,40 @@ export default function ProfileScreen() {
                 <View style={styles.locationIconWrap}>
                   <MapPin size={16} color={Palette.primary} strokeWidth={2} />
                 </View>
-                <Text style={styles.locationLabel}>Home location</Text>
-                <LocationPicker
-                  variant="valueOnly"
-                  value={areaId}
-                  onChange={(cityId, nextAreaId) => setLocation(cityId, nextAreaId)}
-                  placeholder="Choose location"
-                />
+                <View style={styles.locationCopy}>
+                  <Text style={styles.locationLabel}>Location</Text>
+                  <Text style={styles.locationValue} numberOfLines={1}>
+                    {isDefault
+                      ? 'Not detected yet'
+                      : neighbourhood
+                        ? `📍 ${neighbourhood}`
+                        : '📍 Nepal'}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void (async () => {
+                      const ok = await requestLocation();
+                      if (!ok) {
+                        Alert.alert(
+                          'Location',
+                          'Enable location in Settings so we can show bags near you.',
+                          [
+                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                            { text: 'Cancel', style: 'cancel' },
+                          ],
+                        );
+                        return;
+                      }
+                      Alert.alert(
+                        'Location',
+                        'Your location is automatically detected. We use it to show you bags nearby.',
+                      );
+                    })();
+                  }}
+                  hitSlop={8}>
+                  <Text style={styles.locationRefresh}>Refresh</Text>
+                </Pressable>
               </View>
               <ProfileMenuRow
                 icon={Info}
@@ -448,11 +501,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  locationLabel: {
+  locationCopy: {
     flex: 1,
+    gap: 2,
+  },
+  locationLabel: {
     ...Type.bodyMedium,
     fontWeight: '500',
     color: Palette.textPrimary,
+  },
+  locationValue: {
+    fontSize: 13,
+    color: Palette.textSecondary,
+  },
+  locationRefresh: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Palette.primary,
   },
   valueInline: {
     ...Type.caption,

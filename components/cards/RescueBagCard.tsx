@@ -7,7 +7,12 @@ import { AppSymbol } from '@/components/ui/AppSymbol';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { getRescueBagImageUrl } from '@/lib/images';
-import { formatBagPickupLabel, formatDistanceKm, formatNprPaisa, formatRsPaisa, getInitials } from '@/lib/helpers';
+import { formatBagPickupLabel, formatNprPaisa, formatRsPaisa, getInitials } from '@/lib/helpers';
+import {
+  formatDistance,
+  getDistanceColor,
+  isTooFarToReserve,
+} from '@/lib/distance';
 import { getCategoryPillLabel } from '@/constants/partnerCategories';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { HomeBag } from '@/store/useBagsStore';
@@ -36,11 +41,18 @@ export const RescueBagCard = memo(function RescueBagCard({
       : 0;
   const rating = bag.partner.rating ?? 0;
   const pickupLabel = formatBagPickupLabel(bag.available_date, bag.pickup_start, bag.pickup_end);
+  const tooFar = isTooFarToReserve(bag.distance_km);
+  const distanceColor =
+    bag.distance_km != null ? getDistanceColor(bag.distance_km) : Palette.primary;
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      style={({ pressed }) => [
+        styles.card,
+        tooFar && styles.cardTooFar,
+        pressed && styles.pressed,
+      ]}>
       <View style={styles.imageCol}>
         <AppImage
           source={{ uri: getRescueBagImageUrl(bag) }}
@@ -54,6 +66,11 @@ export const RescueBagCard = memo(function RescueBagCard({
         {isReserved ? (
           <View style={styles.reservedBadge}>
             <Text style={styles.reservedBadgeText}>Reserved ✓</Text>
+          </View>
+        ) : null}
+        {tooFar ? (
+          <View style={styles.outOfRangeBadge}>
+            <Text style={styles.outOfRangeBadgeText}>Out of range</Text>
           </View>
         ) : null}
       </View>
@@ -87,9 +104,9 @@ export const RescueBagCard = memo(function RescueBagCard({
           </View>
           {bag.distance_km != null ? (
             <View style={styles.metaChip}>
-              <AppSymbol ios="location" android="place" size={11} color={Palette.primary} />
-              <Text style={styles.metaChipText}>
-                {formatDistanceKm(bag.distance_km).replace(' away', '')}
+              <AppSymbol ios="location" android="place" size={11} color={distanceColor} />
+              <Text style={[styles.metaChipText, { color: distanceColor }]}>
+                {formatDistance(bag.distance_km)}
               </Text>
             </View>
           ) : null}
@@ -110,14 +127,24 @@ export const RescueBagCard = memo(function RescueBagCard({
               styles.stockPill,
               soldOut && styles.stockPillSoldOut,
               !soldOut && left <= 3 && styles.stockPillLow,
+              tooFar && styles.stockPillTooFar,
             ]}>
             <Text
               style={[
                 styles.stockText,
                 soldOut && styles.stockTextSoldOut,
                 !soldOut && left <= 3 && styles.stockTextLow,
+                tooFar && styles.stockTextTooFar,
               ]}>
-              {soldOut ? 'Sold out' : left === 1 ? 'Only 1 left!' : left <= 3 ? `Only ${left} left!` : `${left} left`}
+              {tooFar
+                ? 'Out of range'
+                : soldOut
+                  ? 'Sold out'
+                  : left === 1
+                    ? 'Only 1 left!'
+                    : left <= 3
+                      ? `Only ${left} left!`
+                      : `${left} left`}
             </Text>
           </View>
         </View>
@@ -132,6 +159,9 @@ const styles = StyleSheet.create({
     ...CardChrome,
     overflow: 'hidden',
     minHeight: 128,
+  },
+  cardTooFar: {
+    opacity: 0.6,
   },
   pressed: {
     opacity: 0.94,
@@ -173,6 +203,20 @@ const styles = StyleSheet.create({
     ...Type.label,
     fontWeight: '700',
     color: Palette.white,
+  },
+  outOfRangeBadge: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    left: Spacing.sm,
+    backgroundColor: '#FEE2E2',
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  outOfRangeBadgeText: {
+    ...Type.label,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   body: {
     flex: 1,
@@ -267,6 +311,9 @@ const styles = StyleSheet.create({
   stockPillSoldOut: {
     backgroundColor: '#F3F4F6',
   },
+  stockPillTooFar: {
+    backgroundColor: '#FEE2E2',
+  },
   stockText: {
     ...Type.label,
     color: Palette.warning,
@@ -277,5 +324,8 @@ const styles = StyleSheet.create({
   },
   stockTextSoldOut: {
     color: '#6B7280',
+  },
+  stockTextTooFar: {
+    color: '#DC2626',
   },
 });

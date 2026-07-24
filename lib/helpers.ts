@@ -106,8 +106,10 @@ export function partnerDistanceKm(
 }
 
 export function formatDistanceKm(distanceKm: number): string {
-  if (distanceKm < 1) return `${Math.round(distanceKm * 10) / 10} km away`;
-  return `${distanceKm.toFixed(1)} km away`;
+  if (distanceKm < 0.1) return 'Nearby 📍';
+  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)}m away`;
+  if (distanceKm < 10) return `${distanceKm.toFixed(1)}km away`;
+  return `${Math.round(distanceKm)}km · Out of range`;
 }
 
 export function formatTodayBilingual() {

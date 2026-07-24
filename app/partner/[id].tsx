@@ -27,7 +27,6 @@ import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
 import { haversineDistanceKm, normalizeNepalCoords } from '@/lib/helpers';
 import { hapticButtonPress } from '@/lib/haptics';
-import { getAreaById, getCityById } from '@/lib/locations';
 import { isPartnerApproved } from '@/lib/partnerApproval';
 import { decodePartnerMeta, getPartnerBio } from '@/lib/partnerMeta';
 import { isReviewEligibleOrderStatus } from '@/lib/orderStatus';
@@ -43,7 +42,6 @@ import {
 } from '@/lib/partnerDetailUi';
 import { formatOpeningHours } from '@/lib/partnerProfile';
 import { supabase } from '@/lib/supabase';
-import { useLocationStore } from '@/store/useLocationStore';
 
 export default function PartnerDetailScreen() {
   const router = useRouter();
@@ -105,7 +103,7 @@ export default function PartnerDetailScreen() {
           };
         }
       } catch {
-        // Fall through to profile / selected area
+        // Fall through to profile home location
       }
 
       if (!coords) {
@@ -123,17 +121,6 @@ export default function PartnerDetailScreen() {
               longitude: profile.home_longitude,
             };
           }
-        }
-      }
-
-      if (!coords) {
-        const { cityId, areaId } = useLocationStore.getState();
-        const area = getAreaById(areaId);
-        const city = getCityById(cityId);
-        if (area) {
-          coords = { latitude: area.latitude, longitude: area.longitude };
-        } else if (city) {
-          coords = { latitude: city.latitude, longitude: city.longitude };
         }
       }
 

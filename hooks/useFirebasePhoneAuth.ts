@@ -4,9 +4,12 @@ import {
   signInWithCredential,
 } from 'firebase/auth';
 
-import { firebaseAuth } from '@/lib/firebase';
+import { firebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
+
+const FIREBASE_NOT_CONFIGURED =
+  'Phone auth is not configured yet. Add Firebase keys to .env.local.';
 
 /** Shared across screens so OTP verify works after navigation. */
 let sharedVerificationId: string | null = null;
@@ -55,6 +58,10 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
+        if (!isFirebaseConfigured || !firebaseAuth) {
+          throw new Error(FIREBASE_NOT_CONFIGURED);
+        }
+
         if (!validatePhone(phone)) {
           throw new Error(
             'Enter a valid NTC or Ncell number (starts with 97 or 98)',
@@ -118,6 +125,13 @@ export function useFirebasePhoneAuth() {
         return {
           success: false as const,
           error: 'No verification in progress. Please request a new code.',
+        };
+      }
+
+      if (!isFirebaseConfigured || !firebaseAuth) {
+        return {
+          success: false as const,
+          error: FIREBASE_NOT_CONFIGURED,
         };
       }
 

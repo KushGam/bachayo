@@ -26,7 +26,7 @@ import {
   navigateAfterGoogleSignIn,
   phoneProfileExists,
 } from '@/lib/auth';
-import app from '@/lib/firebase';
+import app, { isFirebaseConfigured } from '@/lib/firebase';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -195,13 +195,15 @@ export default function PartnerBasicsScreen() {
 
   return (
     <>
-    <FirebaseRecaptchaVerifierModal
-      ref={recaptchaVerifier}
-      firebaseConfig={app.options}
-      attemptInvisibleVerification
-      title="Verify you're human"
-      cancelLabel="Cancel"
-    />
+    {isFirebaseConfigured && app ? (
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={app.options}
+        attemptInvisibleVerification
+        title="Verify you're human"
+        cancelLabel="Cancel"
+      />
+    ) : null}
     <SignupStepShell
       currentStep={1}
       totalSteps={TOTAL_STEPS}

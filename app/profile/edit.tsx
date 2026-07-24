@@ -21,17 +21,14 @@ import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TimePickerSheet } from '@/components/partner/TimePickerSheet';
-import { LocationPicker } from '@/components/ui/LocationPicker';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { FOOD_PREFERENCE_OPTIONS } from '@/constants/foodPreferences';
 import { Palette } from '@/constants/Colors';
 import { getInitials } from '@/lib/helpers';
 import { getProfileAvatarUrl } from '@/lib/images';
-import { formatLocationLabel } from '@/lib/locations';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar } from '@/lib/upload';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useLocationStore } from '@/store/useLocationStore';
 
 type ProfileRow = {
   id: string;
@@ -50,8 +47,6 @@ type FormSnapshot = {
   fullName: string;
   email: string;
   dobIso: string | null;
-  cityId: string | null;
-  areaId: string | null;
   foodPreferences: string[];
   avatarUrl: string | null;
   avatarRemoved: boolean;
@@ -126,7 +121,6 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { reset } = useAuthStore();
-  const { setLocation } = useLocationStore();
   const { min: minDob, max: maxDob } = useMemo(() => getDobLimits(), []);
 
   const [loading, setLoading] = useState(true);
@@ -140,8 +134,6 @@ export default function EditProfileScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState<string | null>(null);
   const [dob, setDob] = useState<Date | null>(null);
-  const [cityId, setCityId] = useState<string | null>(null);
-  const [areaId, setAreaId] = useState<string | null>(null);
   const [foodPreferences, setFoodPreferences] = useState<string[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
@@ -165,8 +157,6 @@ export default function EditProfileScreen() {
       fullName: fullName.trim(),
       email: email.trim(),
       dobIso: toIsoDate(dob),
-      cityId,
-      areaId,
       foodPreferences,
       avatarUrl,
       avatarRemoved,
@@ -175,8 +165,6 @@ export default function EditProfileScreen() {
     return (
       current.fullName !== initial.fullName ||
       current.dobIso !== initial.dobIso ||
-      current.cityId !== initial.cityId ||
-      current.areaId !== initial.areaId ||
       !arraysEqual(current.foodPreferences, initial.foodPreferences) ||
       current.avatarRemoved !== initial.avatarRemoved ||
       current.pendingAvatarUri !== initial.pendingAvatarUri
@@ -186,8 +174,6 @@ export default function EditProfileScreen() {
     fullName,
     email,
     dob,
-    cityId,
-    areaId,
     foodPreferences,
     avatarUrl,
     avatarRemoved,
@@ -228,30 +214,22 @@ export default function EditProfileScreen() {
     setEmail(profile.email ?? sessionUser.email ?? '');
     setPhone(profile.phone);
     setDob(parsedDob);
-    setCityId(profile.city_id);
-    setAreaId(profile.area_id);
     setFoodPreferences(prefs);
     setAvatarUrl(profile.avatar_url);
     setPendingAvatarUri(null);
     setAvatarRemoved(false);
 
-    if (profile.area_id && profile.city_id) {
-      setLocation(profile.city_id, profile.area_id);
-    }
-
     setInitial({
       fullName: profile.full_name?.trim() ?? '',
       email: (profile.email ?? sessionUser.email ?? '').trim(),
       dobIso: profile.date_of_birth,
-      cityId: profile.city_id,
-      areaId: profile.area_id,
       foodPreferences: prefs,
       avatarUrl: profile.avatar_url,
       avatarRemoved: false,
       pendingAvatarUri: null,
     });
     setLoading(false);
-  }, [router, setLocation]);
+  }, [router]);
 
   useEffect(() => {
     void loadProfile();
@@ -360,17 +338,11 @@ export default function EditProfileScreen() {
         nextAvatarUrl = await uploadAvatar(userId, pendingAvatarUri);
       }
 
-      const areaLabel =
-        cityId && areaId ? formatLocationLabel(cityId, areaId) : null;
-
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: trimmedName,
           date_of_birth: toIsoDate(dob),
-          home_area: areaLabel,
-          city_id: cityId,
-          area_id: areaId,
           food_preferences: foodPreferences.length > 0 ? foodPreferences : null,
           avatar_url: nextAvatarUrl,
           updated_at: new Date().toISOString(),
@@ -379,10 +351,6 @@ export default function EditProfileScreen() {
 
       if (error) throw error;
 
-      if (cityId && areaId) {
-        setLocation(cityId, areaId);
-      }
-
       setAvatarUrl(nextAvatarUrl);
       setPendingAvatarUri(null);
       setAvatarRemoved(false);
@@ -390,8 +358,6 @@ export default function EditProfileScreen() {
         fullName: trimmedName,
         email: email.trim(),
         dobIso: toIsoDate(dob),
-        cityId,
-        areaId,
         foodPreferences,
         avatarUrl: nextAvatarUrl,
         avatarRemoved: false,
@@ -554,22 +520,6 @@ export default function EditProfileScreen() {
                 {formatDobDisplay(dob)}
               </Text>
             </Pressable>
-          </View>
-        </View>
-
-        <Text style={styles.sectionLabel}>Location</Text>
-        <View style={styles.card}>
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Your area</Text>
-            <LocationPicker
-              value={areaId}
-              onChange={(nextCityId, nextAreaId) => {
-                setCityId(nextCityId);
-                setAreaId(nextAreaId);
-              }}
-              placeholder="Choose your area"
-              variant="field"
-            />
           </View>
         </View>
 

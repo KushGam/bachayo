@@ -1,6 +1,12 @@
 import { getBagDineInExtraPaisa, getBagServiceType } from '@/lib/helpers';
+import {
+  calculateDistance,
+  isTooFarToReserve,
+  MAX_RESERVE_DISTANCE_KM,
+} from '@/lib/distance';
 import { supabase } from '@/lib/supabase';
 import { useBagsStore } from '@/store/useBagsStore';
+import { useLocationStore } from '@/store/useLocationStore';
 import {
   NEW_RESERVATION_APP_STATUS,
   NEW_RESERVATION_DB_STATUS,
@@ -168,6 +174,47 @@ export async function createReservation(
   const remaining = bag.quantity_available - bag.quantity_reserved;
   if (remaining < input.quantity) {
     return { ok: false, error: 'sold_out' };
+  }
+
+  const { latitude, longitude } = useLocationStore.getState();
+  let customerLat = latitude;
+  let customerLng = longitude;
+
+  if (customerLat == null || customerLng == null) {
+    const { data: profileLoc } = await supabase
+      .from('profiles')
+      .select('last_latitude, last_longitude')
+      .eq('id', userId)
+      .maybeSingle();
+    const row = profileLoc as {
+      last_latitude?: number | null;
+      last_longitude?: number | null;
+    } | null;
+    if (row?.last_latitude != null && row?.last_longitude != null) {
+      customerLat = row.last_latitude;
+      customerLng = row.last_longitude;
+    }
+  }
+
+  if (
+    customerLat != null &&
+    customerLng != null &&
+    bag.partner?.latitude != null &&
+    bag.partner?.longitude != null
+  ) {
+    const distanceKm = calculateDistance(
+      customerLat,
+      customerLng,
+      bag.partner.latitude,
+      bag.partner.longitude,
+    );
+    if (isTooFarToReserve(distanceKm)) {
+      return {
+        ok: false,
+        error: 'network',
+        message: `DISTANCE_EXCEEDED: You are too far from this restaurant to reserve (${distanceKm.toFixed(1)}km · max ${MAX_RESERVE_DISTANCE_KM}km).`,
+      };
+    }
   }
 
   const existing = await findActiveReservationForBag(userId, input.bagId);

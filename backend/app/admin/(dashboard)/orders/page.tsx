@@ -213,7 +213,7 @@ export default async function AdminOrdersPage({
             { key: 'kathmandu', label: 'Kathmandu' },
             { key: 'lalitpur', label: 'Lalitpur' },
             { key: 'pokhara', label: 'Pokhara' },
-            { key: 'bharatpur', label: 'Bharatpur' },
+            { key: 'bhaktapur', label: 'Bhaktapur' },
           ].map((item) => (
             <Link
               key={item.key || 'all-cities'}

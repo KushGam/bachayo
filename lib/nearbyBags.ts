@@ -1,5 +1,4 @@
 import { computeBrowsePartnerDistance } from '@/lib/partnerBrowse';
-import { getAreaById, getCityById } from '@/lib/locations';
 import { isPartnerVisibleToCustomers, type PartnerSubscriptionFields } from '@/lib/subscriptions';
 import { supabase } from '@/lib/supabase';
 import type { HomeBag } from '@/store/useBagsStore';
@@ -11,29 +10,17 @@ type PartnerJoin = Partner & {
 };
 
 export function resolveNearbyOrigin(
-  areaId: string,
-  cityId: string,
   gpsCoords: { latitude: number; longitude: number } | null,
 ) {
-  const area = getAreaById(areaId);
-  if (area) return { latitude: area.latitude, longitude: area.longitude };
-  const city = getCityById(cityId);
-  if (city) return { latitude: city.latitude, longitude: city.longitude };
   return gpsCoords;
 }
 
-function partnerInCity(partner: PartnerJoin, cityId: string) {
-  if (!partner.city_id) return cityId === 'kathmandu';
-  return partner.city_id === cityId;
-}
-
-export function filterVisibleNearbyBags(rows: unknown[], cityId: string): HomeBag[] {
+export function filterVisibleNearbyBags(rows: unknown[]): HomeBag[] {
   return (rows ?? []).filter((row) => {
     const bag = row as HomeBag;
     const partner = bag.partner as PartnerJoin | undefined;
     if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
-    if (!partner) return false;
-    return partnerInCity(partner, cityId);
+    return Boolean(partner);
   }) as HomeBag[];
 }
 
@@ -62,11 +49,12 @@ export function attachNearbyBagDistances(
   });
 }
 
+/** null maxDistanceKm = All (no cap) */
 export function bagPassesNearbyDistanceFilter(
   bag: HomeBag,
-  maxDistanceKm: number,
+  maxDistanceKm: number | null,
 ): boolean {
-  if (!Number.isFinite(maxDistanceKm)) return true;
+  if (maxDistanceKm == null || !Number.isFinite(maxDistanceKm)) return true;
   if (bag.distance_km == null) return true;
   return bag.distance_km <= maxDistanceKm;
 }

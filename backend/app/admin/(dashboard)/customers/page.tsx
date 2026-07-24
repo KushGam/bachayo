@@ -74,7 +74,7 @@ export default async function AdminCustomersPage({
           <option value="kathmandu">Kathmandu</option>
           <option value="lalitpur">Lalitpur</option>
           <option value="pokhara">Pokhara</option>
-          <option value="bharatpur">Bharatpur</option>
+          <option value="bhaktapur">Bhaktapur</option>
         </select>
         <button type="submit" className="rounded-lg bg-[#D85A30] px-4 py-2 text-sm font-medium text-white">
           Filter

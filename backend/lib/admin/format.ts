@@ -82,7 +82,8 @@ export function cityLabel(cityId: string | null | undefined) {
     kathmandu: 'Kathmandu',
     lalitpur: 'Lalitpur',
     pokhara: 'Pokhara',
-    bharatpur: 'Bharatpur',
+    bharatpur: 'Bhaktapur',
+    bhaktapur: 'Bhaktapur',
   };
   if (!cityId) return '—';
   return map[cityId] ?? cityId;

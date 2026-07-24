@@ -64,7 +64,7 @@ export default function HomeLanding() {
     {
       id: 'city',
       q: 'Is LastBag available in my city?',
-      a: 'We’re launching in Kathmandu first, with Lalitpur, Pokhara, and Bharatpur following soon. Enter your email in the waitlist below and we’ll notify you when we launch near you!',
+      a: 'Yes! LastBag is available across Nepal. Find rescue bags near you in any city — enter your email below if you want launch updates.',
     },
     {
       id: 'partner',
@@ -216,7 +216,7 @@ export default function HomeLanding() {
       <section className="border-b border-[var(--border)] bg-[var(--surface)]">
         <div className="mx-auto grid max-w-[1120px] grid-cols-3 divide-x divide-[var(--border)] px-6 py-10">
           {[
-            { n: '4', l: 'Cities launching' },
+            { n: '4', l: 'Cities live' },
             { n: '70%', l: 'Max savings per bag' },
             { n: 'Free', l: 'To reserve a bag' },
           ].map((stat) => (
@@ -834,10 +834,10 @@ export default function HomeLanding() {
             <h2
               className="mt-5 font-display font-bold tracking-tight text-[#1A1A1A]"
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
-              Starting across Nepal
+              Available across Nepal 🇳🇵
             </h2>
             <p className="mt-4 text-[15px] text-[var(--text-secondary)]">
-              Launching across all major cities in Nepal.
+              LastBag works anywhere in Nepal. Find rescue bags near you in any city.
             </p>
           </div>
         </FadeIn>
@@ -847,7 +847,7 @@ export default function HomeLanding() {
             { name: 'Kathmandu', np: 'काठमाडौं' },
             { name: 'Lalitpur', np: 'ललितपुर' },
             { name: 'Pokhara', np: 'पोखरा' },
-            { name: 'Bharatpur', np: 'भरतपुर' },
+            { name: 'Bhaktapur', np: 'भक्तपुर' },
           ].map((city, i) => (
             <FadeIn key={city.name} delay={i * 70}>
               <div
@@ -861,13 +861,16 @@ export default function HomeLanding() {
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
                 <span
                   className="mt-5 inline-block rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
-                  style={{ background: '#D85A30' }}>
-                  Launching first
+                  style={{ background: '#10B981' }}>
+                  Available now ✓
                 </span>
               </div>
             </FadeIn>
           ))}
         </div>
+        <p className="mt-6 text-center text-sm text-[#6B7280]">
+          + Available in all cities across Nepal
+        </p>
       </section>
 
       {/* Download */}

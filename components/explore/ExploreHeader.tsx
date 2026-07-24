@@ -1,4 +1,3 @@
-import { LocationPicker } from '@/components/ui/LocationPicker';
 import { SearchField } from '@/components/ui/SearchField';
 import { SlidersHorizontal } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,8 +6,6 @@ import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing } from '@/constants/theme';
 
 type ExploreHeaderProps = {
-  areaId: string | null | undefined;
-  onLocationChange: (cityId: string, areaId: string) => void;
   searchTerm: string;
   onSearchChange: (text: string) => void;
   onFilterPress: () => void;
@@ -17,8 +14,6 @@ type ExploreHeaderProps = {
 };
 
 export function ExploreHeader({
-  areaId,
-  onLocationChange,
   searchTerm,
   onSearchChange,
   onFilterPress,
@@ -27,8 +22,6 @@ export function ExploreHeader({
 }: ExploreHeaderProps) {
   return (
     <View style={styles.card}>
-      <LocationPicker variant="explore" value={areaId} onChange={onLocationChange} />
-
       <View style={styles.searchRow}>
         <SearchField
           value={searchTerm}

@@ -59,7 +59,7 @@ export function NotificationComposer({
               <option value="kathmandu">Kathmandu</option>
               <option value="lalitpur">Lalitpur</option>
               <option value="pokhara">Pokhara</option>
-              <option value="bharatpur">Bharatpur</option>
+              <option value="bhaktapur">Bhaktapur</option>
             </select>
           ) : null}
           {targetType === 'user' ? (

@@ -35,29 +35,24 @@ export function computeBrowsePartnerDistance(
 
 export function partnerPassesBrowseDistanceFilter(
   partner: { distance_km: number | null },
-  maxDistanceKm: number,
+  maxDistanceKm: number | null,
 ): boolean {
-  if (!Number.isFinite(maxDistanceKm)) return true;
+  if (maxDistanceKm == null || !Number.isFinite(maxDistanceKm)) return true;
   if (partner.distance_km == null) return false;
   return partner.distance_km <= maxDistanceKm;
 }
 
 export function countPartnersHiddenByDistance(
   partners: Array<{ distance_km: number | null }>,
-  maxDistanceKm: number,
+  maxDistanceKm: number | null,
 ): number {
+  if (maxDistanceKm == null || !Number.isFinite(maxDistanceKm)) return 0;
   return partners.filter(
     (partner) => partner.distance_km != null && partner.distance_km > maxDistanceKm,
   ).length;
 }
 
-function partnerInCity(partner: PartnerRow, cityId: string) {
-  if (!partner.city_id) return cityId === 'kathmandu';
-  return partner.city_id === cityId;
-}
-
 export async function fetchBrowsePartners(
-  cityId: string,
   today = getTodayIsoDateLocal(),
 ): Promise<PartnerWithStats[]> {
   const { data, error } = await supabase
@@ -69,8 +64,7 @@ export async function fetchBrowsePartners(
 
   const visible = (data ?? []).filter((row) => {
     const partner = row as PartnerRow;
-    if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
-    return partnerInCity(partner, cityId);
+    return isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields);
   }) as PartnerRow[];
 
   if (visible.length === 0) return [];

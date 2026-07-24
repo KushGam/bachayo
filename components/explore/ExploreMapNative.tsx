@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
@@ -26,7 +25,7 @@ import { useLocationStore } from '@/store/useLocationStore';
 
 import { ExploreBagListCard } from './ExploreBagListCard';
 import { ExploreBottomSheet } from './ExploreBottomSheet';
-import { ExploreFilterPanel, MAX_DISTANCE_OPTIONS } from './ExploreFilterPanel';
+import { ExploreFilterPanel } from './ExploreFilterPanel';
 import { ExploreHeader } from './ExploreHeader';
 import { ExploreSelectedBagCard } from './ExploreSelectedBagCard';
 import { ExploreSheetEmpty } from './ExploreSheetEmpty';
@@ -49,12 +48,31 @@ export default function ExploreMapNative() {
   const insets = useSafeAreaInsets();
   const locale = useAuthStore((s) => s.locale);
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
-  const { cityId, areaId, setLocation } = useLocationStore();
+  const { latitude, longitude, maxDistanceKm, setMaxDistanceKm, requestLocation } =
+    useLocationStore();
 
-  const [region, setRegion] = useState<Region>(KATHMANDU_REGION);
-  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [region, setRegion] = useState<Region>(() => {
+    const state = useLocationStore.getState();
+    if (state.latitude != null && state.longitude != null) {
+      return {
+        latitude: state.latitude,
+        longitude: state.longitude,
+        latitudeDelta: 0.08,
+        longitudeDelta: 0.08,
+      };
+    }
+    return KATHMANDU_REGION;
+  });
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(
+    () => {
+      const state = useLocationStore.getState();
+      if (state.latitude != null && state.longitude != null) {
+        return { latitude: state.latitude, longitude: state.longitude };
+      }
+      return null;
+    },
+  );
   const [searchTerm, setSearchTerm] = useState('');
-  const [maxDistanceKm, setMaxDistanceKm] = useState<(typeof MAX_DISTANCE_OPTIONS)[number]>(10);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBagId, setSelectedBagId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,10 +83,7 @@ export default function ExploreMapNative() {
     [bags, selectedBagId],
   );
 
-  const origin = useMemo(
-    () => resolveNearbyOrigin(areaId, cityId, userCoords),
-    [areaId, cityId, userCoords],
-  );
+  const origin = useMemo(() => resolveNearbyOrigin(userCoords), [userCoords]);
 
   const filteredBags = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -98,39 +113,33 @@ export default function ExploreMapNative() {
       return;
     }
 
-    const visible = filterVisibleNearbyBags(data, cityId);
+    const visible = filterVisibleNearbyBags(data ?? []);
     const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
     const nextBags = attachNearbyBagDistances(withStock, origin);
 
     setBags(nextBags);
     setLoading(false);
-  }, [cityId, origin, setBags]);
+  }, [origin, setBags]);
 
   const fetchBagsRef = useRef(fetchBags);
   fetchBagsRef.current = fetchBags;
 
   useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      const current = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const coords = {
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
-      };
+    if (latitude != null && longitude != null) {
+      const coords = { latitude, longitude };
       setUserCoords(coords);
-      setRegion({
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+      setRegion((prev) => ({
+        ...prev,
+        ...coords,
         latitudeDelta: 0.08,
         longitudeDelta: 0.08,
-      });
-    })();
-  }, []);
+      }));
+    }
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    void requestLocation();
+  }, [requestLocation]);
 
   useEffect(() => {
     fetchBags();
@@ -179,7 +188,7 @@ export default function ExploreMapNative() {
 
   const handleResetFilters = () => {
     setSelectedCategory('all');
-    setMaxDistanceKm(10);
+    setMaxDistanceKm(5);
   };
 
   const renderListItem = useCallback(
@@ -199,7 +208,7 @@ export default function ExploreMapNative() {
     [locale, router, selectedBagId],
   );
 
-  const filtersActive = selectedCategory !== 'all' || maxDistanceKm !== 10;
+  const filtersActive = selectedCategory !== 'all' || maxDistanceKm !== 5;
   const searchPlaceholder =
     locale === 'np' ? 'रेस्टुरेन्ट, बेकरी खोज्नुहोस्…' : 'Search restaurants, bakeries…';
 
@@ -224,8 +233,6 @@ export default function ExploreMapNative() {
 
         <View style={[styles.floatingChrome, { paddingTop: insets.top + Spacing.sm }]}>
           <ExploreHeader
-            areaId={areaId}
-            onLocationChange={(cityId, nextAreaId) => setLocation(cityId, nextAreaId)}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onFilterPress={() => setIsFilterOpen((value) => !value)}

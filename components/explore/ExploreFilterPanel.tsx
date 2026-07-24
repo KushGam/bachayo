@@ -7,16 +7,17 @@ import {
   HOME_CATEGORY_FILTERS,
   type HomeCategoryFilter,
 } from '@/constants/partnerCategories';
+import type { MaxDistanceKm } from '@/store/useLocationStore';
 
-const MAX_DISTANCE_OPTIONS = [2, 5, 10, 25] as const;
+export const MAX_DISTANCE_OPTIONS: readonly MaxDistanceKm[] = [null, 1, 2, 5, 10];
 
 type ExploreFilterPanelProps = {
   visible: boolean;
   locale: 'en' | 'np';
   selectedCategory: HomeCategoryFilter;
-  maxDistanceKm: (typeof MAX_DISTANCE_OPTIONS)[number];
+  maxDistanceKm: MaxDistanceKm;
   onSelectCategory: (key: HomeCategoryFilter) => void;
-  onSelectDistance: (km: (typeof MAX_DISTANCE_OPTIONS)[number]) => void;
+  onSelectDistance: (km: MaxDistanceKm) => void;
   onApply: () => void;
 };
 
@@ -63,12 +64,13 @@ export function ExploreFilterPanel({
       <View style={styles.pillRow}>
         {MAX_DISTANCE_OPTIONS.map((km) => {
           const active = maxDistanceKm === km;
+          const label = km == null ? (locale === 'np' ? 'सबै' : 'All') : `${km} km`;
           return (
             <Pressable
-              key={km}
+              key={km == null ? 'all' : String(km)}
               onPress={() => onSelectDistance(km)}
               style={[styles.pill, active && styles.pillActive]}>
-              <Text style={[styles.pillText, active && styles.pillTextActive]}>{km} km</Text>
+              <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -144,5 +146,3 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
 });
-
-export { MAX_DISTANCE_OPTIONS };
