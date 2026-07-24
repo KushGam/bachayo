@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 
 const DEFAULT_SUCCESS =
-  "✅ You're on the list! Check your email for confirmation.";
+  "✅ You're on the list! We'll notify you when LastBag launches near you.";
 
 export function WaitlistForm() {
   const [email, setEmail] = useState('');

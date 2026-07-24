@@ -836,31 +836,34 @@ export default function HomeLanding() {
               style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
               Starting across Nepal
             </h2>
+            <p className="mt-4 text-[15px] text-[var(--text-secondary)]">
+              Launching across all major cities in Nepal.
+            </p>
           </div>
         </FadeIn>
 
         <div className="mx-auto mt-12 grid max-w-[900px] grid-cols-2 gap-4 px-6 md:grid-cols-4">
           {[
-            { name: 'Kathmandu', np: 'काठमाडौं', first: true },
-            { name: 'Lalitpur', np: 'ललितपुर', first: false },
-            { name: 'Pokhara', np: 'पोखरा', first: false },
-            { name: 'Bharatpur', np: 'भरतपुर', first: false },
+            { name: 'Kathmandu', np: 'काठमाडौं' },
+            { name: 'Lalitpur', np: 'ललितपुर' },
+            { name: 'Pokhara', np: 'पोखरा' },
+            { name: 'Bharatpur', np: 'भरतपुर' },
           ].map((city, i) => (
             <FadeIn key={city.name} delay={i * 70}>
               <div
-                className={`rounded-[22px] px-5 py-9 text-center transition duration-300 hover:-translate-y-0.5 ${
-                  city.first
-                    ? 'bg-[#FAECE7] shadow-[var(--shadow-md)] ring-1 ring-[var(--primary)]/15'
-                    : 'border border-[#E8E4DC] bg-[#F5F3EF] shadow-[var(--shadow-sm)]'
-                }`}>
+                className="rounded-[22px] px-5 py-9 text-center transition duration-300 hover:-translate-y-0.5"
+                style={{
+                  background: '#FAECE7',
+                  border: '1px solid #F0997B',
+                  boxShadow: 'var(--shadow-md)',
+                }}>
                 <p className="font-display text-xl font-bold text-[#1A1A1A]">{city.name}</p>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
-                <p
-                  className={`mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] ${
-                    city.first ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
-                  }`}>
-                  {city.first ? 'Launching first' : 'Coming soon'}
-                </p>
+                <span
+                  className="mt-5 inline-block rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white"
+                  style={{ background: '#D85A30' }}>
+                  Launching first
+                </span>
               </div>
             </FadeIn>
           ))}

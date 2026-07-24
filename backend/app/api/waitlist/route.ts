@@ -227,9 +227,8 @@ function confirmationHtml(city: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, city } = (await request.json()) as WaitlistBody;
+    const { email } = (await request.json()) as WaitlistBody;
     const normalizedEmail = email ? normalizeEmail(email) : '';
-    const normalizedCity = city?.trim() || null;
 
     if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       return NextResponse.json({ error: 'Please enter a valid email' }, { status: 400 });
@@ -238,7 +237,7 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = createSupabaseAdmin();
     const { error: dbError } = await supabaseAdmin.from('waitlist').insert({
       email: normalizedEmail,
-      city: normalizedCity,
+      city: null,
     });
 
     if (dbError?.code === '23505') {
@@ -265,7 +264,7 @@ export async function POST(request: NextRequest) {
           from: `"LastBag Nepal" <${gmailUser}>`,
           to: normalizedEmail,
           subject: "You're on the LastBag waitlist! 🛍",
-          html: confirmationHtml(normalizedCity),
+          html: confirmationHtml(null),
         });
 
         await transporter.sendMail({
@@ -276,8 +275,6 @@ export async function POST(request: NextRequest) {
         <h2>New waitlist signup! 🎉</h2>
         <p>
           <strong>Email:</strong> ${normalizedEmail}<br/>
-          <strong>City:</strong>
-            ${normalizedCity || 'Not specified'}<br/>
           <strong>Time:</strong>
             ${new Date().toLocaleString('en-NP', {
               timeZone: 'Asia/Kathmandu',
@@ -301,7 +298,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "You're on the list! Check your email for confirmation. 🛍",
+      message: "✅ You're on the list! We'll notify you when LastBag launches near you.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not join waitlist';
