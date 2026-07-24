@@ -9,7 +9,9 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  Mail,
   MapPin,
+  ShoppingBag,
   Star,
   Users,
 } from 'lucide-react';
@@ -19,8 +21,10 @@ import { AdminLogo } from '@/components/admin/AdminLogo';
 const NAV_PRIMARY = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/partners', label: 'Partners', icon: Building2 },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/billing', label: 'Billing', icon: CreditCard },
   { href: '/admin/customers', label: 'Customers', icon: Users },
+  { href: '/admin/waitlist', label: 'Waitlist', icon: Mail },
 ] as const;
 
 const NAV_OPS = [

@@ -313,3 +313,26 @@ export async function updateSupportMessageStatus(
   revalidatePath('/admin/support');
   revalidatePath('/admin');
 }
+
+export async function markAdminOrderPickedUp(orderId: string) {
+  const supabase = await admin();
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: 'picked_up',
+      picked_up_at: new Date().toISOString(),
+    } as never)
+    .eq('id', orderId)
+    .eq('status', 'confirmed');
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/orders');
+  revalidatePath('/admin');
+}
+
+export async function removeWaitlistEmail(id: string) {
+  const supabase = await admin();
+  const { error } = await supabase.from('waitlist').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/waitlist');
+}

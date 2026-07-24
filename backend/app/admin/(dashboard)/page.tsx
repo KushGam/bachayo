@@ -13,8 +13,16 @@ import {
 import { PageHeader, StatCard } from '@/components/admin/StatCard';
 import { CategoryBadge } from '@/components/admin/StatusBadge';
 import { ADMIN_CITIES, CATEGORY_LABELS } from '@/lib/admin/constants';
-import { cityLabel, formatRelativeDays, todayIso, weekAgoIso } from '@/lib/admin/format';
+import {
+  cityLabel,
+  formatActivityTime,
+  formatRelativeDays,
+  todayIso,
+  weekAgoIso,
+} from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
+
+export const revalidate = 60;
 
 function getInitials(name: string) {
   return name
@@ -29,10 +37,26 @@ function tableNumberClass(value: number) {
   return value === 0 ? 'text-[#9CA3AF] font-medium' : 'font-semibold text-[#1A1A1A]';
 }
 
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+type ActivityEvent = {
+  type: string;
+  time: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+  text: string;
+  subtext: string;
+};
+
 export default async function AdminOverviewPage() {
   const supabase = createSupabaseAdmin();
   const today = todayIso();
   const weekAgo = weekAgoIso();
+  const todayStart = `${today}T00:00:00`;
 
   const [
     { count: totalPartners },
@@ -48,6 +72,11 @@ export default async function AdminOverviewPage() {
     { count: trialExpiring },
     { data: recentPartners },
     supportResult,
+    reservationsResult,
+    pickupsResult,
+    cancellationsResult,
+    signupsResult,
+    reviewsResult,
   ] = await Promise.all([
     supabase.from('partners').select('*', { count: 'exact', head: true }),
     supabase.from('partners').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
@@ -57,8 +86,8 @@ export default async function AdminOverviewPage() {
     supabase.from('partners').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer').gte('created_at', weekAgo),
     supabase.from('rescue_bags').select('*', { count: 'exact', head: true }).eq('available_date', today),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', `${today}T00:00:00`).eq('status', 'confirmed'),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', `${today}T00:00:00`).eq('status', 'confirmed'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', todayStart).eq('status', 'confirmed'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', todayStart).eq('status', 'confirmed'),
     supabase
       .from('partners')
       .select('*', { count: 'exact', head: true })
@@ -71,9 +100,148 @@ export default async function AdminOverviewPage() {
       .order('created_at', { ascending: false })
       .limit(10),
     supabase.from('support_messages').select('*', { count: 'exact', head: true }).eq('status', 'new'),
+    supabase
+      .from('orders')
+      .select(
+        `
+        id, created_at, quantity, total_price,
+        customer:profiles!customer_id (full_name),
+        bag:rescue_bags (title, partners (name))
+      `,
+      )
+      .eq('status', 'confirmed')
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('orders')
+      .select(
+        `
+        id, picked_up_at,
+        customer:profiles!customer_id (full_name),
+        bag:rescue_bags (title, partners (name))
+      `,
+      )
+      .eq('status', 'picked_up')
+      .gte('picked_up_at', todayStart)
+      .order('picked_up_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('orders')
+      .select(
+        `
+        id, cancelled_at,
+        customer:profiles!customer_id (full_name),
+        bag:rescue_bags (title, partners (name))
+      `,
+      )
+      .eq('status', 'cancelled')
+      .gte('cancelled_at', todayStart)
+      .order('cancelled_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('profiles')
+      .select('id, full_name, role, created_at')
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('reviews')
+      .select(
+        `
+        id, rating, created_at,
+        customer:profiles!customer_id (full_name),
+        partner:partners (name)
+      `,
+      )
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   const newSupport = supportResult.error ? 0 : (supportResult.count ?? 0);
+
+  const allEvents: ActivityEvent[] = [
+    ...(reservationsResult.data ?? []).map((r) => {
+      const customer = one(r.customer as { full_name?: string | null } | { full_name?: string | null }[]);
+      const bag = one(
+        r.bag as
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }[],
+      );
+      const partner = one(bag?.partners);
+      return {
+        type: 'reservation',
+        time: r.created_at as string,
+        icon: '🛍',
+        color: '#D85A30',
+        bgColor: '#FAECE7',
+        text: `${customer?.full_name || 'Customer'} reserved ${bag?.title || 'a bag'} at ${partner?.name || 'a restaurant'}`,
+        subtext: `₨${Math.round((r.total_price ?? 0) / 100)} · ${r.quantity ?? 1} bag(s)`,
+      };
+    }),
+    ...(pickupsResult.data ?? []).map((p) => {
+      const customer = one(p.customer as { full_name?: string | null } | { full_name?: string | null }[]);
+      const bag = one(
+        p.bag as
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }[],
+      );
+      const partner = one(bag?.partners);
+      return {
+        type: 'pickup',
+        time: (p.picked_up_at as string) || '',
+        icon: '✓',
+        color: '#065F46',
+        bgColor: '#ECFDF5',
+        text: `${customer?.full_name || 'Customer'} picked up ${bag?.title || 'a bag'} from ${partner?.name || 'a restaurant'}`,
+        subtext: 'Pickup confirmed',
+      };
+    }),
+    ...(cancellationsResult.data ?? []).map((c) => {
+      const customer = one(c.customer as { full_name?: string | null } | { full_name?: string | null }[]);
+      const bag = one(
+        c.bag as
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }
+          | { title?: string | null; partners?: { name?: string | null } | { name?: string | null }[] }[],
+      );
+      return {
+        type: 'cancellation',
+        time: (c.cancelled_at as string) || '',
+        icon: '✗',
+        color: '#991B1B',
+        bgColor: '#FEE2E2',
+        text: `${customer?.full_name || 'Customer'} cancelled ${bag?.title || 'a bag'}`,
+        subtext: 'Reservation cancelled',
+      };
+    }),
+    ...(signupsResult.data ?? []).map((s) => ({
+      type: 'signup',
+      time: s.created_at as string,
+      icon: '👤',
+      color: '#1E40AF',
+      bgColor: '#EFF6FF',
+      text: `${s.full_name || 'New user'} joined as ${s.role}`,
+      subtext: 'New account created',
+    })),
+    ...(reviewsResult.data ?? []).map((r) => {
+      const customer = one(r.customer as { full_name?: string | null } | { full_name?: string | null }[]);
+      const partner = one(r.partner as { name?: string | null } | { name?: string | null }[]);
+      const rating = r.rating ?? 0;
+      return {
+        type: 'review',
+        time: r.created_at as string,
+        icon: '⭐',
+        color: '#92400E',
+        bgColor: '#FEF3C7',
+        text: `${customer?.full_name || 'Customer'} left a ${rating}-star review for ${partner?.name || 'a restaurant'}`,
+        subtext: '★'.repeat(Math.max(0, Math.min(5, rating))),
+      };
+    }),
+  ]
+    .filter((e) => e.time)
+    .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+    .slice(0, 20);
 
   const cityRows = await Promise.all(
     ADMIN_CITIES.map(async (city) => {
@@ -242,6 +410,44 @@ export default async function AdminOverviewPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mb-8 mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+            Today&apos;s activity
+          </h2>
+          <div className="flex items-center gap-1.5">
+            <span className="admin-live-dot h-2 w-2 rounded-full bg-[#10B981]" />
+            <span className="text-xs font-medium text-green-500">Live</span>
+          </div>
+        </div>
+
+        {allEvents.length === 0 ? (
+          <div className="rounded-2xl border border-[#F0EDE8] bg-white py-12 text-center text-gray-400">
+            <p className="text-base">🌙 No activity yet today</p>
+            <p className="mt-1 text-sm">Reservations and signups will appear here in real time</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allEvents.map((event, index) => (
+              <div
+                key={`${event.type}-${event.time}-${index}`}
+                className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3 transition hover:shadow-sm">
+                <div
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                  style={{ backgroundColor: event.bgColor, color: event.color }}>
+                  {event.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-snug text-gray-800">{event.text}</p>
+                  <p className="mt-0.5 text-xs text-gray-400">{event.subtext}</p>
+                </div>
+                <p className="shrink-0 text-xs text-gray-400">{formatActivityTime(event.time)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section>
