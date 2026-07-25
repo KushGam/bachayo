@@ -92,12 +92,11 @@ We use trusted providers who process data on our behalf to operate the app and w
 • Expo (Expo Application Services) — app builds, updates, and Expo Push Notification service for alerts
 • Supabase — authentication, database, file storage, and realtime features (project data hosted in the Singapore region where configured)
 • Vercel — hosting for our website and backend APIs
-• Google — Google Sign-In if you choose to sign in with Google; map/directions links may open Google Maps
-• Apple — if you use Sign in with Apple or Apple Maps / iOS system services where applicable
+• Google — Google Sign-In if you choose to sign in with Google
+• Apple — if you use Sign in with Apple or iOS system services where applicable
 • Resend — transactional and support emails (for example Contact us notifications)
 • PostHog — product analytics to understand how features are used (configured via our analytics settings)
 • Apple App Store / Google Play — app distribution and, where relevant, store account identifiers for installs/updates
-• Mapping providers — map tiles and location display via system or third-party map SDKs when you use map features
 
 These providers may process data in countries outside Nepal. They may only use your data to provide services to us, under their terms and privacy policies, and appropriate safeguards where required.
 

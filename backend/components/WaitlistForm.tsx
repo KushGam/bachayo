@@ -56,7 +56,7 @@ export function WaitlistForm() {
           🔔 Get notified when we launch near you
         </h2>
         <p className="mt-3 text-sm text-white/50">
-          We&apos;re starting in Kathmandu. More cities coming soon.
+          Be first to know when rescue bags go live near you.
         </p>
 
         {status === 'success' ? (

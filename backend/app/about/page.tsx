@@ -143,29 +143,12 @@ export default function AboutPage() {
       <section className="bg-[var(--surface)] py-24">
         <div className="mx-auto max-w-[900px] px-6 text-center">
           <h2 className="font-display text-3xl font-bold text-[var(--ink)]">
-            Where we&apos;re launching
+            Available wherever you are
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-[var(--text-secondary)]">
-            Available for customers and restaurants across Nepal.
+            LastBag is built for kitchens and customers worldwide. Open the app, find bags near
+            you, and rescue food — no city waitlist required.
           </p>
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[
-              { name: 'Kathmandu', np: 'काठमाडौं', status: 'Available now' },
-              { name: 'Lalitpur', np: 'ललितपुर', status: 'Available now' },
-              { name: 'Pokhara', np: 'पोखरा', status: 'Available now' },
-              { name: 'Bhaktapur', np: 'भक्तपुर', status: 'Available now' },
-            ].map((city) => (
-              <div
-                key={city.name}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] px-5 py-6">
-                <p className="font-display text-xl font-bold text-[var(--ink)]">{city.name}</p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
-                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
-                  {city.status}
-                </p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 

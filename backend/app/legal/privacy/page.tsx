@@ -96,12 +96,10 @@ export default function PrivacyPolicyPage() {
               <strong className="text-[var(--ink)]">Vercel</strong> — website and API hosting
             </li>
             <li>
-              <strong className="text-[var(--ink)]">Google</strong> — Google Sign-In (if used) and
-              Google Maps links/directions
+              <strong className="text-[var(--ink)]">Google</strong> — Google Sign-In (if used)
             </li>
             <li>
               <strong className="text-[var(--ink)]">Apple</strong> — App Store / iOS system services
-              and Apple Maps where applicable
             </li>
             <li>
               <strong className="text-[var(--ink)]">Resend</strong> — transactional and support email
@@ -113,7 +111,6 @@ export default function PrivacyPolicyPage() {
               <strong className="text-[var(--ink)]">Apple App Store / Google Play</strong> — app
               distribution
             </li>
-            <li>Map SDKs / system maps when you use map features</li>
           </ul>
           <p>
             Providers may process data outside Nepal under their own privacy terms, only as needed

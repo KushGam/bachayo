@@ -39,19 +39,19 @@ const TESTIMONIALS = [
     quote:
       'I stop by after class, grab a bag for half the price of delivery, and still eat something real. It’s become my weeknight habit.',
     role: 'Student',
-    place: 'Kathmandu',
+    place: 'Regular user',
   },
   {
     quote:
       'Listing leftover lunch takes two minutes. Bags sell before the window closes — and we keep every rupee. No commission cut.',
     role: 'Restaurant partner',
-    place: 'Lalitpur',
+    place: 'Partner kitchen',
   },
   {
     quote:
       'The surprise is half the fun. Bakery mixes, thali sets, café leftovers — always a deal, never a waste.',
     role: 'Regular customer',
-    place: 'Pokhara',
+    place: 'Food lover',
   },
 ];
 
@@ -104,7 +104,7 @@ export default function HomeLanding() {
     {
       id: 'city',
       q: 'Is LastBag available in my city?',
-      a: 'Yes. LastBag works across Nepal. Browse bags near you wherever you are — join the waitlist below for launch updates.',
+      a: 'Yes. LastBag works wherever partners list bags near you. Open the app and browse — join the waitlist below for launch updates.',
     },
     {
       id: 'partner',
@@ -709,45 +709,6 @@ export default function HomeLanding() {
             </div>
           </FadeIn>
         </div>
-      </section>
-
-      {/* Cities */}
-      <section id="cities" className="bg-[var(--bg)] py-24">
-        <FadeIn>
-          <div className="mx-auto max-w-2xl px-6 text-center">
-            <p className="section-label">Where we are</p>
-            <h2
-              className="mt-5 font-display font-bold tracking-tight text-[var(--ink)]"
-              style={{ fontSize: 'clamp(1.85rem, 3.5vw, 2.5rem)' }}>
-              Across Nepal
-            </h2>
-            <p className="mt-4 text-[15px] text-[var(--text-secondary)]">
-              Open bags near you — wherever you are in the country.
-            </p>
-          </div>
-        </FadeIn>
-
-        <div className="mx-auto mt-12 grid max-w-[900px] grid-cols-2 gap-4 px-6 md:grid-cols-4">
-          {[
-            { name: 'Kathmandu', np: 'काठमाडौं' },
-            { name: 'Lalitpur', np: 'ललितपुर' },
-            { name: 'Pokhara', np: 'पोखरा' },
-            { name: 'Bhaktapur', np: 'भक्तपुर' },
-          ].map((city, i) => (
-            <FadeIn key={city.name} delay={i * 70}>
-              <div className="rounded-[22px] border border-[var(--border)] bg-white px-5 py-9 text-center shadow-[var(--shadow-sm)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--primary)]/30 hover:shadow-[var(--shadow-md)]">
-                <p className="font-display text-xl font-bold text-[var(--ink)]">{city.name}</p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">{city.np}</p>
-                <span className="mt-5 inline-block rounded-full bg-[var(--green)]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--green)]">
-                  Available
-                </span>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-        <p className="mt-8 text-center text-sm text-[var(--text-muted)]">
-          Growing city by city — bags near you wherever you open the app.
-        </p>
       </section>
 
       {/* Download */}

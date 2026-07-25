@@ -24,9 +24,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'LastBag — Great food. Half the price.',
   description:
-    'Rescue surplus bags from kitchens near you in Nepal. Free to reserve, pay at pickup, save up to 70%. Zero commission for partners.',
+    'Rescue surplus bags from kitchens near you. Free to reserve, pay at pickup, save up to 70%. Zero commission for partners.',
   keywords:
-    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur, save food waste',
+    'food rescue, discount surplus food, LastBag, save food waste, restaurant surplus app',
   metadataBase: new URL('https://bachayo.vercel.app'),
   icons: {
     icon: [

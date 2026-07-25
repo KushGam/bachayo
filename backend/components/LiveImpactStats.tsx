@@ -3,7 +3,7 @@
 import { AnimatedCountUp } from '@/components/AnimatedCountUp';
 
 const STATS = [
-  { value: 4, suffix: '', label: 'Cities launching' },
+  { value: 100, suffix: '%', label: 'Partners keep' },
   { value: 70, suffix: '%', label: 'Average savings' },
   { value: 30, suffix: '', label: 'Day free trial' },
 ] as const;

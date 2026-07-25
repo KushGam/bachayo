@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-const HOME_SECTIONS = ['why', 'how-it-works', 'for-restaurants', 'cities', 'impact'] as const;
+const HOME_SECTIONS = ['why', 'how-it-works', 'for-restaurants', 'impact'] as const;
 
 export function LandingNavbar() {
   const pathname = usePathname();
@@ -85,7 +85,7 @@ export function LandingNavbar() {
     { href: isHome ? '#why' : '/#why', label: 'Why LastBag', section: 'why' },
     { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works', section: 'how-it-works' },
     { href: '/for-restaurants', label: 'For restaurants', section: 'for-restaurants' },
-    { href: isHome ? '#cities' : '/#cities', label: 'Cities', section: 'cities' },
+    { href: isHome ? '#impact' : '/#impact', label: 'Impact', section: 'impact' },
   ];
 
   return (

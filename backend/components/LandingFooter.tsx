@@ -46,8 +46,8 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="/#how-it-works">
                 How it works
               </a>
-              <a className="block transition hover:text-white" href="/#cities">
-                Cities
+              <a className="block transition hover:text-white" href="/#why">
+                Why LastBag
               </a>
               <a className="block transition hover:text-white" href="/#download">
                 Download the app
@@ -106,7 +106,7 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="tel:+9779762623241">
                 9762623241
               </a>
-              <p className="pt-2 text-white/35">Kathmandu, Nepal</p>
+              <p className="pt-2 text-white/35">Available worldwide</p>
             </div>
           </div>
         </div>
