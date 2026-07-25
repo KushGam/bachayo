@@ -194,9 +194,10 @@ export default function RescueBagDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
           <AppImage
-            source={{ uri: getRescueBagImageUrl(bag) }}
+            source={{ uri: getRescueBagImageUrl(bag, 'hero') }}
             style={styles.heroImage}
             aspectRatio={16 / 9}
+            priority="high"
           />
           <Pressable
             onPress={() => router.back()}

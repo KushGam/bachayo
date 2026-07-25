@@ -24,7 +24,32 @@ export type PartnerRow = {
   owner_phone: string | null;
   bags_today: number;
   last_bag_at: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_verified: boolean;
 };
+
+function LocationStatusBadge({ partner }: { partner: PartnerRow }) {
+  if (partner.location_verified) {
+    return (
+      <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+        📍 GPS
+      </span>
+    );
+  }
+  if (partner.latitude != null && partner.longitude != null) {
+    return (
+      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+        📍 Manual
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+      📍 Missing
+    </span>
+  );
+}
 
 function statusLabel(partner: PartnerRow) {
   const status = partner.subscription_status ?? 'trial';
@@ -129,8 +154,11 @@ export function PartnersTable({ partners }: { partners: PartnerRow[] }) {
                   <div className="text-xs text-gray-500">{p.owner_phone ?? p.phone ?? '—'}</div>
                 </td>
                 <td className="px-4 py-3 text-gray-700">
-                  {cityLabel(p.city_id)}
-                  {p.area_id ? <span className="text-gray-500"> · {p.area_id}</span> : null}
+                  <div>{cityLabel(p.city_id)}</div>
+                  {p.area_id ? <div className="text-xs text-gray-500">{p.area_id}</div> : null}
+                  <div className="mt-1">
+                    <LocationStatusBadge partner={p} />
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600">{formatRelativeDays(p.created_at)}</td>
                 <td className="px-4 py-3">

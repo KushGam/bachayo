@@ -4,11 +4,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
+import { hasPartnerGpsCoords } from '@/lib/partnerGps';
 import { supabase } from '@/lib/supabase';
 
 export type PartnerOnboardingChecklist = {
   profile_photo: boolean;
   business_description: boolean;
+  location_verified: boolean;
   first_bag_listed: boolean;
   bank_details: boolean;
 };
@@ -16,15 +18,21 @@ export type PartnerOnboardingChecklist = {
 const DEFAULT_CHECKLIST: PartnerOnboardingChecklist = {
   profile_photo: false,
   business_description: false,
+  location_verified: false,
   first_bag_listed: false,
   bank_details: false,
 };
+
+const CHECKLIST_TOTAL = 5;
 
 type PartnerOnboardingChecklistCardProps = {
   partnerId: string;
   coverImageUrl?: string | null;
   description?: string | null;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationVerified?: boolean | null;
   createdAt?: string | null;
 };
 
@@ -33,6 +41,7 @@ function normalizeChecklist(value: unknown): PartnerOnboardingChecklist {
   return {
     profile_photo: Boolean(row.profile_photo),
     business_description: Boolean(row.business_description),
+    location_verified: Boolean(row.location_verified),
     first_bag_listed: Boolean(row.first_bag_listed),
     bank_details: Boolean(row.bank_details),
   };
@@ -50,6 +59,9 @@ export function PartnerOnboardingChecklistCard({
   coverImageUrl,
   description,
   address,
+  latitude,
+  longitude,
+  locationVerified,
   createdAt,
 }: PartnerOnboardingChecklistCardProps) {
   const router = useRouter();
@@ -61,7 +73,9 @@ export function PartnerOnboardingChecklistCard({
     const [{ data: partner }, { count: bagCount }] = await Promise.all([
       supabase
         .from('partners')
-        .select('cover_image_url, description, address, onboarding_checklist, created_at')
+        .select(
+          'cover_image_url, description, address, latitude, longitude, location_verified, onboarding_checklist, created_at',
+        )
         .eq('id', partnerId)
         .maybeSingle(),
       supabase
@@ -70,19 +84,33 @@ export function PartnerOnboardingChecklistCard({
         .eq('partner_id', partnerId),
     ]);
 
-    const current = normalizeChecklist(
-      (partner as { onboarding_checklist?: unknown } | null)?.onboarding_checklist,
-    );
+    const partnerRow = partner as {
+      cover_image_url?: string | null;
+      description?: string | null;
+      address?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+      location_verified?: boolean | null;
+      onboarding_checklist?: unknown;
+      created_at?: string | null;
+    } | null;
+
+    const current = normalizeChecklist(partnerRow?.onboarding_checklist);
+
+    const lat = latitude ?? partnerRow?.latitude;
+    const lng = longitude ?? partnerRow?.longitude;
+    const gpsVerified =
+      locationVerified ??
+      partnerRow?.location_verified ??
+      false;
 
     const next: PartnerOnboardingChecklist = {
       ...current,
-      profile_photo: Boolean(
-        coverImageUrl ?? (partner as { cover_image_url?: string | null } | null)?.cover_image_url,
-      ),
+      profile_photo: Boolean(coverImageUrl ?? partnerRow?.cover_image_url),
       business_description: Boolean(
-        (description ?? (partner as { description?: string | null } | null)?.description) &&
-          (address ?? (partner as { address?: string | null } | null)?.address),
+        (description ?? partnerRow?.description) && (address ?? partnerRow?.address),
       ),
+      location_verified: Boolean(gpsVerified && hasPartnerGpsCoords(lat, lng)),
       first_bag_listed: (bagCount || 0) > 0,
       bank_details: current.bank_details,
     };
@@ -98,11 +126,18 @@ export function PartnerOnboardingChecklistCard({
     setLoaded(true);
 
     const allDone = Object.values(next).every(Boolean);
-    const ageDays = daysSince(
-      createdAt ?? (partner as { created_at?: string | null } | null)?.created_at,
-    );
+    const ageDays = daysSince(createdAt ?? partnerRow?.created_at);
     setCelebrationVisible(allDone && ageDays <= 3);
-  }, [address, coverImageUrl, createdAt, description, partnerId]);
+  }, [
+    address,
+    coverImageUrl,
+    createdAt,
+    description,
+    latitude,
+    locationVerified,
+    longitude,
+    partnerId,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,7 +149,7 @@ export function PartnerOnboardingChecklistCard({
     () => Object.values(checklist).filter(Boolean).length,
     [checklist],
   );
-  const allDone = completedCount === 4;
+  const allDone = completedCount === CHECKLIST_TOTAL;
   const ageDays = daysSince(createdAt);
 
   const markBankDetailsDone = async () => {
@@ -165,6 +200,12 @@ export function PartnerOnboardingChecklistCard({
       onPress: () => router.push('/partner/edit-business'),
     },
     {
+      key: 'location_verified',
+      title: 'Verify restaurant location',
+      desc: 'So customers can find you easily',
+      onPress: () => router.push('/partner/edit-location'),
+    },
+    {
       key: 'first_bag_listed',
       title: 'List your first rescue bag',
       desc: "Add today's surplus and go live",
@@ -174,16 +215,16 @@ export function PartnerOnboardingChecklistCard({
       key: 'bank_details',
       title: 'Set up billing',
       desc: 'Know how to pay your subscription',
-                    onPress: () => {
-                      if (!checklist.bank_details) {
-                        void markBankDetailsDone();
-                      }
-                      router.push('/(tabs)/partner/subscription');
-                    },
+      onPress: () => {
+        if (!checklist.bank_details) {
+          void markBankDetailsDone();
+        }
+        router.push('/(tabs)/partner/subscription');
+      },
     },
   ];
 
-  const progressPct = (completedCount / 4) * 100;
+  const progressPct = (completedCount / CHECKLIST_TOTAL) * 100;
 
   return (
     <View style={styles.card}>
@@ -194,7 +235,7 @@ export function PartnerOnboardingChecklistCard({
         </View>
         <View style={styles.progressCircle}>
           <Text style={styles.progressCircleText}>
-            {completedCount}/4
+            {completedCount}/{CHECKLIST_TOTAL}
           </Text>
         </View>
       </View>

@@ -10,6 +10,7 @@ import {
   getBagDineInExtraPaisa,
   getBagServiceType,
 } from '@/lib/helpers';
+import { getOptimizedImageUrl } from '@/lib/images';
 import { formatNprFromPaisa } from '@/lib/partnerDetailUi';
 import type { RescueBag } from '@/types/database';
 
@@ -38,7 +39,12 @@ export function PartnerDetailBagCard({ bag, onReserve }: PartnerDetailBagCardPro
   return (
     <View style={styles.card}>
       {bag.image_url ? (
-        <AppImage source={{ uri: bag.image_url }} style={styles.image} resizeMode="cover" />
+        <AppImage
+          source={{ uri: getOptimizedImageUrl(bag.image_url, 'card') }}
+          style={styles.image}
+          resizeMode="cover"
+          recyclingKey={bag.id}
+        />
       ) : (
         <View style={[styles.image, styles.imagePlaceholder]}>
           <ShoppingBag size={28} color={Palette.primaryDark} strokeWidth={1.8} />

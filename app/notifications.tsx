@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import {
+  Bell,
+  ChevronLeft,
   Clock,
   Crown,
   Info,
@@ -24,6 +26,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
+import { Palette } from '@/constants/Colors';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatRelativeTime } from '@/lib/helpers';
 import {
   fetchNotifications,
@@ -35,7 +39,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store/useAppStore';
 
-const TERRACOTTA = '#D85A30';
+function getErrorMessage(err: unknown) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err && 'message' in err) {
+    return String((err as { message: unknown }).message);
+  }
+  return 'Failed to load notifications';
+}
 
 function getNotificationIcon(type: InboxNotificationType) {
   switch (type) {
@@ -44,7 +54,7 @@ function getNotificationIcon(type: InboxNotificationType) {
     case 'cancellation':
       return { bg: '#FEF2F2', Icon: X, color: '#DC2626' };
     case 'pickup_reminder':
-      return { bg: '#FAECE7', Icon: Clock, color: TERRACOTTA };
+      return { bg: Palette.primaryLight, Icon: Clock, color: Palette.primary };
     case 'review_request':
       return { bg: '#FEF3C7', Icon: Star, color: '#D97706' };
     case 'bag_expiring':
@@ -52,7 +62,7 @@ function getNotificationIcon(type: InboxNotificationType) {
     case 'subscription':
       return { bg: '#EDE9FE', Icon: Crown, color: '#7C3AED' };
     case 'new_bag':
-      return { bg: '#FAECE7', Icon: Sparkles, color: TERRACOTTA };
+      return { bg: Palette.primaryLight, Icon: Sparkles, color: Palette.primary };
     default:
       return { bg: '#F3F4F6', Icon: Info, color: '#6B7280' };
   }
@@ -95,19 +105,71 @@ function NotificationRow({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.row, !item.is_read && styles.rowUnread]}>
+      style={({ pressed }) => [
+        styles.row,
+        !item.is_read && styles.rowUnread,
+        pressed && styles.rowPressed,
+      ]}>
       <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
-        <Icon size={20} color={icon.color} strokeWidth={2} />
+        <Icon size={18} color={icon.color} strokeWidth={2.2} />
       </View>
 
       <View style={styles.rowBody}>
-        <Text style={[styles.rowTitle, !item.is_read && styles.rowTitleUnread]}>{item.title}</Text>
-        <Text style={styles.rowBodyText}>{item.body}</Text>
-        <Text style={styles.rowTime}>{formatRelativeTime(item.created_at)}</Text>
+        <View style={styles.rowTitleRow}>
+          <Text
+            style={[styles.rowTitle, !item.is_read && styles.rowTitleUnread]}
+            numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.rowTime}>{formatRelativeTime(item.created_at)}</Text>
+        </View>
+        <Text style={styles.rowBodyText} numberOfLines={2}>
+          {item.body}
+        </Text>
       </View>
 
       {!item.is_read ? <View style={styles.unreadDot} /> : null}
     </Pressable>
+  );
+}
+
+function NotificationsEmpty({ onBrowse }: { onBrowse: () => void }) {
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyCard}>
+        <View style={styles.emptyIconRing}>
+          <View style={styles.emptyIconWrap}>
+            <Bell size={28} color={Palette.primary} strokeWidth={2} />
+          </View>
+        </View>
+
+        <Text style={styles.emptyTitle}>You're all caught up</Text>
+        <Text style={styles.emptySubtitle}>
+          Reservations, pickup reminders, and bag alerts will show up here.
+        </Text>
+
+        <View style={styles.emptyHints}>
+          <View style={styles.emptyHint}>
+            <ShoppingBag size={14} color={Palette.primary} strokeWidth={2.2} />
+            <Text style={styles.emptyHintText}>New reservations</Text>
+          </View>
+          <View style={styles.emptyHint}>
+            <Clock size={14} color={Palette.primary} strokeWidth={2.2} />
+            <Text style={styles.emptyHintText}>Pickup reminders</Text>
+          </View>
+          <View style={styles.emptyHint}>
+            <Sparkles size={14} color={Palette.primary} strokeWidth={2.2} />
+            <Text style={styles.emptyHintText}>Nearby bags</Text>
+          </View>
+        </View>
+
+        <Pressable
+          onPress={onBrowse}
+          style={({ pressed }) => [styles.emptyCta, pressed && styles.rowPressed]}>
+          <Text style={styles.emptyCtaText}>Find bags near me</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -123,11 +185,14 @@ export default function NotificationsScreen() {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const markRead = useCallback(async (uid: string) => {
-    await markAllNotificationsRead(uid);
-    setUnreadNotifications(0);
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-  }, [setUnreadNotifications]);
+  const markRead = useCallback(
+    async (uid: string) => {
+      await markAllNotificationsRead(uid);
+      setUnreadNotifications(0);
+      setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    },
+    [setUnreadNotifications],
+  );
 
   const loadNotifications = useCallback(async () => {
     setErrorText(null);
@@ -144,9 +209,11 @@ export default function NotificationsScreen() {
     try {
       const rows = await fetchNotifications(uid);
       setNotifications(rows);
-      await markRead(uid);
+      if (rows.some((row) => !row.is_read)) {
+        await markRead(uid);
+      }
     } catch (err) {
-      setErrorText(err instanceof Error ? err.message : 'Failed to load notifications');
+      setErrorText(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -173,15 +240,27 @@ export default function NotificationsScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <Text style={styles.backChevron}>‹</Text>
+            <ChevronLeft size={22} color={Palette.white} strokeWidth={2.4} />
           </Pressable>
-          <Text style={styles.headerTitle}>Notifications</Text>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            {unread > 0 ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unread}</Text>
+              </View>
+            ) : null}
+          </View>
+
           {unread > 0 ? (
-            <Pressable onPress={() => void handleMarkAllRead()} hitSlop={8}>
-              <Text style={styles.markRead}>Mark all read</Text>
+            <Pressable
+              onPress={() => void handleMarkAllRead()}
+              hitSlop={8}
+              style={styles.markReadBtn}>
+              <Text style={styles.markRead}>Mark read</Text>
             </Pressable>
           ) : (
             <View style={styles.headerSpacer} />
@@ -198,22 +277,22 @@ export default function NotificationsScreen() {
           <RetryState message={errorText} onRetry={() => void loadNotifications()} />
         </View>
       ) : notifications.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyCircle}>
-            <Text style={styles.emptyEmoji}>🔔</Text>
-          </View>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptySubtitle}>
-            We&apos;ll notify you about reservations,{'\n'}pickup reminders, and more
-          </Text>
-        </View>
+        <NotificationsEmpty onBrowse={() => router.replace('/(tabs)/customer/home')} />
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          contentContainerStyle={{
+            paddingTop: Spacing.md,
+            paddingBottom: insets.bottom + 24,
+          }}
+          stickySectionHeadersEnabled={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={TERRACOTTA} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void onRefresh()}
+              tintColor={Palette.primary}
+            />
           }
           renderSectionHeader={({ section }) => (
             <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -236,14 +315,15 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F5F3EF',
+    backgroundColor: Palette.background,
   },
   header: {
-    backgroundColor: TERRACOTTA,
+    backgroundColor: Palette.primary,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    ...FloatingShadow,
   },
   headerRow: {
     flexDirection: 'row',
@@ -258,117 +338,189 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backChevron: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 24,
-    marginTop: -2,
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Palette.white,
   },
-  markRead: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  unreadBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerSpacer: {
-    width: 72,
-  },
-  loadingWrap: {
-    padding: 16,
-  },
-  sectionHeader: {
+  unreadBadgeText: {
+    color: Palette.white,
     fontSize: 12,
     fontWeight: '700',
-    color: '#9CA3AF',
+  },
+  markReadBtn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  markRead: {
+    fontSize: 12,
+    color: Palette.white,
+    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 36,
+  },
+  loadingWrap: {
+    padding: Spacing.lg,
+  },
+  sectionHeader: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.textTertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginLeft: 16,
-    marginTop: 20,
-    marginBottom: 8,
+    letterSpacing: 0.7,
+    marginLeft: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   row: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: Spacing.md,
   },
   rowUnread: {
-    backgroundColor: '#FAFAF8',
+    backgroundColor: '#FFFCF9',
+    borderColor: Palette.primaryMid,
+  },
+  rowPressed: {
+    opacity: 0.92,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowBody: {
     flex: 1,
+    gap: 3,
+  },
+  rowTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   rowTitle: {
-    fontSize: 14,
+    ...Type.bodyMedium,
+    flex: 1,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
   },
   rowTitleUnread: {
     fontWeight: '700',
   },
   rowBodyText: {
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 20,
-    marginTop: 2,
+    ...Type.caption,
+    color: Palette.textSecondary,
+    lineHeight: 18,
   },
   rowTime: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 4,
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '500',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: TERRACOTTA,
+    backgroundColor: Palette.primary,
     marginTop: 6,
   },
-  emptyState: {
+  emptyWrap: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxxl,
   },
-  emptyCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  emptyCard: {
+    ...CardChrome,
+    alignItems: 'center',
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
+    ...FloatingShadow,
+  },
+  emptyIconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: '#FAECE7',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: Spacing.lg,
   },
-  emptyEmoji: {
-    fontSize: 40,
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginTop: 20,
+    ...Type.h2,
+    color: Palette.textPrimary,
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...Type.body,
+    color: Palette.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: Spacing.sm,
+    lineHeight: 22,
+  },
+  emptyHints: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: Spacing.xl,
+  },
+  emptyHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  emptyHintText: {
+    ...Type.label,
+    color: Palette.primaryDark,
+    fontWeight: '600',
+  },
+  emptyCta: {
+    marginTop: Spacing.xl,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+  },
+  emptyCtaText: {
+    ...Type.bodyMedium,
+    color: Palette.white,
+    fontWeight: '700',
   },
 });

@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import { CITIES } from '@/constants/locations';
 import { PARTNER_CATEGORY_IDS } from '@/constants/partnerCategories';
-import { isWithinCityBounds } from '@/lib/locations';
 import { authMethodField, passwordField } from '@/lib/validation/auth';
 
 const ALL_AREA_IDS = CITIES.flatMap((city) => city.areas.map((area) => area.id));
@@ -178,19 +177,15 @@ export const partnerBusinessSchema = z.object({
   avgDailyMeals: z.number().int().min(1).max(1000),
 });
 
-export const partnerLocationSchema = z
-  .object({
-    address: addressField,
-    cityId: cityIdField,
-    areaId: areaIdField,
-    latitude: z.number(),
-    longitude: z.number(),
-    website: websiteField,
-  })
-  .refine(
-    ({ cityId, latitude, longitude }) => isWithinCityBounds(cityId, latitude, longitude),
-    { message: 'Move the pin inside your selected city', path: ['latitude'] },
-  );
+export const partnerLocationSchema = z.object({
+  address: addressField,
+  cityId: cityIdField,
+  areaId: areaIdField,
+  latitude: z.number(),
+  longitude: z.number(),
+  locationVerified: z.boolean().optional(),
+  website: websiteField,
+});
 
 export type CustomerBasicsValues = z.infer<typeof customerBasicsSchema>;
 export type CustomerLocationValues = z.infer<typeof customerLocationSchema>;

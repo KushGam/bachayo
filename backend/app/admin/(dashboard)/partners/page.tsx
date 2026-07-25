@@ -88,6 +88,9 @@ async function loadPartners(searchParams: Record<string, string | undefined>) {
       owner_phone: profile?.phone ?? null,
       bags_today: bagsTodayCount.get(p.id) ?? 0,
       last_bag_at: lastBagMap.get(p.id) ?? null,
+      latitude: (p as { latitude?: number | null }).latitude ?? null,
+      longitude: (p as { longitude?: number | null }).longitude ?? null,
+      location_verified: Boolean((p as { location_verified?: boolean | null }).location_verified),
     };
   });
 

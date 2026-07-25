@@ -5,11 +5,11 @@ export const MANUAL_BILLING = {
   whatsappPhone: '9779762623241',
   supportEmail: 'lastbagnp@gmail.com',
   bank: {
-    name: 'NIC Asia Bank',
+    name: 'Prime Commercial Bank',
     accountName: 'Kushal Gautam',
     /** Replace with the real account number before publish. */
     accountNumber: 'XXXXXXXXXXXXXXXX',
-    branch: 'Thamel, Kathmandu',
+    branch: 'Thantipokhari, Gorkha',
   },
 } as const;
 
@@ -32,9 +32,8 @@ export const PLAN_FEATURES: Record<
     features: [
       'Unlimited bags per day',
       'Full order management',
-      'Customer QR pickup',
       'Sales analytics',
-      'Priority support',
+      'Priority support + chat',
     ],
   },
   large: {
@@ -44,7 +43,6 @@ export const PLAN_FEATURES: Record<
       'Multi-branch support',
       'Featured placement',
       'Dedicated support',
-      'Impact reports',
     ],
   },
 };

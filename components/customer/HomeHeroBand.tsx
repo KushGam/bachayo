@@ -13,8 +13,6 @@ import { getGreeting, getInitials } from '@/lib/helpers';
 type HomeHeroBandProps = {
   userName: string;
   locale: 'en' | 'np';
-  neighbourhoodLabel: string;
-  onLocationPress: () => void;
 };
 
 function getGreetingLabel(locale: 'en' | 'np') {
@@ -27,12 +25,7 @@ function getGreetingLabel(locale: 'en' | 'np') {
   return getGreeting();
 }
 
-export function HomeHeroBand({
-  userName,
-  locale,
-  neighbourhoodLabel,
-  onLocationPress,
-}: HomeHeroBandProps) {
+export function HomeHeroBand({ userName, locale }: HomeHeroBandProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const firstName = userName.split(/\s+/)[0] || userName;
@@ -49,17 +42,10 @@ export function HomeHeroBand({
       <View style={styles.glowPrimary} pointerEvents="none" />
 
       <View style={styles.topRow}>
-        <View style={styles.greetingBlock}>
-          <Text style={styles.greeting} numberOfLines={1}>
-            {greeting},{' '}
-            <Text style={styles.greetingName}>{firstName}</Text>
-          </Text>
-          <Pressable onPress={onLocationPress} hitSlop={8}>
-            <Text style={styles.locationLabel} numberOfLines={1}>
-              {neighbourhoodLabel}
-            </Text>
-          </Pressable>
-        </View>
+        <Text style={styles.greeting} numberOfLines={1}>
+          {greeting},{' '}
+          <Text style={styles.greetingName}>{firstName}</Text>
+        </Text>
         <View style={styles.actions}>
           <MessageIconBadge
             variant="dark"
@@ -91,7 +77,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
     overflow: 'hidden',
-    gap: Spacing.sm,
   },
   glowPrimary: {
     position: 'absolute',
@@ -108,11 +93,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  greetingBlock: {
-    flex: 1,
-    gap: 2,
-  },
   greeting: {
+    flex: 1,
     ...Type.h2,
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '500',
@@ -120,11 +102,6 @@ const styles = StyleSheet.create({
   greetingName: {
     color: Palette.white,
     fontWeight: '700',
-  },
-  locationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.78)',
   },
   actions: {
     flexDirection: 'row',

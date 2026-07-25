@@ -543,6 +543,24 @@ export default function PartnerDashboardScreen() {
 
       {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
+      {partner &&
+      ((partner as { location_verified?: boolean | null }).location_verified !== true ||
+        partner.latitude == null ||
+        partner.longitude == null) ? (
+        <View style={styles.locationPrompt}>
+          <Text style={styles.locationPromptEmoji}>📍</Text>
+          <View style={styles.locationPromptCopy}>
+            <Text style={styles.locationPromptTitle}>Add your restaurant location</Text>
+            <Text style={styles.locationPromptBody}>
+              Customers can&apos;t see how far you are without it
+            </Text>
+          </View>
+          <Pressable onPress={() => router.push('/partner/edit-location')} hitSlop={8}>
+            <Text style={styles.locationPromptCta}>Add →</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.content}>
         {fetchError ? (
           <View style={styles.retryWrap}>
@@ -556,6 +574,9 @@ export default function PartnerDashboardScreen() {
             coverImageUrl={partner.cover_image_url}
             description={partner.description}
             address={partner.address}
+            latitude={partner.latitude}
+            longitude={partner.longitude}
+            locationVerified={(partner as { location_verified?: boolean | null }).location_verified}
             createdAt={partner.created_at}
           />
         ) : null}
@@ -706,6 +727,40 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: Spacing.xs,
+  },
+  locationPrompt: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  locationPromptEmoji: {
+    fontSize: 18,
+  },
+  locationPromptCopy: {
+    flex: 1,
+  },
+  locationPromptTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  locationPromptBody: {
+    fontSize: 12,
+    color: '#92400E',
+    opacity: 0.8,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  locationPromptCta: {
+    color: '#D85A30',
+    fontSize: 13,
+    fontWeight: '600',
   },
   fallback: {
     padding: Spacing.xl,

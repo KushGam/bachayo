@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   strip: {
     backgroundColor: Palette.background,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
     gap: Spacing.sm,
   },

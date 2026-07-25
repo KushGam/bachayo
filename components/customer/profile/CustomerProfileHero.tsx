@@ -1,10 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pencil } from 'lucide-react-native';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { getInitials } from '@/lib/helpers';
+import { getOptimizedImageUrl } from '@/lib/images';
 
 type CustomerProfileHeroProps = {
   name: string;
@@ -54,7 +56,11 @@ export function CustomerProfileHero({
         <View style={styles.avatarRing}>
           <View style={styles.avatar}>
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              <AppImage
+                source={{ uri: getOptimizedImageUrl(avatarUrl, 'avatar') }}
+                style={styles.avatarImage}
+                priority="high"
+              />
             ) : (
               <Text style={styles.avatarInitials}>{getInitials(name)}</Text>
             )}

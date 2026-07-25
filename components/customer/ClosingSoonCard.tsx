@@ -24,9 +24,11 @@ export function ClosingSoonCard({ bag, countdownLabel, onPress }: ClosingSoonCar
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       <View style={styles.imageWrap}>
         <AppImage
-          source={{ uri: getRescueBagImageUrl(bag) }}
+          source={{ uri: getRescueBagImageUrl(bag, 'card') }}
           style={styles.image}
           aspectRatio={4 / 3}
+          recyclingKey={bag.id}
+          priority="high"
         />
         <LinearGradient
           colors={['transparent', 'rgba(28, 25, 23, 0.75)']}

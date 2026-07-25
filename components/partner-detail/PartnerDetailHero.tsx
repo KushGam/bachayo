@@ -8,6 +8,7 @@ import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { hapticButtonPress } from '@/lib/haptics';
+import { getOptimizedImageUrl } from '@/lib/images';
 import type { PartnerDetailData } from '@/lib/partnerDetail';
 
 type PartnerDetailHeroProps = {
@@ -32,7 +33,12 @@ export function PartnerDetailHero({
   return (
     <View style={styles.hero}>
       {partner.cover_image_url ? (
-        <AppImage source={{ uri: partner.cover_image_url }} style={styles.image} resizeMode="cover" />
+        <AppImage
+          source={{ uri: getOptimizedImageUrl(partner.cover_image_url, 'hero') }}
+          style={styles.image}
+          resizeMode="cover"
+          priority="high"
+        />
       ) : (
         <View style={[styles.image, styles.placeholder]}>
           {category ? (

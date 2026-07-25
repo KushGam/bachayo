@@ -35,6 +35,7 @@ export type PartnerSignupData = {
   areaId: string;
   latitude: number;
   longitude: number;
+  locationVerified: boolean;
   website: string;
   openingStart: string;
   openingEnd: string;
@@ -68,6 +69,7 @@ const defaultPartner: PartnerSignupData = {
   areaId: DEFAULT_AREA_ID,
   latitude: DEFAULT_AREA.latitude,
   longitude: DEFAULT_AREA.longitude,
+  locationVerified: false,
   website: '',
   openingStart: '10:00',
   openingEnd: '21:00',

@@ -55,8 +55,10 @@ export const RescueBagCard = memo(function RescueBagCard({
       ]}>
       <View style={styles.imageCol}>
         <AppImage
-          source={{ uri: getRescueBagImageUrl(bag) }}
+          source={{ uri: getRescueBagImageUrl(bag, 'card') }}
           style={styles.image}
+          recyclingKey={bag.id}
+          priority="high"
         />
         {savingsPct > 0 ? (
           <View style={styles.savingsChip}>

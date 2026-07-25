@@ -4,6 +4,7 @@ import { CustomerSectionHeader } from '@/components/customer/CustomerSectionHead
 import { HomeActiveOrderCard } from '@/components/customer/HomeActiveOrderCard';
 import { HomeFilters, HOME_DISTANCE_OPTIONS } from '@/components/customer/HomeFilters';
 import { HomeHeroBand } from '@/components/customer/HomeHeroBand';
+import { HomeLocationChip } from '@/components/customer/HomeLocationChip';
 import { HomeSearchStrip } from '@/components/customer/HomeSearchStrip';
 import { HomeMarketDigest } from '@/components/customer/HomeMarketDigest';
 import { HomeNearbyEmpty } from '@/components/customer/HomeNearbyEmpty';
@@ -46,6 +47,7 @@ import {
 import { fetchCustomerOrders } from '@/lib/orders';
 import { fetchActiveReservedBagIds } from '@/lib/reservations';
 import { addRecentSearch, getRecentSearches, removeRecentSearch } from '@/lib/recentSearches';
+import { getRescueBagImageUrl, prefetchImages } from '@/lib/images';
 import { isPartnerVisibleToCustomers, type PartnerSubscriptionFields } from '@/lib/subscriptions';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
@@ -135,6 +137,7 @@ export default function HomeScreen() {
   const [reservedBagIds, setReservedBagIds] = useState<Set<string>>(new Set());
   const [impactStats, setImpactStats] = useState<CustomerImpactStats | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [locationRefreshing, setLocationRefreshing] = useState(false);
 
   const today = getTodayIsoDateLocal();
   const fetchBagsRef = useRef<(options?: { silent?: boolean }) => Promise<void>>(
@@ -358,6 +361,7 @@ export default function HomeScreen() {
     const withDistance = attachNearbyBagDistances(withStock, origin);
 
     setBags(withDistance);
+    prefetchImages(withDistance.slice(0, 12).map((bag) => getRescueBagImageUrl(bag, 'card')));
     await loadReservedBagIds();
     setLoading(false);
   }, [loadReservedBagIds, origin, setBags, today]);
@@ -576,32 +580,26 @@ export default function HomeScreen() {
     [reservedBagIds, router],
   );
 
-  const neighbourhoodLabel = !isDefault && neighbourhood
-    ? `📍 ${neighbourhood}`
-    : '📍 Enable location';
-
-  const heroBand = (
-    <HomeHeroBand
-      userName={user.name}
-      locale={locale}
-      neighbourhoodLabel={neighbourhoodLabel}
-      onLocationPress={() => {
-        if (isDefault || permissionDenied) {
-          void (async () => {
-            const ok = await requestLocation();
-            if (!ok) {
-              void Linking.openSettings();
-              return;
-            }
-            const { latitude: lat, longitude: lng } = useLocationStore.getState();
-            if (lat != null && lng != null) {
-              setCoords({ latitude: lat, longitude: lng });
-            }
-          })();
+  const handleLocationPress = useCallback(() => {
+    void (async () => {
+      setLocationRefreshing(true);
+      try {
+        const ok = await requestLocation();
+        if (!ok) {
+          void Linking.openSettings();
+          return;
         }
-      }}
-    />
-  );
+        const { latitude: lat, longitude: lng } = useLocationStore.getState();
+        if (lat != null && lng != null) {
+          setCoords({ latitude: lat, longitude: lng });
+        }
+      } finally {
+        setLocationRefreshing(false);
+      }
+    })();
+  }, [requestLocation]);
+
+  const heroBand = <HomeHeroBand userName={user.name} locale={locale} />;
 
   const searchStrip = (
     <HomeSearchStrip
@@ -663,33 +661,14 @@ export default function HomeScreen() {
     <View style={styles.headerWrap}>
       {heroBand}
 
-      {!isDefault && neighbourhood ? (
-        <View style={styles.cityPill}>
-          <Text style={styles.cityPillText}>📍 {neighbourhood}</Text>
-        </View>
-      ) : null}
-
-      {isDefault ? (
-        <Pressable
-          onPress={() => {
-            void (async () => {
-              const ok = await requestLocation();
-              if (!ok) {
-                void Linking.openSettings();
-                return;
-              }
-              const { latitude: lat, longitude: lng } = useLocationStore.getState();
-              if (lat != null && lng != null) {
-                setCoords({ latitude: lat, longitude: lng });
-              }
-            })();
-          }}
-          style={styles.enableLocationHint}
-          hitSlop={8}>
-          <Text style={styles.enableLocationHintText}>
-            📍 Enable location to see bags near you
-          </Text>
-        </Pressable>
+      {!isSearching ? (
+        <HomeLocationChip
+          neighbourhood={neighbourhood}
+          hasLocation={!isDefault && Boolean(neighbourhood || latitude)}
+          refreshing={locationRefreshing}
+          locale={locale}
+          onPress={handleLocationPress}
+        />
       ) : null}
 
       {permissionDenied && !browseAllBags ? (
@@ -869,30 +848,6 @@ const styles = StyleSheet.create({
   },
   headerWrap: {
     marginBottom: 4,
-  },
-  cityPill: {
-    alignSelf: 'center',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  cityPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  enableLocationHint: {
-    alignSelf: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  enableLocationHintText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
   },
   permissionCard: {
     backgroundColor: '#F5F3EF',

@@ -1,4 +1,5 @@
 import { File } from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 import { supabase } from '@/lib/supabase';
 
@@ -39,6 +40,34 @@ function formatStorageError(message: string) {
   return message;
 }
 
+/**
+ * Downscale + JPEG-compress local picks before upload.
+ * Keeps list/detail loads fast without changing the picker UX.
+ */
+async function prepareUploadUri(
+  uri: string,
+  maxWidth: number,
+): Promise<{ uri: string; mimeType: string }> {
+  if (!isLocalImageUri(uri)) {
+    return { uri, mimeType: 'image/jpeg' };
+  }
+
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: maxWidth } }],
+      {
+        compress: 0.72,
+        format: ImageManipulator.SaveFormat.JPEG,
+      },
+    );
+    return { uri: result.uri, mimeType: 'image/jpeg' };
+  } catch (error) {
+    console.warn('[upload] compress failed, uploading original', error);
+    return { uri, mimeType: 'image/jpeg' };
+  }
+}
+
 async function readImageBytes(uri: string, mimeType?: string | null): Promise<Uint8Array> {
   if (isLocalImageUri(uri)) {
     const file = new File(uri);
@@ -67,13 +96,15 @@ async function uploadImage(
   folder: string,
   uri: string,
   mimeType?: string | null,
+  maxWidth = 1280,
 ) {
-  const bytes = await readImageBytes(uri, mimeType);
-  const { ext, contentType } = imageMetaFromUri(uri, mimeType);
-  const path = `${folder}/${Date.now()}.${ext}`;
+  const prepared = await prepareUploadUri(uri, maxWidth);
+  const bytes = await readImageBytes(prepared.uri, prepared.mimeType);
+  const { ext, contentType } = imageMetaFromUri(prepared.uri, prepared.mimeType ?? mimeType);
+  const path = `${folder}/${Date.now()}.${ext === 'png' || ext === 'webp' ? 'jpg' : ext}`;
 
   const { error } = await supabase.storage.from(bucket).upload(path, bytes, {
-    contentType,
+    contentType: contentType.startsWith('image/') ? 'image/jpeg' : contentType,
     upsert: true,
   });
 
@@ -91,7 +122,7 @@ export async function uploadPartnerCover(
   uri: string,
   mimeType?: string | null,
 ) {
-  return uploadImage('partner-covers', userId, uri, mimeType);
+  return uploadImage('partner-covers', userId, uri, mimeType, 1280);
 }
 
 export async function uploadBagImage(
@@ -99,7 +130,7 @@ export async function uploadBagImage(
   uri: string,
   mimeType?: string | null,
 ) {
-  return uploadImage('rescue-bags', partnerId, uri, mimeType);
+  return uploadImage('rescue-bags', partnerId, uri, mimeType, 1280);
 }
 
 export async function uploadReviewPhoto(
@@ -107,16 +138,16 @@ export async function uploadReviewPhoto(
   uri: string,
   mimeType?: string | null,
 ) {
-  return uploadImage('review-photos', customerId, uri, mimeType);
+  return uploadImage('review-photos', customerId, uri, mimeType, 1280);
 }
 
 export async function uploadAvatar(userId: string, uri: string, mimeType?: string | null) {
-  const bytes = await readImageBytes(uri, mimeType);
-  const { contentType } = imageMetaFromUri(uri, mimeType ?? 'image/jpeg');
+  const prepared = await prepareUploadUri(uri, 512);
+  const bytes = await readImageBytes(prepared.uri, prepared.mimeType);
   const path = `${userId}/avatar.jpg`;
 
   const { error } = await supabase.storage.from('avatars').upload(path, bytes, {
-    contentType,
+    contentType: 'image/jpeg',
     upsert: true,
   });
 

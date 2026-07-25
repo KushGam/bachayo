@@ -7,6 +7,7 @@ import { Palette } from '@/constants/Colors';
 import { getCategoryLabel } from '@/constants/partnerCategories';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatDistanceKm, getInitials } from '@/lib/helpers';
+import { getOptimizedImageUrl } from '@/lib/images';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PartnerWithStats } from '@/types/app';
 
@@ -37,7 +38,12 @@ export const BrowsePartnerCard = memo(function BrowsePartnerCard({
       {hasBags ? <View style={styles.accent} /> : null}
 
       {partner.cover_image_url ? (
-        <AppImage source={{ uri: partner.cover_image_url }} style={styles.thumb} resizeMode="cover" />
+        <AppImage
+          source={{ uri: getOptimizedImageUrl(partner.cover_image_url, 'thumb') }}
+          style={styles.thumb}
+          resizeMode="cover"
+          recyclingKey={partner.id}
+        />
       ) : (
         <View style={[styles.thumb, styles.thumbPlaceholder]}>
           <Text style={styles.thumbInitials}>{getInitials(partner.name)}</Text>

@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   MapPin,
+  RefreshCw,
   Share2,
   Shield,
   Star,
@@ -20,6 +21,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Modal,
@@ -82,10 +84,73 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
   return <View style={styles.settingsCard}>{children}</View>;
 }
 
+function ProfileLocationRow() {
+  const { neighbourhood, isDefault, requestLocation } = useLocationStore();
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLocation = !isDefault;
+
+  const handleRefresh = () => {
+    if (refreshing) return;
+    void (async () => {
+      setRefreshing(true);
+      try {
+        const ok = await requestLocation();
+        if (!ok) {
+          Alert.alert(
+            'Location',
+            'Enable location in Settings so we can show bags near you.',
+            [
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              { text: 'Cancel', style: 'cancel' },
+            ],
+          );
+        }
+      } finally {
+        setRefreshing(false);
+      }
+    })();
+  };
+
+  return (
+    <View style={[styles.locationRow, styles.rowBorder]}>
+      <View style={[styles.locationIconWrap, !hasLocation && styles.locationIconWrapMuted]}>
+        <MapPin
+          size={16}
+          color={hasLocation ? Palette.primary : '#9CA3AF'}
+          strokeWidth={2.2}
+        />
+      </View>
+      <View style={styles.locationCopy}>
+        <Text style={styles.locationLabel}>Location</Text>
+        <Text
+          style={[styles.locationValue, !hasLocation && styles.locationValueMuted]}
+          numberOfLines={1}>
+          {hasLocation ? (neighbourhood ?? 'Nepal') : 'Not detected yet'}
+        </Text>
+      </View>
+      <Pressable
+        onPress={handleRefresh}
+        disabled={refreshing}
+        hitSlop={8}
+        style={({ pressed }) => [styles.locationRefreshPill, pressed && styles.pressed]}>
+        {refreshing ? (
+          <ActivityIndicator size="small" color={Palette.primary} />
+        ) : (
+          <>
+            <RefreshCw size={12} color={Palette.primary} strokeWidth={2.4} />
+            <Text style={styles.locationRefreshText}>
+              {hasLocation ? 'Refresh' : 'Detect'}
+            </Text>
+          </>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { neighbourhood, isDefault, requestLocation } = useLocationStore();
   const { locale, setLocale, reset } = useAuthStore();
   const [user, setUser] = useState<ProfileUser>({
     name: 'Guest',
@@ -248,45 +313,7 @@ export default function ProfileScreen() {
                 label="Edit profile"
                 onPress={() => router.push('/profile/edit' as never)}
               />
-              <View style={[styles.locationRow, styles.rowBorder]}>
-                <View style={styles.locationIconWrap}>
-                  <MapPin size={16} color={Palette.primary} strokeWidth={2} />
-                </View>
-                <View style={styles.locationCopy}>
-                  <Text style={styles.locationLabel}>Location</Text>
-                  <Text style={styles.locationValue} numberOfLines={1}>
-                    {isDefault
-                      ? 'Not detected yet'
-                      : neighbourhood
-                        ? `📍 ${neighbourhood}`
-                        : '📍 Nepal'}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    void (async () => {
-                      const ok = await requestLocation();
-                      if (!ok) {
-                        Alert.alert(
-                          'Location',
-                          'Enable location in Settings so we can show bags near you.',
-                          [
-                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-                            { text: 'Cancel', style: 'cancel' },
-                          ],
-                        );
-                        return;
-                      }
-                      Alert.alert(
-                        'Location',
-                        'Your location is automatically detected. We use it to show you bags nearby.',
-                      );
-                    })();
-                  }}
-                  hitSlop={8}>
-                  <Text style={styles.locationRefresh}>Refresh</Text>
-                </Pressable>
-              </View>
+              <ProfileLocationRow />
               <ProfileMenuRow
                 icon={Store}
                 label="Browse restaurants"
@@ -385,45 +412,7 @@ export default function ProfileScreen() {
                 showChevron={false}
                 onPress={() => setLanguageOpen(true)}
               />
-              <View style={[styles.locationRow, styles.rowBorder]}>
-                <View style={styles.locationIconWrap}>
-                  <MapPin size={16} color={Palette.primary} strokeWidth={2} />
-                </View>
-                <View style={styles.locationCopy}>
-                  <Text style={styles.locationLabel}>Location</Text>
-                  <Text style={styles.locationValue} numberOfLines={1}>
-                    {isDefault
-                      ? 'Not detected yet'
-                      : neighbourhood
-                        ? `📍 ${neighbourhood}`
-                        : '📍 Nepal'}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    void (async () => {
-                      const ok = await requestLocation();
-                      if (!ok) {
-                        Alert.alert(
-                          'Location',
-                          'Enable location in Settings so we can show bags near you.',
-                          [
-                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-                            { text: 'Cancel', style: 'cancel' },
-                          ],
-                        );
-                        return;
-                      }
-                      Alert.alert(
-                        'Location',
-                        'Your location is automatically detected. We use it to show you bags nearby.',
-                      );
-                    })();
-                  }}
-                  hitSlop={8}>
-                  <Text style={styles.locationRefresh}>Refresh</Text>
-                </Pressable>
-              </View>
+              <ProfileLocationRow />
               <ProfileMenuRow
                 icon={Info}
                 label="About LastBag"
@@ -501,6 +490,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  locationIconWrapMuted: {
+    backgroundColor: '#F3F4F6',
+  },
   locationCopy: {
     flex: 1,
     gap: 2,
@@ -512,11 +504,27 @@ const styles = StyleSheet.create({
   },
   locationValue: {
     fontSize: 13,
+    fontWeight: '600',
     color: Palette.textSecondary,
   },
-  locationRefresh: {
-    fontSize: 13,
-    fontWeight: '600',
+  locationValueMuted: {
+    fontWeight: '400',
+    color: Palette.textTertiary,
+  },
+  locationRefreshPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Palette.primaryLight,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    minWidth: 78,
+    justifyContent: 'center',
+  },
+  locationRefreshText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: Palette.primary,
   },
   valueInline: {

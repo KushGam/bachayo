@@ -18,8 +18,9 @@ export function HomeSearchResultRow({ bag, onPress }: HomeSearchResultRowProps) 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <AppImage
-        source={{ uri: getRescueBagImageUrl(bag) }}
+        source={{ uri: getRescueBagImageUrl(bag, 'thumb') }}
         style={styles.thumb}
+        recyclingKey={bag.id}
       />
       <View style={styles.body}>
         <Text numberOfLines={1} style={styles.partner}>

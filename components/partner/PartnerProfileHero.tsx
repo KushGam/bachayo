@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { getOptimizedImageUrl } from '@/lib/images';
 
 type PartnerProfileHeroProps = {
   coverHeight: number;
@@ -28,7 +29,12 @@ export function PartnerProfileHero({
   return (
     <View style={[styles.wrap, { height: coverHeight }]}>
       {coverUrl ? (
-        <AppImage source={{ uri: coverUrl }} style={[styles.cover, { height: coverHeight }]} resizeMode="cover" />
+        <AppImage
+          source={{ uri: getOptimizedImageUrl(coverUrl, 'hero') }}
+          style={[styles.cover, { height: coverHeight }]}
+          resizeMode="cover"
+          priority="high"
+        />
       ) : (
         <LinearGradient
           colors={[Palette.primaryDarker, Palette.primaryDark, Palette.primary]}

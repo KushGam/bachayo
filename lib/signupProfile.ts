@@ -84,6 +84,7 @@ export async function createPartnerAccount(
     cover_image_url: coverUrl,
     website,
     description: meta,
+    location_verified: Boolean(data.locationVerified),
     subscription_tier: data.subscriptionTier ?? 'small',
     subscription_status: 'trial',
     avg_daily_meals: data.avgDailyMeals,
@@ -92,7 +93,7 @@ export async function createPartnerAccount(
     payment_method_on_file: false,
     is_active: false,
     approval_status: 'pending',
-  });
+  } as never);
 
   return { error: partnerError };
 }

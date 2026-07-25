@@ -1,81 +1,113 @@
-import { useEffect, useMemo } from 'react';
-import {
-  type ImageProps,
-  type ImageSourcePropType,
-  type ImageStyle,
-  StyleSheet,
-  View,
-  type StyleProp,
-} from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Image, type ImageContentFit, type ImageLoadEventData, type ImageProps } from 'expo-image';
+import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
 
-type AppImageProps = Omit<ImageProps, 'style'> & {
-  style?: StyleProp<ImageStyle>;
+type ResizeMode = 'cover' | 'contain' | 'stretch' | 'center' | 'repeat';
+
+type AppImageProps = {
+  source: ImageProps['source'];
+  style?: StyleProp<ImageStyle | ViewStyle>;
   aspectRatio?: number;
+  /** @deprecated Prefer contentFit — mapped for existing call sites */
+  resizeMode?: ResizeMode;
+  contentFit?: ImageContentFit;
+  recyclingKey?: string;
+  priority?: ImageProps['priority'];
+  transition?: number;
+  onLoad?: (event: ImageLoadEventData) => void;
+  onError?: (event: { error: string }) => void;
 };
 
-function getSourceUri(source: ImageSourcePropType | undefined) {
+function getSourceUri(source: ImageProps['source']): string | undefined {
   if (!source) return undefined;
   if (typeof source === 'number') return undefined;
-  if (Array.isArray(source)) {
-    return getSourceUri(source[0]);
+  if (typeof source === 'string') return source;
+  if (Array.isArray(source)) return getSourceUri(source[0]);
+  if (typeof source === 'object' && 'uri' in source && typeof source.uri === 'string') {
+    return source.uri;
   }
-  return source.uri;
+  return undefined;
 }
 
-export function AppImage({ style, aspectRatio, onLoad, onError, ...props }: AppImageProps) {
-  const uri = useMemo(() => getSourceUri(props.source), [props.source]);
-  const isRemote = Boolean(uri?.startsWith('http://') || uri?.startsWith('https://'));
-  const opacity = useSharedValue(isRemote ? 1 : 0);
+/** If a Supabase image-transform URL fails (plan/feature off), fall back to the raw object URL. */
+function recoverStorageUrl(uri: string): string | null {
+  const match = uri.match(
+    /^(https?:\/\/[^/]+)\/storage\/v1\/render\/image\/public\/([^?]+)(?:\?.*)?$/,
+  );
+  if (!match) return null;
+  return `${match[1]}/storage/v1/object/public/${match[2]}`;
+}
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+function mapResizeMode(mode: ResizeMode | undefined): ImageContentFit {
+  switch (mode) {
+    case 'contain':
+      return 'contain';
+    case 'stretch':
+      return 'fill';
+    case 'center':
+      return 'none';
+    case 'cover':
+    default:
+      return 'cover';
+  }
+}
 
-  const reveal = () => {
-    opacity.value = withTiming(1, { duration: 250 });
-  };
+export function AppImage({
+  source,
+  style,
+  aspectRatio,
+  resizeMode = 'cover',
+  contentFit,
+  recyclingKey,
+  priority = 'normal',
+  transition = 180,
+  onLoad,
+  onError,
+}: AppImageProps) {
+  const originalUri = useMemo(() => getSourceUri(source), [source]);
+  const [fallbackUri, setFallbackUri] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isRemote) {
-      opacity.value = 1;
-      return;
-    }
-    opacity.value = 0;
-  }, [isRemote, uri, opacity]);
+    setFallbackUri(null);
+  }, [originalUri]);
+
+  const resolvedSource = useMemo(() => {
+    if (fallbackUri) return { uri: fallbackUri };
+    return source;
+  }, [fallbackUri, source]);
+
+  const fit = contentFit ?? mapResizeMode(resizeMode);
+  const key = recyclingKey ?? fallbackUri ?? originalUri;
 
   return (
-    <View style={[styles.placeholder, aspectRatio ? { aspectRatio } : null, style]}>
-      <Animated.Image
-        style={[StyleSheet.absoluteFill, styles.image, animatedStyle]}
-        onLoad={(e) => {
-          reveal();
-          onLoad?.(e);
-        }}
-        onLoadEnd={reveal}
-        onError={(e) => {
-          opacity.value = 1;
-          onError?.(e);
-        }}
-        {...props}
-      />
-    </View>
+    <Image
+      source={resolvedSource}
+      style={[styles.base, aspectRatio ? { aspectRatio } : null, style as StyleProp<ImageStyle>]}
+      contentFit={fit}
+      cachePolicy="memory-disk"
+      recyclingKey={key}
+      priority={priority}
+      transition={transition}
+      onLoad={onLoad}
+      onError={(event) => {
+        if (!fallbackUri && originalUri) {
+          const recovered = recoverStorageUrl(originalUri);
+          if (recovered && recovered !== originalUri) {
+            setFallbackUri(recovered);
+            return;
+          }
+        }
+        onError?.(event);
+      }}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  placeholder: {
+  base: {
     backgroundColor: Palette.imagePlaceholder,
     overflow: 'hidden',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
   },
 });
