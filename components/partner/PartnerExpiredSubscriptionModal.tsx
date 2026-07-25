@@ -1,9 +1,10 @@
 import { usePathname, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MANUAL_BILLING } from '@/constants/manualBilling';
 import { Palette } from '@/constants/Colors';
+import { openWhatsAppChat } from '@/lib/helpers';
 import { getDaysUntil, getSubscriptionExpiryIso } from '@/lib/subscriptions';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -67,14 +68,10 @@ export function PartnerExpiredSubscriptionModal() {
   const visible = expired && !onBillingScreen;
 
   const openWhatsApp = () => {
-    const message = encodeURIComponent(
-      'Hi! My LastBag subscription has expired. Please help me renew.',
-    );
-    Linking.openURL(
-      `whatsapp://send?phone=${MANUAL_BILLING.whatsappPhone}&text=${message}`,
-    ).catch(() =>
-      Linking.openURL(`https://wa.me/${MANUAL_BILLING.whatsappPhone}?text=${message}`),
-    );
+    void openWhatsAppChat({
+      phone: MANUAL_BILLING.whatsappPhone,
+      message: 'Hi! My LastBag subscription has expired. Please help me renew.',
+    });
   };
 
   return (

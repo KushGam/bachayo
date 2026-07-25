@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { MarkPickedUpButton } from '@/components/admin/MarkPickedUpButton';
 import { PageHeader, StatCard } from '@/components/admin/StatCard';
+import { fetchActiveCityOptions } from '@/lib/admin/cities';
 import {
   cityLabel,
   formatClockTime,
@@ -71,6 +72,7 @@ export default async function AdminOrdersPage({
     { count: cancelledToday },
     { count: missedToday },
     { data: orders },
+    cities,
   ] = await Promise.all([
     supabase
       .from('orders')
@@ -107,6 +109,7 @@ export default async function AdminOrdersPage({
       .gte('created_at', from)
       .order('created_at', { ascending: false })
       .limit(200),
+    fetchActiveCityOptions(supabase),
   ]);
 
   type OrderRow = NonNullable<typeof orders>[number];
@@ -210,10 +213,7 @@ export default async function AdminOrdersPage({
         <div className="flex flex-wrap gap-2">
           {[
             { key: '', label: 'All cities' },
-            { key: 'kathmandu', label: 'Kathmandu' },
-            { key: 'lalitpur', label: 'Lalitpur' },
-            { key: 'pokhara', label: 'Pokhara' },
-            { key: 'bhaktapur', label: 'Bhaktapur' },
+            ...cities.map((c) => ({ key: c.id, label: c.name })),
           ].map((item) => (
             <Link
               key={item.key || 'all-cities'}

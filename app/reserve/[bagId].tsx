@@ -67,7 +67,7 @@ export default function ReserveBagScreen() {
   const [note, setNote] = useState('');
   const [quantity, setQuantity] = useState(() => {
     const parsed = Number(qtyParam);
-    return Number.isFinite(parsed) && parsed >= 1 ? Math.min(3, Math.floor(parsed)) : 1;
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
   });
   const [selectedServiceType, setSelectedServiceType] = useState<'takeaway' | 'dinein'>(() =>
     serviceParam === 'dinein' ? 'dinein' : 'takeaway',
@@ -136,7 +136,13 @@ export default function ReserveBagScreen() {
       const parsedQty = Number(qtyParam);
       if (Number.isFinite(parsedQty) && parsedQty >= 1) {
         const left = Math.max(0, mergedBag.quantity_available - mergedBag.quantity_reserved);
-        setQuantity(Math.min(3, Math.max(1, Math.floor(parsedQty)), Math.max(1, left)));
+        setQuantity(
+          Math.min(
+            mergedBag.max_per_customer ?? 3,
+            Math.max(1, Math.floor(parsedQty)),
+            Math.max(1, left),
+          ),
+        );
       }
 
       const userId = sessionData.session?.user?.id;
@@ -164,7 +170,10 @@ export default function ReserveBagScreen() {
     return Math.max(0, bag.quantity_available - bag.quantity_reserved);
   }, [bag]);
 
-  const maxQty = useMemo(() => Math.max(1, Math.min(3, remaining)), [remaining]);
+  const maxQty = useMemo(
+    () => Math.max(1, Math.min(bag?.max_per_customer ?? 3, remaining)),
+    [bag?.max_per_customer, remaining],
+  );
 
   useEffect(() => {
     setQuantity((q) => Math.min(Math.max(1, q), maxQty));
@@ -206,6 +215,10 @@ export default function ReserveBagScreen() {
     if (!result.ok) {
       if (result.error === 'sold_out') {
         setSoldOutVisible(true);
+        return;
+      }
+      if (result.error === 'customer_limit') {
+        Alert.alert('Quantity limit', result.message);
         return;
       }
       if (result.error === 'auth') {
@@ -456,28 +469,29 @@ export default function ReserveBagScreen() {
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>How many bags?</Text>
                 <View style={styles.qtyRow}>
-                  {[1, 2, 3].map((q) => {
-                    const disabled = q > maxQty;
-                    const active = q === quantity;
-                    return (
-                      <Pressable
-                        key={q}
-                        disabled={disabled}
-                        onPress={() => {
-                          void hapticButtonPress();
-                          setQuantity(q);
-                        }}
-                        style={[
-                          styles.qtyPill,
-                          active && styles.qtyPillActive,
-                          disabled && styles.qtyPillDisabled,
-                        ]}>
-                        <Text style={[styles.qtyText, active && styles.qtyTextActive]}>{q}</Text>
-                      </Pressable>
-                    );
-                  })}
+                  <Pressable
+                    disabled={quantity <= 1}
+                    onPress={() => {
+                      void hapticButtonPress();
+                      setQuantity((q) => Math.max(1, q - 1));
+                    }}
+                    style={[styles.qtyPill, quantity <= 1 && styles.qtyPillDisabled]}>
+                    <Text style={styles.qtyText}>−</Text>
+                  </Pressable>
+                  <View style={[styles.qtyPill, styles.qtyPillActive]}>
+                    <Text style={[styles.qtyText, styles.qtyTextActive]}>{quantity}</Text>
+                  </View>
+                  <Pressable
+                    disabled={quantity >= maxQty}
+                    onPress={() => {
+                      void hapticButtonPress();
+                      setQuantity((q) => Math.min(maxQty, q + 1));
+                    }}
+                    style={[styles.qtyPill, quantity >= maxQty && styles.qtyPillDisabled]}>
+                    <Text style={styles.qtyText}>+</Text>
+                  </Pressable>
                   <Text style={styles.qtyHint}>
-                    {remaining} left today
+                    {remaining} left · max {bag.max_per_customer ?? 3} per customer
                     {remaining === 1 ? ' · Only 1 left!' : remaining <= 3 ? ` · Only ${remaining} left!` : ''}
                   </Text>
                 </View>

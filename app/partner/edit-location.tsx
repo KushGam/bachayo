@@ -1,10 +1,12 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { ExternalLink, Link2 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -17,10 +19,19 @@ import { PartnerEditHeader } from '@/components/partner/PartnerEditHeader';
 import { KeyboardAwareScrollView } from '@/components/ui/KeyboardAwareScrollView';
 import { LocationPicker } from '@/components/ui/LocationPicker';
 import { Palette } from '@/constants/Colors';
-import { getAreaById, getCityById, resolveLocation } from '@/lib/locations';
+import { getAreaById, resolveLocation } from '@/lib/locations';
 import { hapticSuccess } from '@/lib/haptics';
-import { capturePartnerLocation, hasPartnerGpsCoords } from '@/lib/partnerGps';
-import { mergePartnerMeta } from '@/lib/partnerMeta';
+import {
+  buildGoogleMapsUrl,
+  looksLikeMapLink,
+  resolveMapLink,
+} from '@/lib/mapLinks';
+import {
+  capturePartnerLocation,
+  hasPartnerGpsCoords,
+  savePartnerLocation,
+} from '@/lib/partnerGps';
+import { decodePartnerMeta, mergePartnerMeta } from '@/lib/partnerMeta';
 import type { PartnerProfileRow } from '@/lib/partnerProfile';
 import { supabase } from '@/lib/supabase';
 
@@ -38,7 +49,9 @@ export default function EditLocationScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [applyingLink, setApplyingLink] = useState(false);
   const [address, setAddress] = useState('');
+  const [mapLink, setMapLink] = useState('');
   const [areaId, setAreaId] = useState<string | null>(null);
   const [latitude, setLatitude] = useState(27.7172);
   const [longitude, setLongitude] = useState(85.324);
@@ -56,8 +69,10 @@ export default function EditLocationScreen() {
     const { data } = await supabase.from('partners').select('*').eq('user_id', userId).maybeSingle();
     if (data) {
       const row = data as PartnerLocationRow;
+      const meta = decodePartnerMeta(row.description);
       setPartner(row);
       setAddress(row.address ?? '');
+      setMapLink(meta.map_url ?? '');
       setAreaId(row.area_id ?? null);
       const lat = row.latitude;
       const lng = row.longitude;
@@ -73,12 +88,67 @@ export default function EditLocationScreen() {
     void loadPartner();
   }, [loadPartner]);
 
+  const persistLocation = async ({
+    nextAddress,
+    nextAreaId,
+    nextLat,
+    nextLng,
+    nextVerified,
+    nextMapLink,
+    showSuccessAlert,
+  }: {
+    nextAddress: string;
+    nextAreaId: string | null;
+    nextLat: number;
+    nextLng: number;
+    nextVerified: boolean;
+    nextMapLink: string;
+    showSuccessAlert?: string;
+  }) => {
+    if (!partner) return false;
+
+    const resolved = nextAreaId ? resolveLocation(nextAreaId) : null;
+    const cityId = resolved?.cityId ?? partner.city_id ?? 'kathmandu';
+    const area = nextAreaId ? getAreaById(nextAreaId) : undefined;
+    const description = mergePartnerMeta(partner.description, {
+      neighborhood: area?.name || undefined,
+      map_url: nextMapLink.trim() || undefined,
+    });
+
+    const { error, verifiedColumnMissing } = await savePartnerLocation(partner.id, {
+      address: nextAddress.trim() || undefined,
+      city_id: cityId,
+      area_id: nextAreaId ?? undefined,
+      latitude: nextLat,
+      longitude: nextLng,
+      location_verified: nextVerified,
+      description,
+    });
+
+    if (error) {
+      Alert.alert('Could not save location', error.message);
+      return false;
+    }
+
+    await hapticSuccess();
+    if (showSuccessAlert) {
+      Alert.alert(
+        'Location updated ✓',
+        verifiedColumnMissing
+          ? `${showSuccessAlert} Run migration 048 in Supabase to store the GPS verified flag.`
+          : showSuccessAlert,
+      );
+    }
+    await loadPartner();
+    return true;
+  };
+
   const onRecaptureGps = async () => {
     setLocating(true);
     const result = await capturePartnerLocation();
-    setLocating(false);
 
     if (!result.ok) {
+      setLocating(false);
       Alert.alert(
         'Location',
         result.reason === 'permission'
@@ -88,17 +158,68 @@ export default function EditLocationScreen() {
       return;
     }
 
+    const nextAddress = result.address || address;
+    const nextMapLink = buildGoogleMapsUrl(result.latitude, result.longitude);
+
     setLatitude(result.latitude);
     setLongitude(result.longitude);
     setHasCoords(true);
     setLocationVerified(true);
     setAreaId(result.areaId);
-    if (result.address) {
-      setAddress(result.address);
+    setAddress(nextAddress);
+    setMapLink(nextMapLink);
+
+    await persistLocation({
+      nextAddress,
+      nextAreaId: result.areaId,
+      nextLat: result.latitude,
+      nextLng: result.longitude,
+      nextVerified: true,
+      nextMapLink,
+      showSuccessAlert: 'Your restaurant GPS coordinates were saved.',
+    });
+    setLocating(false);
+  };
+
+  const onApplyMapLink = async () => {
+    const trimmed = mapLink.trim();
+    if (!trimmed) {
+      Alert.alert('Map link', 'Paste a Google Maps or Apple Maps link first.');
+      return;
     }
 
-    await hapticSuccess();
-    Alert.alert('Location updated ✓', 'Your restaurant GPS coordinates were captured.');
+    setApplyingLink(true);
+    const parsed = await resolveMapLink(trimmed);
+    setApplyingLink(false);
+
+    if (!parsed) {
+      Alert.alert(
+        'Could not read that link',
+        'Paste a Google Maps link that includes coordinates, or open the place → Share → Copy link, then try again.\n\nYou can also paste coordinates like: 28.04000, 84.50000',
+      );
+      return;
+    }
+
+    setLatitude(parsed.latitude);
+    setLongitude(parsed.longitude);
+    setHasCoords(true);
+    setLocationVerified(true);
+    setAreaId(parsed.areaId);
+
+    const normalizedLink = looksLikeMapLink(trimmed)
+      ? trimmed
+      : buildGoogleMapsUrl(parsed.latitude, parsed.longitude);
+    setMapLink(normalizedLink);
+
+    await persistLocation({
+      nextAddress: address,
+      nextAreaId: parsed.areaId,
+      nextLat: parsed.latitude,
+      nextLng: parsed.longitude,
+      nextVerified: true,
+      nextMapLink: normalizedLink,
+      showSuccessAlert: 'Precise map pin saved from your link.',
+    });
   };
 
   const handleSave = async () => {
@@ -112,43 +233,47 @@ export default function EditLocationScreen() {
       return;
     }
 
-    const resolved = resolveLocation(areaId);
-    const cityId = resolved?.cityId ?? partner.city_id ?? 'kathmandu';
-    const area = getAreaById(areaId);
-    const areaLabel = area?.name ?? '';
-    const cityLabel = getCityById(cityId)?.name ?? '';
-    const fullAddress = [address.trim(), areaLabel, cityLabel]
-      .filter(Boolean)
-      .filter((part, index, arr) => arr.indexOf(part) === index)
-      .join(', ');
+    // If they pasted a map link but forgot Apply, try once on save
+    let nextLat = latitude;
+    let nextLng = longitude;
+    let nextAreaId = areaId;
+    let nextVerified = locationVerified;
+    let nextMapLink = mapLink.trim();
 
-    setSaving(true);
-    const description = mergePartnerMeta(partner.description, {
-      neighborhood: areaLabel || undefined,
-    });
-
-    const { error } = await supabase
-      .from('partners')
-      .update({
-        address: fullAddress,
-        city_id: cityId,
-        area_id: areaId,
-        latitude,
-        longitude,
-        location_verified: locationVerified,
-        description,
-      } as never)
-      .eq('id', partner.id);
-
-    setSaving(false);
-
-    if (error) {
-      Alert.alert('Error', error.message);
-      return;
+    if (nextMapLink) {
+      const parsed = await resolveMapLink(nextMapLink);
+      if (parsed) {
+        nextLat = parsed.latitude;
+        nextLng = parsed.longitude;
+        nextAreaId = parsed.areaId;
+        nextVerified = true;
+        setLatitude(nextLat);
+        setLongitude(nextLng);
+        setAreaId(nextAreaId);
+        setHasCoords(true);
+        setLocationVerified(true);
+      }
     }
 
-    await hapticSuccess();
-    router.back();
+    setSaving(true);
+    const ok = await persistLocation({
+      nextAddress: address.trim(),
+      nextAreaId,
+      nextLat,
+      nextLng,
+      nextVerified,
+      nextMapLink,
+    });
+    setSaving(false);
+
+    if (ok) router.back();
+  };
+
+  const openPreviewMaps = () => {
+    const url = mapLink.trim() || buildGoogleMapsUrl(latitude, longitude);
+    void Linking.openURL(url).catch(() => {
+      Alert.alert('Unable to open maps', 'Maps is not available on this device.');
+    });
   };
 
   if (loading) {
@@ -201,7 +326,7 @@ export default function EditLocationScreen() {
                     styles.verifyPillText,
                     locationVerified ? styles.verifyPillTextGps : styles.verifyPillTextManual,
                   ]}>
-                  {locationVerified ? '✓ GPS verified' : 'Manual address'}
+                  {locationVerified ? '✓ Precise pin set' : 'Manual address'}
                 </Text>
               </View>
             </View>
@@ -210,27 +335,67 @@ export default function EditLocationScreen() {
           <Text style={styles.label}>Full address</Text>
           <TextInput
             value={address}
-            onChangeText={(value) => {
-              setAddress(value);
-              setLocationVerified(false);
-            }}
+            onChangeText={setAddress}
             style={[styles.input, styles.multiline]}
             placeholder="Street, landmark, building name..."
             multiline
             textAlignVertical="top"
           />
 
+          <Text style={styles.label}>Map link (optional)</Text>
+          <Text style={styles.hint}>
+            Paste a Google Maps or Apple Maps share link so customers get your exact pin.
+          </Text>
+          <TextInput
+            value={mapLink}
+            onChangeText={setMapLink}
+            style={styles.input}
+            placeholder="https://maps.google.com/… or 28.04, 84.50"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <View style={styles.mapLinkActions}>
+            <Pressable
+              onPress={() => void onApplyMapLink()}
+              disabled={applyingLink}
+              style={({ pressed }) => [
+                styles.applyLinkBtn,
+                pressed && { opacity: 0.9 },
+                applyingLink && { opacity: 0.7 },
+              ]}>
+              {applyingLink ? (
+                <ActivityIndicator color={Palette.white} />
+              ) : (
+                <>
+                  <Link2 size={16} color={Palette.white} strokeWidth={2.4} />
+                  <Text style={styles.applyLinkText}>Apply map link</Text>
+                </>
+              )}
+            </Pressable>
+            {hasCoords ? (
+              <Pressable
+                onPress={openPreviewMaps}
+                style={({ pressed }) => [styles.previewLinkBtn, pressed && { opacity: 0.9 }]}>
+                <ExternalLink size={15} color={Palette.primary} strokeWidth={2.2} />
+                <Text style={styles.previewLinkText}>Open in Maps</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
           <Text style={styles.label}>City & area</Text>
           <LocationPicker
             value={areaId}
             onChange={(cityId, nextAreaId) => {
               setAreaId(nextAreaId);
-              setLocationVerified(false);
-              const nextArea = getAreaById(nextAreaId);
-              if (nextArea) {
-                setLatitude(nextArea.latitude);
-                setLongitude(nextArea.longitude);
-                setHasCoords(true);
+              // Don't overwrite a precise GPS/map pin when only changing labels
+              if (!locationVerified) {
+                const nextArea = getAreaById(nextAreaId);
+                if (nextArea) {
+                  setLatitude(nextArea.latitude);
+                  setLongitude(nextArea.longitude);
+                  setHasCoords(true);
+                }
               }
               void cityId;
             }}
@@ -239,11 +404,13 @@ export default function EditLocationScreen() {
 
           {isExpoGo ? (
             <View style={styles.mapPlaceholder}>
-              <Text style={styles.mapPlaceholderTitle}>
-                Map pin adjustment available in the full app
-              </Text>
+              <Text style={styles.mapPlaceholderTitle}>Precise pin</Text>
               <Text style={styles.mapCoords}>
                 {latitude.toFixed(5)}, {longitude.toFixed(5)}
+              </Text>
+              <Text style={styles.mapHint}>
+                Use GPS or paste a Maps link above for the exact restaurant pin. Drag-to-adjust is
+                available in a development build.
               </Text>
             </View>
           ) : (
@@ -253,7 +420,7 @@ export default function EditLocationScreen() {
                 {latitude.toFixed(5)}, {longitude.toFixed(5)}
               </Text>
               <Text style={styles.mapHint}>
-                Drag pin support can be enabled in a development build with react-native-maps.
+                Paste a Maps share link or use GPS for the most accurate pin.
               </Text>
             </View>
           )}
@@ -348,6 +515,12 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginTop: 4,
   },
+  hint: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 17,
+    marginTop: -4,
+  },
   input: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -360,6 +533,42 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: 88,
     paddingTop: 12,
+  },
+  mapLinkActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  applyLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#D85A30',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 140,
+    justifyContent: 'center',
+  },
+  applyLinkText: {
+    color: Palette.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  previewLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FAECE7',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  previewLinkText: {
+    color: '#D85A30',
+    fontSize: 13,
+    fontWeight: '700',
   },
   mapPlaceholder: {
     marginTop: 8,

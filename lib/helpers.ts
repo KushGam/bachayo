@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 import type { BagServiceType } from '@/types/database';
 
@@ -262,9 +262,75 @@ export function getPickupMinutesRemaining(availableDate: string, pickupEnd: stri
 
 export function openPhoneDialer(phone: string) {
   const normalized = phone.replace(/\s+/g, '');
-  if (normalized) Linking.openURL(`tel:${normalized}`);
+  if (normalized) {
+    void Linking.openURL(`tel:${normalized}`).catch(() => {
+      Alert.alert('Unable to call', 'Calling is not available on this device.');
+    });
+  }
 }
 
 export function openWhatsAppShare(message: string) {
-  Linking.openURL(`whatsapp://send?text=${encodeURIComponent(message)}`);
+  void openWhatsAppChat({ message });
+}
+
+/** Opens WhatsApp with a prefilled message. Falls back to wa.me, then shows an alert. */
+export async function openWhatsAppChat({
+  phone,
+  message,
+}: {
+  phone?: string;
+  message: string;
+}) {
+  const encoded = encodeURIComponent(message);
+  const digits = (phone ?? '').replace(/\D/g, '');
+  const nativeUrl = digits
+    ? `whatsapp://send?phone=${digits}&text=${encoded}`
+    : `whatsapp://send?text=${encoded}`;
+  const webUrl = digits
+    ? `https://wa.me/${digits}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+
+  try {
+    const canNative = await Linking.canOpenURL(nativeUrl);
+    if (canNative) {
+      await Linking.openURL(nativeUrl);
+      return true;
+    }
+  } catch {
+    // try web fallback
+  }
+
+  try {
+    await Linking.openURL(webUrl);
+    return true;
+  } catch {
+    Alert.alert(
+      'WhatsApp unavailable',
+      'Open WhatsApp on your phone and message 9762623241, or try again on a real device.',
+    );
+    return false;
+  }
+}
+
+export async function openExternalUrl(url: string, fallbackMessage?: string) {
+  try {
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+      return true;
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    await Linking.openURL(url);
+    return true;
+  } catch {
+    Alert.alert(
+      'Unable to open link',
+      fallbackMessage ?? 'This link is not available on this device.',
+    );
+    return false;
+  }
 }

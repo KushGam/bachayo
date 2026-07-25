@@ -7,7 +7,7 @@ import type { MapRegion } from '@/types/map';
 
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
-import { enrichBagsWithLiveStock } from '@/lib/bagStock';
+import { enrichBagsWithLiveStock, isBagBookable } from '@/lib/bagStock';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import {
   attachNearbyBagDistances,
@@ -89,6 +89,7 @@ export default function ExploreMapExpoGo() {
   const filteredBags = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return bags.filter((bag) => {
+      if (!isBagBookable(bag)) return false;
       const title = locale === 'np' && bag.title_np ? bag.title_np : bag.title;
       const categoryPass =
         selectedCategory === 'all' ? true : bag.partner.category === selectedCategory;
@@ -116,7 +117,7 @@ export default function ExploreMapExpoGo() {
 
     const visible = filterVisibleNearbyBags(data ?? []);
     const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
-    const nextBags = attachNearbyBagDistances(withStock, origin);
+    const nextBags = attachNearbyBagDistances(withStock.filter(isBagBookable), origin);
 
     setBags(nextBags);
     setLoading(false);

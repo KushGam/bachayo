@@ -7,20 +7,20 @@ export function HeroPhoneMockup() {
         <div className="mx-auto h-7 w-28 rounded-b-2xl bg-[#1c1917]" />
 
         <div className="bg-gradient-to-br from-[#d85a30] to-[#993c1d] px-5 pb-7 pt-4">
-          <p className="font-display text-lg font-bold text-white">Good evening</p>
-          <p className="mt-1 text-sm text-white/70">Thamel · Kathmandu</p>
+          <p className="font-display text-lg font-bold text-white">Bags near you</p>
+          <p className="mt-1 text-sm text-white/70">Closing soon · today</p>
         </div>
 
         <div className="space-y-3 bg-[#f5f3ef] px-4 py-4 pb-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c9590]">
-            Closing soon
+            Rescue deals
           </p>
 
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs text-[#6b6560]">Thakali Kitchen</p>
-                <p className="mt-1 text-sm font-bold text-[#1c1917]">Dal Bhat Set</p>
+                <p className="text-xs text-[#6b6560]">Restaurant</p>
+                <p className="mt-1 text-sm font-bold text-[#1c1917]">Lunch surprise bag</p>
               </div>
               <span className="rounded-full bg-[#faece7] px-2.5 py-1 text-[11px] font-semibold text-[#993c1d]">
                 70% off
@@ -38,8 +38,8 @@ export function HeroPhoneMockup() {
           </div>
 
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
-            <p className="text-xs text-[#6b6560]">Himalayan Bakery</p>
-            <p className="mt-1 text-sm font-bold text-[#1c1917]">Evening Mix</p>
+            <p className="text-xs text-[#6b6560]">Bakery</p>
+            <p className="mt-1 text-sm font-bold text-[#1c1917]">End-of-day mix</p>
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-baseline gap-2">
                 <span className="text-lg font-bold text-[#d85a30]">₨ 200</span>

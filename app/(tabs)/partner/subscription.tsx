@@ -3,7 +3,6 @@ import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, Mail, MessageCircle } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import { MANUAL_BILLING, PLAN_FEATURES } from '@/constants/manualBilling';
 import type { SubscriptionStatus, SubscriptionTier } from '@/constants/subscriptions';
 import { DEFAULT_TIER_PRICING } from '@/constants/subscriptions';
 import { Palette } from '@/constants/Colors';
+import { openExternalUrl, openWhatsAppChat } from '@/lib/helpers';
 import { fetchSubscriptionPayments } from '@/lib/subscriptionBilling';
 import {
   formatSubscriptionDate,
@@ -146,19 +146,17 @@ export default function PartnerSubscriptionScreen() {
 
   const openWhatsApp = () => {
     const planName = PLAN_NAMES[selectedTier];
-    const message = encodeURIComponent(
+    const message =
       `Hi LastBag! I'd like to subscribe.\n\n` +
-        `Plan: ${planName}\n` +
-        `Duration: ${selectedMonths} month(s)\n` +
-        `Amount: NPR ${formatNpr(amountDue)}\n` +
-        `Restaurant: ${partner?.name ?? ''}\n\n` +
-        `Please send me payment details.`,
-    );
-    Linking.openURL(
-      `whatsapp://send?phone=${MANUAL_BILLING.whatsappPhone}&text=${message}`,
-    ).catch(() =>
-      Linking.openURL(`https://wa.me/${MANUAL_BILLING.whatsappPhone}?text=${message}`),
-    );
+      `Plan: ${planName}\n` +
+      `Duration: ${selectedMonths} month(s)\n` +
+      `Amount: NPR ${formatNpr(amountDue)}\n` +
+      `Restaurant: ${partner?.name ?? ''}\n\n` +
+      `Please send me payment details.`;
+    void openWhatsAppChat({
+      phone: MANUAL_BILLING.whatsappPhone,
+      message,
+    });
   };
 
   const openEmail = () => {
@@ -177,8 +175,9 @@ export default function PartnerSubscriptionScreen() {
         `Please send me payment details.\n\n` +
         `Thank you!`,
     );
-    void Linking.openURL(
+    void openExternalUrl(
       `mailto:${MANUAL_BILLING.supportEmail}?subject=${subject}&body=${body}`,
+      'Email is not available on this device.',
     );
   };
 
@@ -321,7 +320,9 @@ export default function PartnerSubscriptionScreen() {
 
         <View style={styles.helpBlock}>
           <Text style={styles.helpLabel}>Questions? Call us:</Text>
-          <Pressable onPress={() => void Linking.openURL('tel:+9779762623241')} hitSlop={8}>
+          <Pressable
+            onPress={() => void openExternalUrl('tel:+9779762623241', 'Calling is not available on this device.')}
+            hitSlop={8}>
             <Text style={styles.helpPhone}>{SUPPORT_PHONE_DISPLAY}</Text>
           </Pressable>
         </View>

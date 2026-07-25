@@ -1,10 +1,3 @@
-export const ADMIN_CITIES = [
-  { id: 'kathmandu', name: 'Kathmandu' },
-  { id: 'lalitpur', name: 'Lalitpur' },
-  { id: 'pokhara', name: 'Pokhara' },
-  { id: 'bhaktapur', name: 'Bhaktapur' },
-] as const;
-
 export const TIER_PRICES_NPR: Record<string, number> = {
   small: 800,
   medium: 1800,

@@ -59,7 +59,9 @@ export function formatBagReservedProgressLabel(
   }
 
   const soldOut = total > 0 && reserved >= total;
-  const text = `${reserved} of ${total} bags reserved`;
+  const text = soldOut
+    ? `${reserved} of ${total} bags sold`
+    : `${reserved} of ${total} bags reserved`;
 
   if (soldOut) {
     return { text, color: '#10B981' };

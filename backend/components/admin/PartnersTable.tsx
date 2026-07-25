@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { PartnerAccountActions } from '@/components/admin/PartnerAccountActions';
 import { ApprovalBadge, CategoryBadge, StatusBadge } from '@/components/admin/StatusBadge';
+import type { AdminCityOption } from '@/lib/admin/cities';
 import { cityLabel, formatRelativeDays, tierLabel, trialDaysLeft } from '@/lib/admin/format';
 
 export type PartnerRow = {
@@ -60,7 +61,7 @@ function statusLabel(partner: PartnerRow) {
   return status.replace('_', ' ');
 }
 
-export function PartnersFilters() {
+export function PartnersFilters({ cities }: { cities: AdminCityOption[] }) {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -88,10 +89,11 @@ export function PartnersFilters() {
       />
       <select className={selectClass} defaultValue={params.get('city') ?? ''} onChange={(e) => update('city', e.target.value)}>
         <option value="">All cities</option>
-        <option value="kathmandu">Kathmandu</option>
-        <option value="lalitpur">Lalitpur</option>
-        <option value="pokhara">Pokhara</option>
-        <option value="bhaktapur">Bhaktapur</option>
+        {cities.map((city) => (
+          <option key={city.id} value={city.id}>
+            {city.name}
+          </option>
+        ))}
       </select>
       <select className={selectClass} defaultValue={params.get('category') ?? ''} onChange={(e) => update('category', e.target.value)}>
         <option value="">All categories</option>

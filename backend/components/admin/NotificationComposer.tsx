@@ -3,14 +3,17 @@
 import { useState, useTransition } from 'react';
 
 import { sendAdminNotification } from '@/app/admin/actions';
+import type { AdminCityOption } from '@/lib/admin/cities';
 
 type PartnerOption = { id: string; name: string };
 
 export function NotificationComposer({
   partners,
+  cities,
   recentLog,
 }: {
   partners: PartnerOption[];
+  cities: AdminCityOption[];
   recentLog: {
     id: string;
     target_type: string;
@@ -22,7 +25,7 @@ export function NotificationComposer({
   }[];
 }) {
   const [targetType, setTargetType] = useState('all');
-  const [cityId, setCityId] = useState('kathmandu');
+  const [cityId, setCityId] = useState(cities[0]?.id ?? '');
   const [userId, setUserId] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -55,12 +58,20 @@ export function NotificationComposer({
             </select>
           </div>
           {targetType === 'city' ? (
-            <select value={cityId} onChange={(e) => setCityId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              <option value="kathmandu">Kathmandu</option>
-              <option value="lalitpur">Lalitpur</option>
-              <option value="pokhara">Pokhara</option>
-              <option value="bhaktapur">Bhaktapur</option>
-            </select>
+            cities.length === 0 ? (
+              <p className="text-sm text-gray-500">No cities with users yet.</p>
+            ) : (
+              <select
+                value={cityId}
+                onChange={(e) => setCityId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                {cities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            )
           ) : null}
           {targetType === 'user' ? (
             <select value={userId} onChange={(e) => setUserId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
@@ -94,7 +105,13 @@ export function NotificationComposer({
           {result ? <p className="text-sm text-green-700">{result}</p> : null}
           <button
             type="button"
-            disabled={pending || !title || !body}
+            disabled={
+              pending ||
+              !title ||
+              !body ||
+              (targetType === 'city' && !cityId) ||
+              (targetType === 'user' && !userId)
+            }
             onClick={() =>
               start(async () => {
                 const res = await sendAdminNotification({

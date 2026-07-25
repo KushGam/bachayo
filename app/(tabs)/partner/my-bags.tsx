@@ -48,6 +48,7 @@ import {
   formatNprFromPaisa,
   getYesterdayIso,
   groupPastBags,
+  isPartnerBagLiveToday,
   type PartnerBagWithStats,
 } from '@/lib/partnerBags';
 import { isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
@@ -294,14 +295,23 @@ export default function PartnerMyBagsScreen() {
     transform: [{ rotate: `${fabRotation.value}deg` }],
   }));
 
+  const liveTodayBags = useMemo(
+    () => todayBags.filter(isPartnerBagLiveToday),
+    [todayBags],
+  );
+  const finishedTodayBags = useMemo(
+    () => todayBags.filter((bag) => !isPartnerBagLiveToday(bag)),
+    [todayBags],
+  );
+
   useEffect(() => {
-    if (tab === 'today' && todayBags.length === 0 && !loading) {
+    if (tab === 'today' && liveTodayBags.length === 0 && !loading) {
       setShowFabHint(true);
       const timer = setTimeout(() => setShowFabHint(false), 3000);
       return () => clearTimeout(timer);
     }
     setShowFabHint(false);
-  }, [tab, todayBags.length, loading]);
+  }, [tab, liveTodayBags.length, loading]);
 
   const handleFabPress = () => {
     void hapticMedium();
@@ -344,15 +354,21 @@ export default function PartnerMyBagsScreen() {
     const patchBag = (bag: PartnerBagWithStats) => {
       if (bag.id !== bagId) return bag;
       const qty = order.quantity ?? 1;
+      const pickedBags = bag.picked_up_bags + qty;
+      const occupied = Math.max(bag.quantity_reserved, pickedBags);
       return {
         ...bag,
-        quantity_reserved: Math.max(0, bag.quantity_reserved - qty),
+        quantity_reserved: occupied,
         reserved_orders: Math.max(0, bag.reserved_orders - 1),
         confirmed_orders: Math.max(0, bag.confirmed_orders - 1),
         picked_up_orders: bag.picked_up_orders + 1,
-        picked_up_bags: bag.picked_up_bags + qty,
+        picked_up_bags: pickedBags,
         potential_revenue: Math.max(0, bag.potential_revenue - order.total_price),
         revenue_earned: bag.revenue_earned + order.total_price,
+        status:
+          bag.quantity_available > 0 && occupied >= bag.quantity_available
+            ? 'sold_out'
+            : bag.status,
       };
     };
 
@@ -675,7 +691,7 @@ export default function PartnerMyBagsScreen() {
     }
 
     if (tab === 'today') {
-      if (todayBags.length === 0) {
+      if (liveTodayBags.length === 0 && finishedTodayBags.length === 0) {
         return (
           <TodayEmptyState
             onAddBag={() => {
@@ -690,7 +706,7 @@ export default function PartnerMyBagsScreen() {
       return (
         <>
           <TodaySummaryCard bags={todayBags} />
-          {todayBags.map((bag) => (
+          {liveTodayBags.map((bag) => (
             <PartnerTodayBagCard
               key={bag.id}
               bag={bag}
@@ -708,6 +724,32 @@ export default function PartnerMyBagsScreen() {
               ordersRefreshKey={ordersRefreshKey}
             />
           ))}
+          {liveTodayBags.length === 0 ? (
+            <View style={styles.finishedBanner}>
+              <Text style={styles.finishedBannerTitle}>Nothing live right now</Text>
+              <Text style={styles.finishedBannerText}>
+                Today’s finished bags are below — relist anytime for tomorrow.
+              </Text>
+            </View>
+          ) : null}
+          {finishedTodayBags.length > 0 ? (
+            <View style={styles.finishedSection}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.headerAccent} />
+                <Text style={styles.relistSectionTitle}>Finished today</Text>
+              </View>
+              {finishedTodayBags.map((bag) => (
+                <PartnerPastBagCard
+                  key={bag.id}
+                  bag={bag}
+                  onRelist={() => handleRelist(bag)}
+                  isOrdersExpanded={expandedOrderId === bag.id}
+                  onToggleOrders={handleToggleOrders}
+                  ordersRefreshKey={ordersRefreshKey}
+                />
+              ))}
+            </View>
+          ) : null}
         </>
       );
     }
@@ -799,7 +841,7 @@ export default function PartnerMyBagsScreen() {
       <MyBagsHeader
         tab={tab}
         paddingTop={insets.top + Spacing.sm}
-        todayCount={todayBags.length}
+        todayCount={liveTodayBags.length}
         upcomingCount={upcomingBags.length}
         pastCount={pastBags.length}
         onTabChange={setTab}
@@ -830,7 +872,7 @@ export default function PartnerMyBagsScreen() {
           fabStyle,
         ]}
         pointerEvents={showFab ? 'auto' : 'none'}>
-        {showFabHint && tab === 'today' && todayBags.length === 0 ? (
+        {showFabHint && tab === 'today' && liveTodayBags.length === 0 ? (
           <View style={styles.fabHint}>
             <Text style={styles.fabHintText}>Add bag</Text>
           </View>
@@ -862,6 +904,28 @@ const styles = StyleSheet.create({
   skeletonWrap: { paddingTop: Spacing.lg },
   errorWrap: { padding: Spacing.lg },
   relistSection: { marginTop: Spacing.lg, marginBottom: Spacing.sm },
+  finishedSection: { marginTop: Spacing.md, marginBottom: Spacing.sm },
+  finishedBanner: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+    backgroundColor: Palette.surface,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.borderSubtle,
+    padding: Spacing.md,
+    gap: 4,
+  },
+  finishedBannerTitle: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
+  finishedBannerText: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    lineHeight: 18,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

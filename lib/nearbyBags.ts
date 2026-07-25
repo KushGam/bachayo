@@ -20,7 +20,11 @@ export function filterVisibleNearbyBags(rows: unknown[]): HomeBag[] {
     const bag = row as HomeBag;
     const partner = bag.partner as PartnerJoin | undefined;
     if (!isPartnerVisibleToCustomers(partner as PartnerSubscriptionFields)) return false;
-    return Boolean(partner);
+    if (!partner) return false;
+    // Hide fully reserved / sold-out from browse (Today's pickup covers own reserves).
+    const left = Math.max(0, (bag.quantity_available ?? 0) - (bag.quantity_reserved ?? 0));
+    if (bag.status === 'sold_out' || left <= 0) return false;
+    return true;
   }) as HomeBag[];
 }
 

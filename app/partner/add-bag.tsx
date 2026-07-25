@@ -205,6 +205,7 @@ export default function AddBagScreen() {
       original_price_npr: '',
       rescue_price_npr: '',
       quantity_available: quantityDefaults.default,
+      max_per_customer: Math.min(3, quantityDefaults.default),
       pickup_start: '12:00',
       pickup_end: '14:00',
       image_url: '',
@@ -216,6 +217,7 @@ export default function AddBagScreen() {
   const originalPrice = watch('original_price_npr');
   const rescuePrice = watch('rescue_price_npr');
   const quantity = watch('quantity_available');
+  const maxPerCustomer = watch('max_per_customer');
   const pickupStart = watch('pickup_start');
   const pickupEnd = watch('pickup_end');
 
@@ -234,6 +236,8 @@ export default function AddBagScreen() {
     Number(rescuePrice) > 0 &&
     Number(rescuePrice) < Number(originalPrice) &&
     quantity >= 1 &&
+    maxPerCustomer >= 1 &&
+    maxPerCustomer <= quantity &&
     pickupStart &&
     pickupEnd;
 
@@ -260,6 +264,7 @@ export default function AddBagScreen() {
         setPartnerCategory(cat);
         const qtyDefaults = getCategoryQuantityDefaults(cat);
         setValue('quantity_available', qtyDefaults.default);
+        setValue('max_per_customer', Math.min(3, qtyDefaults.default));
         const cfg = CATEGORY_BAG_CONFIG[cat] ?? CATEGORY_BAG_CONFIG.restaurant;
         if (cfg.pickupPresets[0]) {
           applyPickupPreset(cfg.pickupPresets[0].start, cfg.pickupPresets[0].end, cfg.pickupPresets[0].label);
@@ -285,6 +290,11 @@ export default function AddBagScreen() {
       shouldValidate: true,
     });
     setValue('quantity_available', prefill.quantity_available, { shouldValidate: true });
+    setValue(
+      'max_per_customer',
+      Math.min(prefill.max_per_customer ?? 3, prefill.quantity_available),
+      { shouldValidate: true },
+    );
     setPickupStartDate(timeFromString(prefill.pickup_start));
     setPickupEndDate(timeFromString(prefill.pickup_end));
     setValue('pickup_start', prefill.pickup_start, { shouldValidate: true });
@@ -404,6 +414,7 @@ export default function AddBagScreen() {
         original_price: nprToPaisa(values.original_price_npr),
         rescue_price: nprToPaisa(values.rescue_price_npr),
         quantity_available: values.quantity_available,
+        max_per_customer: values.max_per_customer,
         pickup_start: formatTimeForDb(values.pickup_start),
         pickup_end: formatTimeForDb(values.pickup_end),
         image_url: imageUrl,
@@ -742,7 +753,11 @@ export default function AddBagScreen() {
                     <Pressable
                       onPress={() => {
                         void hapticButtonPress();
-                        onChange(Math.max(quantityDefaults.min, value - 1));
+                        const next = Math.max(quantityDefaults.min, value - 1);
+                        onChange(next);
+                        if (maxPerCustomer > next) {
+                          setValue('max_per_customer', next, { shouldValidate: true });
+                        }
                       }}
                       disabled={value <= quantityDefaults.min}
                       style={[styles.stepperBtn, value <= quantityDefaults.min && styles.stepperBtnDisabled]}>
@@ -765,6 +780,48 @@ export default function AddBagScreen() {
                   <Text style={styles.quantityMaxHint}>
                     Maximum {quantityDefaults.max} bags for your plan
                   </Text>
+                </>
+              )}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Maximum bags per customer</Text>
+            <Controller
+              control={control}
+              name="max_per_customer"
+              render={({ field: { value, onChange } }) => (
+                <>
+                  <View style={styles.stepper}>
+                    <Pressable
+                      onPress={() => {
+                        void hapticButtonPress();
+                        onChange(Math.max(1, value - 1));
+                      }}
+                      disabled={value <= 1}
+                      style={[styles.stepperBtn, value <= 1 && styles.stepperBtnDisabled]}>
+                      <Text style={styles.stepperMinus}>−</Text>
+                    </Pressable>
+                    <Text style={styles.stepperValue}>{value}</Text>
+                    <Pressable
+                      onPress={() => {
+                        void hapticButtonPress();
+                        onChange(Math.min(quantity, value + 1));
+                      }}
+                      disabled={value >= quantity}
+                      style={[
+                        styles.stepperBtnPlus,
+                        value >= quantity && styles.stepperBtnDisabled,
+                      ]}>
+                      <Text style={styles.stepperPlus}>+</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.quantityMaxHint}>
+                    One customer can reserve up to {value} bag{value === 1 ? '' : 's'}
+                  </Text>
+                  {errors.max_per_customer?.message ? (
+                    <Text style={styles.fieldError}>{errors.max_per_customer.message}</Text>
+                  ) : null}
                 </>
               )}
             />

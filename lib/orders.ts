@@ -9,6 +9,11 @@ import {
   normalizeOrderStatus,
   PARTNER_PICKUP_ELIGIBLE_ENUM_STATUSES,
 } from '@/lib/orderStatus';
+import {
+  getOutsidePickupWindowCopy,
+  getPickupWindowPhase,
+  type PickupWindowPhase,
+} from '@/lib/pickupWindow';
 import type { CustomerOrderWithDetails, PartnerOrderWithCustomer } from '@/types/app';
 
 const ORDER_SELECT = `
@@ -354,13 +359,47 @@ type PickupNotifyOrder = {
   bag?: { title: string };
 };
 
+export type ConfirmPartnerPickupResult = {
+  ok: boolean;
+  alreadyPickedUp?: boolean;
+  errorMessage?: string;
+  /** Outside the bag’s pickup window — partner must explicitly override. */
+  needsOverride?: boolean;
+  phase?: Exclude<PickupWindowPhase, 'open'>;
+  overrideTitle?: string;
+  overrideBody?: string;
+  overrideConfirmLabel?: string;
+};
+
+export type ConfirmPartnerPickupOptions = {
+  /** Set true after the partner acknowledges early/late pickup. */
+  allowOutsideWindow?: boolean;
+};
+
 export async function confirmPartnerPickup(
   order: PartnerOrderWithCustomer,
   confirmedBy: PickupConfirmedBy,
   partnerName?: string,
-): Promise<{ ok: boolean; alreadyPickedUp?: boolean; errorMessage?: string }> {
+  options?: ConfirmPartnerPickupOptions,
+): Promise<ConfirmPartnerPickupResult> {
   if (normalizeOrderStatus(order.status) === 'picked_up') {
     return { ok: true, alreadyPickedUp: true };
+  }
+
+  const bag = order.bag;
+  if (bag?.available_date && bag.pickup_start && bag.pickup_end) {
+    const phase = getPickupWindowPhase(bag.available_date, bag.pickup_start, bag.pickup_end);
+    if (phase !== 'open' && !options?.allowOutsideWindow) {
+      const copy = getOutsidePickupWindowCopy(phase, bag.pickup_start, bag.pickup_end);
+      return {
+        ok: false,
+        needsOverride: true,
+        phase,
+        overrideTitle: copy.title,
+        overrideBody: copy.body,
+        overrideConfirmLabel: copy.confirmLabel,
+      };
+    }
   }
 
   const result = await markOrderPickedUp(order.id, confirmedBy);
@@ -505,6 +544,167 @@ export async function cancelReservation(orderId: string, reason?: string | null)
           quantity_available: bag.quantity_available,
           status: shouldReactivate ? ('active' as const) : bag.status,
         },
+  };
+}
+
+/**
+ * Reduce reserved quantity without cancelling the whole order (e.g. 2 → 1).
+ * Requires migration 049 so quantity updates sync bag stock.
+ */
+export async function reduceReservationQuantity(
+  orderId: string,
+  newQuantity: number,
+  reason?: string | null,
+) {
+  const { data: orderRow, error: fetchError } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      bag:rescue_bags(*),
+      partner:partners(user_id, name)
+    `)
+    .eq('id', orderId)
+    .single();
+
+  if (fetchError || !orderRow) {
+    return { error: fetchError ?? new Error('Order not found'), bagId: null, bagStock: null, order: null };
+  }
+
+  const order = orderRow as unknown as CustomerOrderWithDetails & {
+    partner: { user_id: string; name: string };
+  };
+
+  if (order.status === 'cancelled' || order.status === 'picked_up' || order.status === 'missed') {
+    return {
+      error: new Error('This reservation can no longer be changed'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  if (!Number.isInteger(newQuantity) || newQuantity < 1 || newQuantity >= order.quantity) {
+    return {
+      error: new Error('Choose a quantity lower than your current reservation'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  const eligibility = getCancellationEligibility(
+    order.bag.available_date,
+    order.bag.pickup_start,
+    order.bag.pickup_end,
+  );
+
+  if (eligibility === 'blocked' || eligibility === 'expired') {
+    return {
+      error: new Error(CANCELLATION_BLOCKED_MESSAGE),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  const unitPrice = Math.round(order.total_price / order.quantity);
+  const cancelledQty = order.quantity - newQuantity;
+  const nextTotal = unitPrice * newQuantity;
+  const wasSoldOut = order.bag.status === 'sold_out';
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from('orders')
+    .update({
+      quantity: newQuantity,
+      total_price: nextTotal,
+      cancellation_reason: reason?.trim()
+        ? `Reduced by ${cancelledQty}: ${reason.trim()}`
+        : `Reduced by ${cancelledQty}`,
+    } as never)
+    .eq('id', orderId)
+    .in('status', ['pending', 'confirmed'])
+    .select(`
+      *,
+      bag:rescue_bags(*),
+      partner:partners(*),
+      review:reviews(*)
+    `)
+    .maybeSingle();
+
+  if (updateError || !updatedRow) {
+    return {
+      error: updateError ?? new Error('Could not update quantity'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  // Ensure reserved stock drops even if the quantity trigger isn't applied yet.
+  try {
+    await supabase.rpc('sync_rescue_bag_reserved_quantity' as never, {
+      target_bag_id: order.bag_id,
+    } as never);
+  } catch {
+    // Trigger / column refresh below still used as fallback.
+  }
+
+  const { data: refreshedBag } = await supabase
+    .from('rescue_bags')
+    .select('id, quantity_reserved, quantity_available, status')
+    .eq('id', order.bag_id)
+    .maybeSingle();
+
+  const fallbackReserved = Math.max(0, order.bag.quantity_reserved - cancelledQty);
+  const bagStock = refreshedBag
+    ? {
+        quantity_reserved: refreshedBag.quantity_reserved,
+        quantity_available: refreshedBag.quantity_available,
+        status: refreshedBag.status as typeof order.bag.status,
+      }
+    : {
+        quantity_reserved: fallbackReserved,
+        quantity_available: order.bag.quantity_available,
+        status:
+          wasSoldOut && fallbackReserved < order.bag.quantity_available
+            ? ('active' as const)
+            : order.bag.status,
+      };
+
+  if (order.partner.user_id) {
+    try {
+      const customerName = order.customer_name?.trim() || 'A customer';
+      await supabase.functions.invoke('send-notification', {
+        body: {
+          user_id: order.partner.user_id,
+          title: 'Customer reduced quantity',
+          body: `${customerName} cancelled ${cancelledQty} of ${order.quantity} on ${order.bag.title}. Slot(s) freed.`,
+          type: 'cancellation',
+          data: {
+            order_id: orderId,
+            bag_id: order.bag_id,
+            orderId,
+            bagId: order.bag_id,
+            type: 'partner_dashboard',
+          },
+        },
+      });
+    } catch (notifyError) {
+      console.warn('[reduceReservationQuantity] partner notification failed:', notifyError);
+    }
+  }
+
+  const updated = updatedRow as unknown as CustomerOrderWithDetails & {
+    review: CustomerOrderWithDetails['review'][] | CustomerOrderWithDetails['review'];
+  };
+  const review = Array.isArray(updated.review) ? updated.review[0] ?? null : updated.review;
+
+  return {
+    error: null,
+    bagId: order.bag_id,
+    bagReactivated: Boolean(wasSoldOut && bagStock.status === 'active'),
+    bagStock,
+    order: { ...updated, review } as CustomerOrderWithDetails,
   };
 }
 

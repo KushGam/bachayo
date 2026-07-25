@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppImage } from '@/components/ui/AppImage';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +57,7 @@ function maybeGetCategoryBundle(category: string) {
 
 export default function RescueBagDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { latitude, longitude } = useLocationStore();
 
@@ -74,7 +76,7 @@ export default function RescueBagDetailScreen() {
 
   const maxQty = useMemo(() => {
     if (!bag) return 1;
-    return Math.max(1, Math.min(3, remaining));
+    return Math.max(1, Math.min(bag.max_per_customer ?? 3, remaining));
   }, [bag, remaining]);
 
   const distanceKm = useMemo(() => {
@@ -201,7 +203,11 @@ export default function RescueBagDetailScreen() {
           />
           <Pressable
             onPress={() => router.back()}
-            style={({ pressed }) => [styles.heroBack, pressed && { opacity: 0.85 }]}>
+            style={({ pressed }) => [
+              styles.heroBack,
+              { top: Math.max(insets.top, Spacing.md) },
+              pressed && { opacity: 0.85 },
+            ]}>
             <AppSymbol ios="chevron.left" android="arrow-back" size={20} color={Palette.textPrimary} />
           </Pressable>
         </View>
@@ -350,27 +356,23 @@ export default function RescueBagDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quantity</Text>
           <View style={styles.qtyRow}>
-            {[1, 2, 3].map((q) => {
-              const disabled = q > maxQty;
-              const active = q === quantity;
-              return (
-                <Pressable
-                  key={q}
-                  disabled={disabled}
-                  onPress={() => setQuantity(q)}
-                  style={[
-                    styles.qtyPill,
-                    active && styles.qtyPillActive,
-                    disabled && styles.qtyPillDisabled,
-                  ]}>
-                  <Text style={[styles.qtyText, active && styles.qtyTextActive]}>
-                    {q}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            <Pressable
+              disabled={quantity <= 1}
+              onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+              style={[styles.qtyPill, quantity <= 1 && styles.qtyPillDisabled]}>
+              <Text style={styles.qtyText}>−</Text>
+            </Pressable>
+            <View style={[styles.qtyPill, styles.qtyPillActive]}>
+              <Text style={[styles.qtyText, styles.qtyTextActive]}>{quantity}</Text>
+            </View>
+            <Pressable
+              disabled={quantity >= maxQty}
+              onPress={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              style={[styles.qtyPill, quantity >= maxQty && styles.qtyPillDisabled]}>
+              <Text style={styles.qtyText}>+</Text>
+            </Pressable>
             <Text style={styles.qtyHint}>
-              {remaining} left today
+              {remaining} left · max {bag.max_per_customer ?? 3} per customer
             </Text>
           </View>
           {soldOut ? (
@@ -388,10 +390,10 @@ export default function RescueBagDetailScreen() {
           ) : null}
         </View>
 
-        <View style={{ height: 90 }} />
+        <View style={{ height: 132 + insets.bottom }} />
       </ScrollView>
 
-      <View style={styles.stickyBar}>
+      <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
         {tooFar && distanceKm != null && !existingOrder && !soldOut ? (
           <View style={styles.tooFarCard}>
             <Text style={styles.tooFarEmoji}>📍</Text>
@@ -506,7 +508,6 @@ const styles = StyleSheet.create({
   },
   heroBack: {
     position: 'absolute',
-    top: Spacing.md,
     left: Spacing.md,
     width: 40,
     height: 40,
@@ -745,7 +746,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
     backgroundColor: Palette.background,
     borderTopWidth: Border.width,
     borderTopColor: Palette.border,

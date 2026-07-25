@@ -4,16 +4,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   formatNprPaisa,
   formatRelativeTime,
-  formatTime12h,
   getInitials,
   getOrderShortCode,
 } from '@/lib/helpers';
 import { hapticMedium } from '@/lib/haptics';
+import {
+  formatPickupWindowRange,
+  getOutsidePickupWindowCopy,
+  getPickupWindowPhase,
+} from '@/lib/pickupWindow';
 import { getDisplayName, getDisplayPhone, getMaskedPhone } from '@/lib/privacy';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 
 const TERRACOTTA = '#D85A30';
 const GREEN = '#10B981';
+const AMBER = '#B45309';
 
 const AVATAR_COLORS = ['#D85A30', '#993C1D', '#B45309', '#065F46', '#1D4ED8', '#7C3AED'];
 
@@ -59,8 +64,17 @@ export function PickupOrderSheet({
     getDisplayName(order.customer) || order.customer_name || 'Customer';
   const displayPhone = getDisplayPhone(order.customer);
   const maskedPhone = displayPhone ? getMaskedPhone(displayPhone) : null;
-  const pickupWindow = `${formatTime12h(order.bag.pickup_start)} – ${formatTime12h(order.bag.pickup_end)}`;
+  const pickupWindow = formatPickupWindowRange(order.bag.pickup_start, order.bag.pickup_end);
   const alreadyPickedUp = order.status === 'picked_up';
+  const windowPhase = getPickupWindowPhase(
+    order.bag.available_date,
+    order.bag.pickup_start,
+    order.bag.pickup_end,
+  );
+  const outsideWindow = windowPhase !== 'open';
+  const overrideCopy = outsideWindow
+    ? getOutsidePickupWindowCopy(windowPhase, order.bag.pickup_start, order.bag.pickup_end)
+    : null;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
@@ -88,9 +102,20 @@ export function PickupOrderSheet({
 
           <DetailRow label="🛍 Bag" value={order.bag.title} />
           <DetailRow label="₨ Amount" value={formatNprPaisa(order.total_price)} valueColor={TERRACOTTA} />
-          <DetailRow label="🕐 Pickup" value={pickupWindow} />
+          <DetailRow
+            label="🕐 Pickup"
+            value={pickupWindow}
+            valueColor={outsideWindow ? AMBER : undefined}
+          />
           <DetailRow label="📅 Reserved" value={formatRelativeTime(order.created_at)} />
           <DetailRow label="🔢 Code" value={getOrderShortCode(order.qr_code)} />
+
+          {overrideCopy ? (
+            <View style={styles.windowWarning}>
+              <Text style={styles.windowWarningBadge}>{overrideCopy.badge}</Text>
+              <Text style={styles.windowWarningText}>{overrideCopy.body}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.paymentReminder}>
             <Text style={styles.paymentReminderText}>
@@ -106,6 +131,7 @@ export function PickupOrderSheet({
             disabled={confirming || alreadyPickedUp}
             style={({ pressed }) => [
               styles.confirmBtn,
+              outsideWindow && !alreadyPickedUp && styles.confirmBtnOverride,
               (confirming || alreadyPickedUp) && styles.confirmBtnDisabled,
               pressed && !confirming && !alreadyPickedUp && { transform: [{ scale: 0.97 }] },
             ]}>
@@ -114,10 +140,11 @@ export function PickupOrderSheet({
                 ? 'Already picked up'
                 : confirming
                   ? 'Confirming…'
-                  : '✓ Mark as picked up'}
+                  : overrideCopy
+                    ? overrideCopy.confirmLabel
+                    : '✓ Mark as picked up'}
             </Text>
           </Pressable>
-
           <Pressable onPress={onDismiss} style={styles.cancelBtn}>
             <Text style={styles.cancelBtnText}>Wrong order — scan again</Text>
           </Pressable>
@@ -222,12 +249,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  windowWarning: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    gap: 6,
+  },
+  windowWarningBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: AMBER,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  windowWarningText: {
+    fontSize: 13,
+    color: '#9A3412',
+    lineHeight: 19,
+  },
   confirmBtn: {
     backgroundColor: GREEN,
     borderRadius: 999,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmBtnOverride: {
+    backgroundColor: AMBER,
   },
   confirmBtnDisabled: {
     opacity: 0.55,

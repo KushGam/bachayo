@@ -26,7 +26,7 @@ import {
   sendOrderMessage,
   type OrderMessage,
 } from '@/lib/orderMessages';
-import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
+import { formatNprPaisa, formatTime12h, getInitials } from '@/lib/helpers';
 import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 import { supabase } from '@/lib/supabase';
 
@@ -47,6 +47,18 @@ type ChatOrder = {
     } | null;
   };
 };
+
+/** Optimistic send + realtime insert can both deliver the same row. */
+function mergeMessages(list: OrderMessage[], incoming: OrderMessage, replaceId?: string) {
+  const withoutTemp = replaceId ? list.filter((item) => item.id !== replaceId) : list;
+  const existing = withoutTemp.findIndex((item) => item.id === incoming.id);
+  const next =
+    existing >= 0
+      ? withoutTemp.map((item, i) => (i === existing ? incoming : item))
+      : [...withoutTemp, incoming];
+
+  return next.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+}
 
 function toDateLabel(iso: string) {
   const date = new Date(iso);
@@ -135,9 +147,16 @@ export default function OrderChatScreen() {
         { event: 'INSERT', schema: 'public', table: 'order_messages', filter: `order_id=eq.${orderId}` },
         (payload) => {
           const newMsg = payload.new as OrderMessage;
-          setMessages((prev) =>
-            prev.some((item) => item.id === newMsg.id) ? prev : [...prev, newMsg],
-          );
+          setMessages((prev) => {
+            // Drop the local echo of a message we just sent ourselves.
+            const localEcho = prev.find(
+              (item) =>
+                item.id.startsWith('temp-') &&
+                item.sender_id === newMsg.sender_id &&
+                item.message === newMsg.message,
+            );
+            return mergeMessages(prev, newMsg, localEcho?.id);
+          });
           requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated: true }));
           if (newMsg.sender_id !== currentUserId) {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -176,7 +195,7 @@ export default function OrderChatScreen() {
         senderRole,
         message: text,
       });
-      setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? row : m)));
+      setMessages((prev) => mergeMessages(prev, row, tempMessage.id));
 
       const receiverUserId =
         isPartner || !order ? order?.customer_id : order.partner.user_id;
@@ -257,13 +276,18 @@ export default function OrderChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
+      // Android already resizes the window (softwareKeyboardLayoutMode: resize).
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-          <AppSymbol ios="chevron.left" android="arrow-back" size={20} color={Palette.textPrimary} />
+          <AppSymbol ios="chevron.left" android="arrow-back" size={20} color={Palette.white} />
         </Pressable>
+        <View style={styles.headerAvatar}>
+          <Text style={styles.headerAvatarText}>{getInitials(otherName || 'C')}</Text>
+        </View>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle} numberOfLines={1}>
             {otherName}
@@ -276,7 +300,7 @@ export default function OrderChatScreen() {
         </View>
         {phone ? (
           <Pressable onPress={() => Linking.openURL(`tel:${phone}`)} style={styles.iconBtn} hitSlop={8}>
-            <AppSymbol ios="phone" android="call" size={18} color={Palette.primary} />
+            <AppSymbol ios="phone" android="call" size={18} color={Palette.white} />
           </Pressable>
         ) : (
           <View style={styles.iconBtnPlaceholder} />
@@ -312,12 +336,12 @@ export default function OrderChatScreen() {
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.id || `msg-${index}`}
         renderItem={renderItem}
         style={styles.listFlex}
         contentContainerStyle={[styles.list, messages.length === 0 && styles.listEmpty]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         onContentSizeChange={() => {
           if (messages.length > 0) {
             flatListRef.current?.scrollToEnd({ animated: false });
@@ -335,21 +359,24 @@ export default function OrderChatScreen() {
         }
       />
 
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, Spacing.sm) }]}>
+      <View
+        style={[
+          styles.composer,
+          { paddingBottom: inputFocused ? Spacing.sm : Math.max(insets.bottom, Spacing.sm) },
+        ]}>
         {showQuickReplies ? (
-          <View style={styles.quickOverlay}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.quickRow}>
-              {quickReplies.map((reply) => (
-                <Pressable key={reply} onPress={() => applyQuickReply(reply)} style={styles.quickPill}>
-                  <Text style={styles.quickPillText}>{reply}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.quickRow}
+            style={styles.quickScroll}>
+            {quickReplies.map((reply) => (
+              <Pressable key={reply} onPress={() => applyQuickReply(reply)} style={styles.quickPill}>
+                <Text style={styles.quickPillText}>{reply}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
         ) : null}
 
         <View style={styles.inputRow}>
@@ -357,7 +384,10 @@ export default function OrderChatScreen() {
             ref={inputRef}
             value={messageText}
             onChangeText={setMessageText}
-            onFocus={() => setInputFocused(true)}
+            onFocus={() => {
+              setInputFocused(true);
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 250);
+            }}
             onBlur={() => setInputFocused(false)}
             placeholder="Message…"
             placeholderTextColor={Palette.textTertiary}
@@ -395,9 +425,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
-    backgroundColor: Palette.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Palette.borderSubtle,
+    backgroundColor: Palette.primaryDarker,
   },
   iconBtn: {
     width: 36,
@@ -405,11 +433,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surfaceMuted,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   iconBtnPlaceholder: {
     width: 36,
     height: 36,
+  },
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarText: {
+    color: Palette.white,
+    fontSize: 13,
+    fontWeight: '700',
   },
   headerCopy: {
     flex: 1,
@@ -418,11 +459,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...Type.bodyMedium,
     fontWeight: '700',
-    color: Palette.textPrimary,
+    color: Palette.white,
   },
   headerSubtitle: {
     ...Type.caption,
-    color: Palette.textSecondary,
+    color: 'rgba(255,255,255,0.72)',
     marginTop: 1,
   },
   summaryBar: {
@@ -470,6 +511,7 @@ const styles = StyleSheet.create({
   },
   listFlex: {
     flex: 1,
+    minHeight: 0,
   },
   list: {
     paddingHorizontal: Spacing.lg,
@@ -513,7 +555,8 @@ const styles = StyleSheet.create({
   bubble: {
     borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    minWidth: 76,
   },
   bubbleMine: {
     backgroundColor: Palette.primary,
@@ -535,12 +578,13 @@ const styles = StyleSheet.create({
   },
   bubbleTime: {
     fontSize: 10,
+    lineHeight: 13,
     color: Palette.textTertiary,
-    marginTop: 4,
+    marginTop: 3,
+    alignSelf: 'flex-end',
   },
   bubbleTimeMine: {
     color: 'rgba(255,255,255,0.72)',
-    textAlign: 'right',
   },
   empty: {
     textAlign: 'center',
@@ -564,18 +608,15 @@ const styles = StyleSheet.create({
     maxWidth: 260,
   },
   composer: {
-    position: 'relative',
+    flexShrink: 0,
     backgroundColor: Palette.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Palette.borderSubtle,
     paddingTop: Spacing.sm,
   },
-  quickOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: '100%',
-    paddingBottom: Spacing.sm,
+  quickScroll: {
+    maxHeight: 44,
+    marginBottom: Spacing.sm,
   },
   quickRow: {
     paddingHorizontal: Spacing.md,
@@ -583,7 +624,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   quickPill: {
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.surfaceMuted,
     borderRadius: Radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -600,7 +641,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
+    minHeight: INPUT_MIN_HEIGHT,
   },
   input: {
     flex: 1,
@@ -609,13 +650,13 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surfaceMuted,
     borderRadius: 22,
     paddingHorizontal: 16,
-    // Explicit top/bottom padding avoids iOS multiline vertical jump on space
     paddingTop: Platform.OS === 'ios' ? 11 : 10,
     paddingBottom: Platform.OS === 'ios' ? 11 : 10,
     fontSize: 16,
     lineHeight: 22,
     color: Palette.textPrimary,
-    textAlignVertical: 'center',
+    textAlignVertical: Platform.OS === 'android' ? 'top' : 'center',
+    includeFontPadding: false,
   },
   sendBtn: {
     width: INPUT_MIN_HEIGHT,

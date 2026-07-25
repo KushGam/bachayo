@@ -31,7 +31,7 @@ import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
 import { HOME_CATEGORY_FILTERS } from '@/constants/partnerCategories';
 import { fetchCustomerImpactStats, type CustomerImpactStats } from '@/lib/customerStats';
-import { enrichBagsWithLiveStock } from '@/lib/bagStock';
+import { enrichBagsWithLiveStock, isBagBookable } from '@/lib/bagStock';
 import {
   attachNearbyBagDistances,
   bagPassesNearbyDistanceFilter,
@@ -358,7 +358,8 @@ export default function HomeScreen() {
 
     const visible = filterVisibleNearbyBags(data ?? []);
     const withStock = await enrichBagsWithLiveStock(visible, useBagsStore.getState().bags);
-    const withDistance = attachNearbyBagDistances(withStock, origin);
+    const bookable = withStock.filter(isBagBookable);
+    const withDistance = attachNearbyBagDistances(bookable, origin);
 
     setBags(withDistance);
     prefetchImages(withDistance.slice(0, 12).map((bag) => getRescueBagImageUrl(bag, 'card')));
@@ -475,9 +476,13 @@ export default function HomeScreen() {
     const effectiveDistance =
       browseAllBags || !coords ? null : maxDistanceKm;
 
-    return byCategory.filter((bag) =>
-      bagPassesNearbyDistanceFilter(bag, effectiveDistance),
-    );
+    return byCategory.filter((bag) => {
+      // Hide only when nothing left to book. Own reservation still appears via Today's pickup;
+      // if slots remain after a partial cancel, show the bag again in nearby.
+      const left = Math.max(0, bag.quantity_available - bag.quantity_reserved);
+      if (bag.status === 'sold_out' || left <= 0) return false;
+      return bagPassesNearbyDistanceFilter(bag, effectiveDistance);
+    });
   }, [bags, browseAllBags, coords, maxDistanceKm, selectedCategory]);
 
   const closingSoon = useMemo(

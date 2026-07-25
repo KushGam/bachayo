@@ -109,12 +109,16 @@ async function fetchOrdersForBags(partnerId: string, bagIds: string[]) {
   }));
 }
 
-function reservedQuantityForBag(
+function occupiedQuantityForBag(
   bagId: string,
   orderRows: Array<{ bag_id: string; status: string; quantity?: number }>,
 ) {
   return orderRows
-    .filter((order) => order.bag_id === bagId && isReservedOrderStatus(order.status))
+    .filter(
+      (order) =>
+        order.bag_id === bagId &&
+        (isReservedOrderStatus(order.status) || order.status === 'picked_up'),
+    )
     .reduce((sum, order) => sum + (order.quantity ?? 1), 0);
 }
 
@@ -130,11 +134,22 @@ function enrichBags(
   }>,
 ): PartnerBagWithStats[] {
   return bags.map((bag) => {
-    const reservedQty = reservedQuantityForBag(bag.id, orderRows);
+    const occupiedQty = occupiedQuantityForBag(bag.id, orderRows);
+    const capacity = bag.quantity_available ?? 0;
+    const nextStatus =
+      bag.status === 'expired' || bag.status === 'cancelled'
+        ? bag.status
+        : capacity > 0 && occupiedQty >= capacity
+          ? 'sold_out'
+          : bag.status === 'sold_out' && occupiedQty < capacity
+            ? 'active'
+            : bag.status;
+
     return {
       ...bag,
       ...orderStatsForBag(bag.id, orderRows),
-      quantity_reserved: Math.max(bag.quantity_reserved ?? 0, reservedQty),
+      quantity_reserved: Math.max(bag.quantity_reserved ?? 0, occupiedQty),
+      status: nextStatus,
     };
   });
 }
@@ -348,6 +363,7 @@ export function bagToPrefill(
     | 'original_price'
     | 'rescue_price'
     | 'quantity_available'
+    | 'max_per_customer'
     | 'pickup_start'
     | 'pickup_end'
     | 'image_url'
@@ -363,6 +379,7 @@ export function bagToPrefill(
     original_price: bag.original_price,
     rescue_price: bag.rescue_price,
     quantity_available: bag.quantity_available,
+    max_per_customer: bag.max_per_customer,
     pickup_start: bag.pickup_start,
     pickup_end: bag.pickup_end,
     image_url: bag.image_url,
@@ -371,9 +388,17 @@ export function bagToPrefill(
   };
 }
 
+export function isPartnerBagLiveToday(bag: PartnerBagWithStats) {
+  // Still selling, or sold out with customers still waiting to pick up.
+  if (bag.status === 'active') return true;
+  if (bag.status === 'sold_out' && bag.reserved_orders > 0) return true;
+  return false;
+}
+
 export function computeTodaySummary(bags: PartnerBagWithStats[]) {
-  const listed = bags.length;
-  const reserved = bags.reduce((sum, bag) => sum + Math.max(0, bag.quantity_reserved), 0);
+  const liveBags = bags.filter(isPartnerBagLiveToday);
+  const listed = liveBags.length;
+  const reserved = bags.reduce((sum, bag) => sum + Math.max(0, bag.reserved_orders), 0);
   const potentialRevenue = bags.reduce((sum, bag) => sum + bag.potential_revenue, 0);
   const earned = bags.reduce((sum, bag) => sum + bag.revenue_earned, 0);
   return { listed, reserved, potentialRevenue, earned };
@@ -408,6 +433,10 @@ export function applyReservationToPartnerBag(
     reserved_orders: reserved ? bag.reserved_orders + 1 : bag.reserved_orders,
     confirmed_orders: confirmed ? bag.confirmed_orders + 1 : bag.confirmed_orders,
     potential_revenue: reserved ? bag.potential_revenue + totalPricePaisa : bag.potential_revenue,
+    status:
+      bag.quantity_available > 0 && bag.quantity_reserved + qty >= bag.quantity_available
+        ? 'sold_out'
+        : bag.status,
   };
 }
 

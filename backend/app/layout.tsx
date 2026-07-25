@@ -22,11 +22,11 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'LastBag — Rescue food. Save money.',
+  title: 'LastBag — Great food. Half the price.',
   description:
-    'Find discounted rescue bags from restaurants, cafes, and bakeries near you in Nepal. Save up to 70%.',
+    'Rescue surplus bags from kitchens near you in Nepal. Free to reserve, pay at pickup, save up to 70%. Zero commission for partners.',
   keywords:
-    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur',
+    'food rescue Nepal, discount food Kathmandu, surplus food app, LastBag, Pokhara, Lalitpur, save food waste',
   metadataBase: new URL('https://bachayo.vercel.app'),
   icons: {
     icon: [
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
     shortcut: '/favicon.svg',
   },
   openGraph: {
-    title: 'LastBag — Rescue food. Save money.',
-    description: "Nepal's first food rescue app.",
+    title: 'LastBag — Great food. Half the price.',
+    description: 'Rescue surplus food near you. Free to reserve. Pay only at pickup.',
     url: 'https://lastbag.app',
     siteName: 'LastBag',
     locale: 'en_NP',
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LastBag — Rescue food. Save money.',
-    description: 'Find rescue bags near you in Nepal.',
+    title: 'LastBag — Great food. Half the price.',
+    description: 'Rescue surplus bags near you in Nepal. Free to reserve.',
   },
 };
 

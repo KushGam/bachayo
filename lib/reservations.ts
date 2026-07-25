@@ -61,7 +61,7 @@ export type CreateReservationResult =
   | { ok: true; orderId: string }
   | {
       ok: false;
-      error: 'sold_out' | 'auth' | 'profile' | 'duplicate' | 'network';
+      error: 'sold_out' | 'customer_limit' | 'auth' | 'profile' | 'duplicate' | 'network';
       message?: string;
       orderId?: string;
     };
@@ -70,6 +70,10 @@ function isSoldOutError(message?: string | null) {
   if (!message) return false;
   const lower = message.toLowerCase();
   return lower.includes('bag_sold_out') || lower.includes('sold out');
+}
+
+function isCustomerLimitError(message?: string | null) {
+  return message?.toLowerCase().includes('bag_customer_limit') ?? false;
 }
 
 function isDuplicateReservationError(message?: string | null, code?: string | null) {
@@ -83,6 +87,13 @@ function mapOrderInsertError(
   message?: string | null,
   code?: string | null,
 ): CreateReservationResult {
+  if (isCustomerLimitError(message)) {
+    return {
+      ok: false,
+      error: 'customer_limit',
+      message: 'This listing allows fewer bags per customer. Choose a lower quantity.',
+    };
+  }
   if (isDuplicateReservationError(message, code)) {
     return {
       ok: false,
@@ -172,6 +183,14 @@ export async function createReservation(
 
   const bag = bagRow as unknown as RescueBagWithPartner;
   const remaining = bag.quantity_available - bag.quantity_reserved;
+  const maxPerCustomer = Math.max(1, bag.max_per_customer ?? 3);
+  if (input.quantity > maxPerCustomer) {
+    return {
+      ok: false,
+      error: 'customer_limit',
+      message: `You can reserve up to ${maxPerCustomer} bag${maxPerCustomer === 1 ? '' : 's'} from this listing.`,
+    };
+  }
   if (remaining < input.quantity) {
     return { ok: false, error: 'sold_out' };
   }

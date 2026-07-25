@@ -77,8 +77,8 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
   const reserved = bag.quantity_reserved;
   const total = bag.quantity_available;
   const progress = total > 0 ? reserved / total : 0;
-  const soldOut = total > 0 && reserved >= total;
-  const isActive = bag.status === 'active';
+  const soldOut = bag.status === 'sold_out' || (total > 0 && reserved >= total);
+  const isActive = bag.status === 'active' && !soldOut;
   const savings = getSavingsPct(bag.original_price, bag.rescue_price);
   const progressLabel = formatBagReservedProgressLabel(reserved, total, waitingCustomers);
   const collapsedSummary = formatCollapsedOrdersSummary(summaryOrders ?? bagOrders, summaryFallback);
@@ -86,7 +86,18 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
   return (
     <View style={styles.card}>
       <Pressable onPress={onPress} style={({ pressed }) => [pressed && { opacity: 0.96 }]}>
-        <View style={[styles.topStrip, { backgroundColor: isActive ? Palette.primary : Palette.textTertiary }]} />
+        <View
+          style={[
+            styles.topStrip,
+            {
+              backgroundColor: soldOut
+                ? Palette.success
+                : isActive
+                  ? Palette.primary
+                  : Palette.textTertiary,
+            },
+          ]}
+        />
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
@@ -94,7 +105,11 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
               {bag.title}
             </Text>
             <View style={styles.titleRight}>
-              {isActive ? (
+              {soldOut ? (
+                <View style={styles.statusBadgeSoldOut}>
+                  <Text style={styles.statusBadgeSoldOutText}>Sold out</Text>
+                </View>
+              ) : isActive ? (
                 <ActiveStatusBadge />
               ) : (
                 <View style={styles.statusBadgeExpired}>
@@ -228,6 +243,17 @@ const styles = StyleSheet.create({
     ...Type.label,
     fontWeight: '600',
     color: Palette.textSecondary,
+  },
+  statusBadgeSoldOut: {
+    backgroundColor: Palette.successBg,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusBadgeSoldOutText: {
+    ...Type.label,
+    fontWeight: '600',
+    color: Palette.success,
   },
   metaRow: {
     flexDirection: 'row',

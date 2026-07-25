@@ -22,6 +22,7 @@ export const addBagSchema = z
       .transform((val) => Number(val))
       .pipe(z.number().min(50, 'Rescue price must be at least NPR 50')),
     quantity_available: z.number().int().min(1).max(200),
+    max_per_customer: z.number().int().min(1).max(200),
     pickup_start: z.string().min(1, 'Pickup start is required'),
     pickup_end: z.string().min(1, 'Pickup end is required'),
     image_url: z.string().optional(),
@@ -29,6 +30,10 @@ export const addBagSchema = z
   .refine((data) => data.rescue_price_npr < data.original_price_npr, {
     message: 'Rescue price must be less than original price',
     path: ['rescue_price_npr'],
+  })
+  .refine((data) => data.max_per_customer <= data.quantity_available, {
+    message: 'Cannot exceed the number of bags listed',
+    path: ['max_per_customer'],
   })
   .refine((data) => timeToMinutes(data.pickup_end) > timeToMinutes(data.pickup_start), {
     message: 'Pickup end must be after pickup start',

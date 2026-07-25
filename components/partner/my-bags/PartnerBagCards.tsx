@@ -53,9 +53,9 @@ import {
   shouldShowBagEarnedRevenue,
 } from '@/lib/partnerBags';
 import { hapticButtonPress, hapticHeavy, hapticSuccess, hapticWarning } from '@/lib/haptics';
-import { confirmPartnerPickup } from '@/lib/orders';
 import { applyFetchedOrdersWithPickupGuard, protectPendingPickup } from '@/lib/pendingPickups';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
+import { confirmPartnerPickupWithOverridePrompt } from '@/lib/partnerPickupUi';
 import { usePartnerStore } from '@/store/usePartnerStore';
 import { useBagsStore } from '@/store/useBagsStore';
 
@@ -366,11 +366,16 @@ export function PartnerTodayBagCard({
       setMarkingPickup(orderId);
 
       const pickedUpAt = new Date().toISOString();
-      const result = await confirmPartnerPickup(
+      const result = await confirmPartnerPickupWithOverridePrompt(
         { ...order, bag } as never,
         'partner_manual',
       );
-      if (!result.ok) throw new Error(result.errorMessage ?? 'pickup failed');
+      if (!result.ok) {
+        if (result.errorMessage) {
+          throw new Error(result.errorMessage);
+        }
+        return;
+      }
 
       lastPickupTime.current = Date.now();
       protectPendingPickup(pendingPickupIds.current, orderId);
@@ -388,9 +393,7 @@ export function PartnerTodayBagCard({
       setShowPickupToast(true);
     } catch (err) {
       const message =
-        err instanceof Error && err.message !== 'pickup failed'
-          ? err.message
-          : 'Failed to confirm pickup. Please try again.';
+        err instanceof Error ? err.message : 'Failed to confirm pickup. Please try again.';
       Alert.alert('Error', message);
     } finally {
       setMarkingPickup(null);

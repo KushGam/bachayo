@@ -8,6 +8,7 @@ export type BagPrefillData = {
   original_price: number;
   rescue_price: number;
   quantity_available: number;
+  max_per_customer?: number;
   pickup_start: string;
   pickup_end: string;
   image_url?: string | null;

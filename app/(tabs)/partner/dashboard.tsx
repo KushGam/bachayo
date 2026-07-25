@@ -45,6 +45,8 @@ import {
 import { fetchPartnerBagOrders, fetchPartnerBagsForDate, applyBagStockPatch, applyReservationToPartnerBag, type PartnerBagOrder, type PartnerBagWithStats } from '@/lib/partnerBags';
 import { applyFetchedOrdersWithPickupGuard, isPickupFetchBlocked, protectPendingPickup } from '@/lib/pendingPickups';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
+import { isPartnerLocationVerified } from '@/lib/partnerGps';
+import { promptPartnerPickupConfirm } from '@/lib/partnerPickupUi';
 import {
   getDaysUntil,
   getSubscriptionExpiryIso,
@@ -57,6 +59,12 @@ import { supabase } from '@/lib/supabase';
 import { usePartnerStore } from '@/store/usePartnerStore';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 import type { Partner } from '@/types/database';
+
+type PartnerLocationFields = {
+  latitude?: number | null;
+  longitude?: number | null;
+  location_verified?: boolean | null;
+};
 
 export default function PartnerDashboardScreen() {
   const router = useRouter();
@@ -123,9 +131,13 @@ export default function PartnerDashboardScreen() {
         fetchPartnerDayStats(partnerData.id, yesterday),
       ]);
 
-      const visibleBags = bagRows.filter(
-        (bag) => bag.status === 'active' || bag.status === 'sold_out',
-      );
+      const visibleBags = bagRows.filter((bag) => {
+        // Active today = still selling, or sold out with customers still waiting to pick up.
+        // Fully picked-up / finished listings belong in My Bags, not here.
+        if (bag.status === 'active') return true;
+        if (bag.status === 'sold_out' && bag.reserved_orders > 0) return true;
+        return false;
+      });
 
       setBags(visibleBags);
       const nextOrders = applyFetchedOrdersWithPickupGuard(orderRows, pendingPickupIds.current, []);
@@ -372,87 +384,93 @@ export default function PartnerDashboardScreen() {
         return;
       }
 
-      Alert.alert(
-        'Confirm pickup',
-        'Has the customer collected their bag and paid?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Yes, confirmed ✓',
-            onPress: () => {
-              void (async () => {
-                setMarkingPickup(orderId);
-                const result = await confirmPartnerPickup(order, 'partner_manual', partner?.name);
+      promptPartnerPickupConfirm(order, (allowOutsideWindow) => {
+        void (async () => {
+          setMarkingPickup(orderId);
+          const result = await confirmPartnerPickup(order, 'partner_manual', partner?.name, {
+            allowOutsideWindow,
+          });
 
-                if (!result.ok) {
-                  Alert.alert('Error', result.errorMessage ?? 'Failed to confirm. Please try again.');
-                  setMarkingPickup(null);
-                  return;
-                }
+          if (!result.ok) {
+            Alert.alert('Error', result.errorMessage ?? 'Failed to confirm. Please try again.');
+            setMarkingPickup(null);
+            return;
+          }
 
-                lastPickupTime.current = Date.now();
-                protectPendingPickup(pendingPickupIds.current, orderId);
+          lastPickupTime.current = Date.now();
+          protectPendingPickup(pendingPickupIds.current, orderId);
 
-                const pickedUpAt = result.alreadyPickedUp
-                  ? order.picked_up_at ?? new Date().toISOString()
-                  : new Date().toISOString();
+          const pickedUpAt = result.alreadyPickedUp
+            ? order.picked_up_at ?? new Date().toISOString()
+            : new Date().toISOString();
 
-                setOrders((prev) =>
-                  prev.map((row) =>
-                    row.id === orderId
-                      ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
-                      : row,
-                  ),
-                );
+          setOrders((prev) =>
+            prev.map((row) =>
+              row.id === orderId
+                ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
+                : row,
+            ),
+          );
 
-                setBags((prev) =>
-                  prev.map((bag) => {
-                    if (bag.id !== order.bag_id) return bag;
-                    const qty = order.quantity ?? 1;
-                    return {
-                      ...bag,
-                      quantity_reserved: Math.max(0, bag.quantity_reserved - qty),
-                      reserved_orders: Math.max(0, bag.reserved_orders - 1),
-                      confirmed_orders: Math.max(0, bag.confirmed_orders - 1),
-                      picked_up_orders: bag.picked_up_orders + 1,
-                      picked_up_bags: bag.picked_up_bags + qty,
-                      potential_revenue: Math.max(0, bag.potential_revenue - order.total_price),
-                      revenue_earned: bag.revenue_earned + order.total_price,
-                    };
-                  }),
-                );
+          setBags((prev) =>
+            prev
+              .map((bag) => {
+                if (bag.id !== order.bag_id) return bag;
+                const qty = order.quantity ?? 1;
+                const pickedBags = bag.picked_up_bags + qty;
+                // Keep capacity consumed after pickup — do not reopen slots.
+                const occupied = Math.max(bag.quantity_reserved, pickedBags);
+                const reservedOrders = Math.max(0, bag.reserved_orders - 1);
+                return {
+                  ...bag,
+                  quantity_reserved: occupied,
+                  reserved_orders: reservedOrders,
+                  confirmed_orders: Math.max(0, bag.confirmed_orders - 1),
+                  picked_up_orders: bag.picked_up_orders + 1,
+                  picked_up_bags: pickedBags,
+                  potential_revenue: Math.max(0, bag.potential_revenue - order.total_price),
+                  revenue_earned: bag.revenue_earned + order.total_price,
+                  status:
+                    bag.quantity_available > 0 && occupied >= bag.quantity_available
+                      ? 'sold_out'
+                      : bag.status,
+                };
+              })
+              .filter((bag) => {
+                if (bag.status === 'active') return true;
+                if (bag.status === 'sold_out' && bag.reserved_orders > 0) return true;
+                return false;
+              }),
+          );
 
-                setBagOrdersMap((prev) => {
-                  const bagId = order.bag_id;
-                  const list = prev[bagId];
-                  if (!list) return prev;
-                  return {
-                    ...prev,
-                    [bagId]: list.map((row) =>
-                      row.id === orderId
-                        ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
-                        : row,
-                    ),
-                  };
-                });
+          setBagOrdersMap((prev) => {
+            const bagId = order.bag_id;
+            const list = prev[bagId];
+            if (!list) return prev;
+            return {
+              ...prev,
+              [bagId]: list.map((row) =>
+                row.id === orderId
+                  ? { ...row, status: 'picked_up', picked_up_at: pickedUpAt }
+                  : row,
+              ),
+            };
+          });
 
-                if (!result.alreadyPickedUp) {
-                  setTodayStats((prev) => ({
-                    ...prev,
-                    pickedUp: prev.pickedUp + (order.quantity ?? 1),
-                    reserved: Math.max(0, prev.reserved - (order.quantity ?? 1)),
-                  }));
-                }
+          if (!result.alreadyPickedUp) {
+            setTodayStats((prev) => ({
+              ...prev,
+              pickedUp: prev.pickedUp + (order.quantity ?? 1),
+              reserved: Math.max(0, prev.reserved - (order.quantity ?? 1)),
+            }));
+          }
 
-                setMarkingPickup(null);
-                if (!result.alreadyPickedUp) {
-                  void hapticSuccess();
-                }
-              })();
-            },
-          },
-        ],
-      );
+          setMarkingPickup(null);
+          if (!result.alreadyPickedUp) {
+            void hapticSuccess();
+          }
+        })();
+      });
     },
     [orders, partner?.name],
   );
@@ -543,10 +561,7 @@ export default function PartnerDashboardScreen() {
 
       {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
-      {partner &&
-      ((partner as { location_verified?: boolean | null }).location_verified !== true ||
-        partner.latitude == null ||
-        partner.longitude == null) ? (
+      {partner && !isPartnerLocationVerified(partner as PartnerLocationFields) ? (
         <View style={styles.locationPrompt}>
           <Text style={styles.locationPromptEmoji}>📍</Text>
           <View style={styles.locationPromptCopy}>
@@ -576,7 +591,7 @@ export default function PartnerDashboardScreen() {
             address={partner.address}
             latitude={partner.latitude}
             longitude={partner.longitude}
-            locationVerified={(partner as { location_verified?: boolean | null }).location_verified}
+            locationVerified={(partner as PartnerLocationFields).location_verified}
             createdAt={partner.created_at}
           />
         ) : null}
@@ -614,8 +629,8 @@ export default function PartnerDashboardScreen() {
         <PartnerEmptyState
           ios="bag.fill"
           android="shopping-bag"
-          title="No bags listed today"
-          subtitle="List your first rescue bag to start receiving orders"
+          title="Nothing active right now"
+          subtitle="Finished bags move to My Bags. List another rescue bag anytime."
           dashed
           compact
         />

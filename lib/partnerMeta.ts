@@ -4,6 +4,8 @@ export type PartnerMeta = {
   opening_end?: string;
   bio?: string;
   accepted_payments?: string[];
+  /** Optional Google/Apple Maps share link for precise pin */
+  map_url?: string;
 };
 
 export function encodePartnerMeta(meta: PartnerMeta): string {

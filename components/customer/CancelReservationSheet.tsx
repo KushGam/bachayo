@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,7 +16,7 @@ import {
   CANCELLATION_REASONS,
   type CancellationEligibility,
 } from '@/constants/cancellation';
-import { formatTime12h } from '@/lib/helpers';
+import { formatNprPaisa, formatTime12h } from '@/lib/helpers';
 import { hapticButtonPress } from '@/lib/haptics';
 import type { CustomerOrderWithDetails } from '@/types/app';
 
@@ -26,7 +26,7 @@ type CancelReservationSheetProps = {
   eligibility: CancellationEligibility;
   loading?: boolean;
   onClose: () => void;
-  onConfirm: (reason: string | null) => void;
+  onConfirm: (payload: { reason: string | null; cancelQuantity: number }) => void;
 };
 
 export function CancelReservationSheet({
@@ -39,6 +39,14 @@ export function CancelReservationSheet({
 }: CancelReservationSheetProps) {
   const insets = useSafeAreaInsets();
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const [cancelQuantity, setCancelQuantity] = useState(1);
+
+  useEffect(() => {
+    if (visible && order) {
+      setSelectedReason(null);
+      setCancelQuantity(order.quantity > 1 ? 1 : order.quantity);
+    }
+  }, [visible, order]);
 
   const handleClose = () => {
     setSelectedReason(null);
@@ -47,13 +55,22 @@ export function CancelReservationSheet({
 
   const handleConfirm = () => {
     void hapticButtonPress();
-    onConfirm(selectedReason);
+    onConfirm({ reason: selectedReason, cancelQuantity });
   };
 
   if (!order) return null;
 
   const category = getCategoryById(order.partner.category);
   const pickupLabel = `🕐 ${formatTime12h(order.bag.pickup_start)}–${formatTime12h(order.bag.pickup_end)} today`;
+  const canPartial = order.quantity > 1;
+  const remaining = order.quantity - cancelQuantity;
+  const unitPrice = Math.round(order.total_price / order.quantity);
+  const confirmLabel =
+    canPartial && remaining > 0
+      ? `Cancel ${cancelQuantity} · keep ${remaining}`
+      : canPartial
+        ? `Cancel all ${order.quantity} bags`
+        : 'Yes, cancel reservation';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -63,8 +80,14 @@ export function CancelReservationSheet({
 
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           <View style={styles.header}>
-            <Text style={styles.title}>Cancel reservation?</Text>
-            <Text style={styles.subtitle}>Are you sure you want to free up this slot?</Text>
+            <Text style={styles.title}>
+              {canPartial ? 'Cancel bags?' : 'Cancel reservation?'}
+            </Text>
+            <Text style={styles.subtitle}>
+              {canPartial
+                ? 'Cancel some bags and keep the rest, or free the whole reservation.'
+                : 'Are you sure you want to free up this slot?'}
+            </Text>
           </View>
 
           <View style={styles.summary}>
@@ -81,8 +104,48 @@ export function CancelReservationSheet({
                 {order.bag.title}
               </Text>
               <Text style={styles.pickupLine}>{pickupLabel}</Text>
+              <Text style={styles.qtyLine}>
+                Reserved {order.quantity} · {formatNprPaisa(order.total_price)}
+              </Text>
             </View>
           </View>
+
+          {canPartial ? (
+            <View style={styles.qtySection}>
+              <Text style={styles.reasonLabel}>How many to cancel?</Text>
+              <View style={styles.qtyRow}>
+                <Pressable
+                  onPress={() => {
+                    void hapticButtonPress();
+                    setCancelQuantity((q) => Math.max(1, q - 1));
+                  }}
+                  disabled={cancelQuantity <= 1 || loading}
+                  style={[styles.qtyBtn, (cancelQuantity <= 1 || loading) && styles.qtyBtnDisabled]}>
+                  <Text style={styles.qtyBtnText}>−</Text>
+                </Pressable>
+                <View style={styles.qtyValueWrap}>
+                  <Text style={styles.qtyValue}>{cancelQuantity}</Text>
+                  <Text style={styles.qtyHint}>
+                    {remaining > 0
+                      ? `Keep ${remaining} · ${formatNprPaisa(unitPrice * remaining)}`
+                      : 'Cancel entire reservation'}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void hapticButtonPress();
+                    setCancelQuantity((q) => Math.min(order.quantity, q + 1));
+                  }}
+                  disabled={cancelQuantity >= order.quantity || loading}
+                  style={[
+                    styles.qtyBtn,
+                    (cancelQuantity >= order.quantity || loading) && styles.qtyBtnDisabled,
+                  ]}>
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.reasonSection}>
             <Text style={styles.reasonLabel}>Reason (optional)</Text>
@@ -118,7 +181,7 @@ export function CancelReservationSheet({
               </Text>
             ) : (
               <Text style={styles.policyText}>
-                ℹ️ Free cancellation — this slot will be released for other customers immediately.
+                ℹ️ Free cancellation — freed slots become available for other customers immediately.
               </Text>
             )}
           </View>
@@ -138,7 +201,7 @@ export function CancelReservationSheet({
                   <Text style={styles.confirmText}>Cancelling...</Text>
                 </View>
               ) : (
-                <Text style={styles.confirmText}>Yes, cancel reservation</Text>
+                <Text style={styles.confirmText}>{confirmLabel}</Text>
               )}
             </Pressable>
 
@@ -232,6 +295,53 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  qtyLine: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#993C1D',
+    marginTop: 2,
+  },
+  qtySection: {
+    marginTop: 20,
+    marginHorizontal: 20,
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  qtyBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FAECE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnDisabled: {
+    opacity: 0.4,
+  },
+  qtyBtnText: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#993C1D',
+    lineHeight: 26,
+  },
+  qtyValueWrap: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  qtyValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  qtyHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
   reasonSection: {
     marginTop: 20,
     marginHorizontal: 20,
@@ -299,6 +409,7 @@ const styles = StyleSheet.create({
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -309,6 +420,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   keepBtn: {
     backgroundColor: '#F5F3EF',

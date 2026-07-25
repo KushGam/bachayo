@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { PageHeader } from '@/components/admin/StatCard';
 import { PartnerStatusTabs } from '@/components/admin/PartnerStatusTabs';
 import { Pagination, PartnersFilters, PartnersTable, type PartnerRow } from '@/components/admin/PartnersTable';
+import { fetchActiveCityOptions } from '@/lib/admin/cities';
 import { CATEGORY_LABELS } from '@/lib/admin/constants';
 import { todayIso } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
@@ -113,7 +114,10 @@ export default async function AdminPartnersPage({
     .select('*', { count: 'exact', head: true })
     .eq('approval_status', 'suspended');
 
-  const { rows, page, totalPages } = await loadPartners(params);
+  const [{ rows, page, totalPages }, cities] = await Promise.all([
+    loadPartners(params),
+    fetchActiveCityOptions(supabase),
+  ]);
 
   return (
     <>
@@ -122,7 +126,7 @@ export default async function AdminPartnersPage({
         <PartnerStatusTabs pendingCount={pendingCount ?? 0} suspendedCount={suspendedCount ?? 0} />
       </Suspense>
       <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-gray-200" />}>
-        <PartnersFilters />
+        <PartnersFilters cities={cities} />
       </Suspense>
       <PartnersTable partners={rows} />
       <Pagination page={page} totalPages={totalPages} />

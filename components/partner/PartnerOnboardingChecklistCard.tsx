@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
-import { hasPartnerGpsCoords } from '@/lib/partnerGps';
+import { isPartnerLocationVerified } from '@/lib/partnerGps';
 import { supabase } from '@/lib/supabase';
 
 export type PartnerOnboardingChecklist = {
@@ -97,20 +97,17 @@ export function PartnerOnboardingChecklistCard({
 
     const current = normalizeChecklist(partnerRow?.onboarding_checklist);
 
-    const lat = latitude ?? partnerRow?.latitude;
-    const lng = longitude ?? partnerRow?.longitude;
-    const gpsVerified =
-      locationVerified ??
-      partnerRow?.location_verified ??
-      false;
-
     const next: PartnerOnboardingChecklist = {
       ...current,
       profile_photo: Boolean(coverImageUrl ?? partnerRow?.cover_image_url),
       business_description: Boolean(
         (description ?? partnerRow?.description) && (address ?? partnerRow?.address),
       ),
-      location_verified: Boolean(gpsVerified && hasPartnerGpsCoords(lat, lng)),
+      location_verified: isPartnerLocationVerified({
+        latitude: latitude ?? partnerRow?.latitude,
+        longitude: longitude ?? partnerRow?.longitude,
+        location_verified: locationVerified ?? partnerRow?.location_verified,
+      }),
       first_bag_listed: (bagCount || 0) > 0,
       bank_details: current.bank_details,
     };

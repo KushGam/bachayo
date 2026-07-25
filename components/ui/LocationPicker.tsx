@@ -14,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -27,7 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchField } from '@/components/ui/SearchField';
 import { CITIES } from '@/constants/locations';
 import { Palette } from '@/constants/Colors';
-import { FloatingShadow, Motion, Radius, Spacing, Type } from '@/constants/theme';
+import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
 import {
   findNearestLocation,
@@ -40,7 +39,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.75;
-const CITY_COUNT = CITIES.length;
 
 type LocationPickerProps = {
   value?: string | null;
@@ -60,7 +58,6 @@ export function LocationPicker({
   tone = 'light',
 }: LocationPickerProps) {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
   const locale = useAuthStore((s) => s.locale);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -70,23 +67,12 @@ export function LocationPicker({
   const [activeCityId, setActiveCityId] = useState(resolved?.cityId ?? CITIES[0].id);
 
   const sheetTranslateY = useSharedValue(SHEET_MAX_HEIGHT);
-  const tabIndex = useSharedValue(0);
-
-  const activeCityIndex = CITIES.findIndex((city) => city.id === activeCityId);
 
   useEffect(() => {
     if (resolved?.cityId) {
       setActiveCityId(resolved.cityId);
     }
   }, [resolved?.cityId]);
-
-  useEffect(() => {
-    tabIndex.value = withSpring(Math.max(0, activeCityIndex), {
-      damping: 20,
-      stiffness: 200,
-      duration: Motion.base,
-    });
-  }, [activeCityIndex, tabIndex]);
 
   useEffect(() => {
     if (open) {
@@ -99,13 +85,6 @@ export function LocationPicker({
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: sheetTranslateY.value }],
   }));
-
-  const tabWidth = (windowWidth - Spacing.xl * 2) / CITY_COUNT;
-
-  const tabIndicatorStyle = useAnimatedStyle(() => ({
-    width: tabWidth - Spacing.sm,
-    transform: [{ translateX: tabIndex.value * tabWidth + Spacing.xs }],
-  }), [tabWidth]);
 
   const close = useCallback(() => {
     Keyboard.dismiss();
@@ -270,7 +249,6 @@ export function LocationPicker({
                     );
                   })}
                 </ScrollView>
-                <Animated.View style={[styles.tabIndicator, tabIndicatorStyle]} />
               </View>
             ) : null}
           </View>
@@ -511,12 +489,6 @@ const styles = StyleSheet.create({
   },
   cityTabTextActive: {
     color: Palette.white,
-  },
-  tabIndicator: {
-    height: 2,
-    backgroundColor: Palette.primary,
-    borderRadius: 1,
-    opacity: 0,
   },
   areaList: {
     flexGrow: 0,

@@ -6,6 +6,10 @@ import { hapticSuccess } from '@/lib/haptics';
 import { confirmPartnerPickup, type PickupConfirmedBy } from '@/lib/orders';
 import { getDisplayName } from '@/lib/privacy';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
+import {
+  getOutsidePickupWindowCopy,
+  getPickupWindowPhase,
+} from '@/lib/pickupWindow';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 
 export function usePartnerPickupFlow(partnerName?: string) {
@@ -32,15 +36,42 @@ export function usePartnerPickupFlow(partnerName?: string) {
   }, []);
 
   const confirmPickup = useCallback(
-    async (confirmedBy: PickupConfirmedBy) => {
+    async (confirmedBy: PickupConfirmedBy, allowOutsideWindow = false) => {
       if (!foundOrder) return;
 
+      const bag = foundOrder.bag;
+      const phase =
+        bag?.available_date && bag.pickup_start && bag.pickup_end
+          ? getPickupWindowPhase(bag.available_date, bag.pickup_start, bag.pickup_end)
+          : 'open';
+
+      // Sheet already shows override CTA when outside window; still gate server-side.
+      const shouldOverride = allowOutsideWindow || phase !== 'open';
+
       setConfirming(true);
-      const result = await confirmPartnerPickup(foundOrder, confirmedBy, partnerName);
+      const result = await confirmPartnerPickup(foundOrder, confirmedBy, partnerName, {
+        allowOutsideWindow: shouldOverride,
+      });
       setConfirming(false);
 
       if (!result.ok) {
-        Alert.alert('Error', 'Failed to confirm pickup. Please try again.');
+        if (result.needsOverride && bag?.pickup_start && bag.pickup_end && result.phase) {
+          const copy = getOutsidePickupWindowCopy(
+            result.phase,
+            bag.pickup_start,
+            bag.pickup_end,
+          );
+          Alert.alert(copy.title, copy.body, [
+            { text: 'Not yet', style: 'cancel' },
+            {
+              text: copy.confirmLabel,
+              style: 'destructive',
+              onPress: () => void confirmPickup(confirmedBy, true),
+            },
+          ]);
+          return;
+        }
+        Alert.alert('Error', result.errorMessage ?? 'Failed to confirm pickup. Please try again.');
         return;
       }
 
@@ -48,6 +79,8 @@ export function usePartnerPickupFlow(partnerName?: string) {
         order_id: foundOrder.id,
         partner_id: foundOrder.partner_id,
         method: confirmedBy,
+        outside_window: phase !== 'open',
+        window_phase: phase,
       });
 
       void hapticSuccess();

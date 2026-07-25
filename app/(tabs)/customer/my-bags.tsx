@@ -33,7 +33,7 @@ import {
   openMapsDirections,
 } from '@/lib/helpers';
 import { normalizeOrderStatus } from '@/lib/orderStatus';
-import { cancelReservation, fetchCustomerOrders } from '@/lib/orders';
+import { cancelReservation, fetchCustomerOrders, reduceReservationQuantity } from '@/lib/orders';
 import { hapticSuccess } from '@/lib/haptics';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { fetchUnreadCountsByOrder } from '@/lib/orderMessages';
@@ -68,6 +68,10 @@ export default function MyBagsScreen() {
   const [cancelOrder, setCancelOrder] = useState<CustomerOrderWithDetails | null>(null);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [showCancelToast, setShowCancelToast] = useState(false);
+  const [cancelToastMessage, setCancelToastMessage] = useState({
+    title: 'Reservation cancelled',
+    message: 'The slot has been freed for other customers.',
+  });
   const [showPickupToast, setShowPickupToast] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -261,11 +265,26 @@ export default function MyBagsScreen() {
     setCancelOrder(order);
   };
 
-  const handleConfirmCancel = async (reason: string | null) => {
+  const handleConfirmCancel = async (payload: {
+    reason: string | null;
+    cancelQuantity: number;
+  }) => {
     if (!cancelOrder) return;
 
+    const { reason, cancelQuantity } = payload;
+    const isPartial =
+      cancelOrder.quantity > 1 &&
+      cancelQuantity > 0 &&
+      cancelQuantity < cancelOrder.quantity;
+
     setCancelSubmitting(true);
-    const result = await cancelReservation(cancelOrder.id, reason);
+    const result = isPartial
+      ? await reduceReservationQuantity(
+          cancelOrder.id,
+          cancelOrder.quantity - cancelQuantity,
+          reason,
+        )
+      : await cancelReservation(cancelOrder.id, reason);
     setCancelSubmitting(false);
 
     if (result.error) {
@@ -277,14 +296,32 @@ export default function MyBagsScreen() {
       useBagsStore.getState().applyBagStock(result.bagId, result.bagStock);
     }
 
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === cancelOrder.id ? { ...order, status: 'cancelled' } : order,
-      ),
-    );
-    setExpandedId((prev) => (prev === cancelOrder.id ? null : prev));
+    if (isPartial && 'order' in result && result.order) {
+      setOrders((prev) =>
+        prev.map((order) => (order.id === cancelOrder.id ? result.order! : order)),
+      );
+    } else {
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === cancelOrder.id ? { ...order, status: 'cancelled' } : order,
+        ),
+      );
+      setExpandedId((prev) => (prev === cancelOrder.id ? null : prev));
+    }
+
     setCancelOrder(null);
     void hapticSuccess();
+    setCancelToastMessage(
+      isPartial
+        ? {
+            title: 'Quantity updated',
+            message: `Cancelled ${cancelQuantity}. Remaining bags stay reserved.`,
+          }
+        : {
+            title: 'Reservation cancelled',
+            message: 'The slot has been freed for other customers.',
+          },
+    );
     setShowCancelToast(true);
   };
 
@@ -393,7 +430,7 @@ export default function MyBagsScreen() {
         }
         loading={cancelSubmitting}
         onClose={() => setCancelOrder(null)}
-        onConfirm={(reason) => void handleConfirmCancel(reason)}
+        onConfirm={(payload) => void handleConfirmCancel(payload)}
       />
 
       <SuccessToast
@@ -405,8 +442,8 @@ export default function MyBagsScreen() {
 
       <SuccessToast
         visible={showCancelToast}
-        title="Reservation cancelled"
-        message="The slot has been freed for other customers."
+        title={cancelToastMessage.title}
+        message={cancelToastMessage.message}
         onHide={() => setShowCancelToast(false)}
       />
     </View>

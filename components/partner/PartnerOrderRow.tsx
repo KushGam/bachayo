@@ -17,6 +17,7 @@ import {
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { confirmPartnerPickup } from '@/lib/orders';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
+import { promptPartnerPickupConfirm } from '@/lib/partnerPickupUi';
 import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 import type { PartnerOrderWithCustomer } from '@/types/app';
 import type { OrderStatus } from '@/types/database';
@@ -94,16 +95,18 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
     'takeaway') as 'takeaway' | 'dinein';
 
-  const runConfirm = async () => {
+  const runConfirm = async (allowOutsideWindow = false) => {
     if (isPickedUp) return;
 
     setLoading(true);
 
-    const result = await confirmPartnerPickup(order, 'partner_manual', partnerName);
+    const result = await confirmPartnerPickup(order, 'partner_manual', partnerName, {
+      allowOutsideWindow,
+    });
     setLoading(false);
 
     if (!result.ok) {
-      Alert.alert('Error', 'Failed to update. Please try again.');
+      Alert.alert('Error', result.errorMessage ?? 'Failed to update. Please try again.');
       return;
     }
 
@@ -123,17 +126,9 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
       onMarkPickedUp(order.id);
       return;
     }
-    Alert.alert(
-      'Confirm pickup',
-      'Has this customer collected their bag and paid?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Yes, confirmed ✓',
-          onPress: () => void runConfirm(),
-        },
-      ],
-    );
+    promptPartnerPickupConfirm(order, (allowOutsideWindow) => {
+      void runConfirm(allowOutsideWindow);
+    });
   };
 
   const pickupWindow = `${formatTime12h(order.bag.pickup_start)} – ${formatTime12h(order.bag.pickup_end)}`;

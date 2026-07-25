@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-const HOME_SECTIONS = ['how-it-works', 'for-restaurants', 'cities', 'impact'] as const;
+const HOME_SECTIONS = ['why', 'how-it-works', 'for-restaurants', 'cities', 'impact'] as const;
 
 export function LandingNavbar() {
   const pathname = usePathname();
@@ -82,10 +82,10 @@ export function LandingNavbar() {
     }`;
 
   const navItems = [
-    { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works' },
-    { href: '/for-restaurants', label: 'For restaurants' },
-    { href: isHome ? '#cities' : '/#cities', label: 'Cities' },
-    { href: isHome ? '#impact' : '/#impact', label: 'Impact' },
+    { href: isHome ? '#why' : '/#why', label: 'Why LastBag', section: 'why' },
+    { href: isHome ? '#how-it-works' : '/#how-it-works', label: 'How it works', section: 'how-it-works' },
+    { href: '/for-restaurants', label: 'For restaurants', section: 'for-restaurants' },
+    { href: isHome ? '#cities' : '/#cities', label: 'Cities', section: 'cities' },
   ];
 
   return (
@@ -115,26 +115,14 @@ export function LandingNavbar() {
           </Link>
 
           <nav className="hidden items-center gap-9 md:flex">
-            <a
-              className={linkClass(isHome && activeSection === 'how-it-works')}
-              href={isHome ? '#how-it-works' : '/#how-it-works'}>
-              How it works
-            </a>
-            <a
-              className={linkClass(isHome && activeSection === 'for-restaurants')}
-              href={isHome ? '#for-restaurants' : '/for-restaurants'}>
-              For restaurants
-            </a>
-            <a
-              className={linkClass(isHome && activeSection === 'cities')}
-              href={isHome ? '#cities' : '/#cities'}>
-              Cities
-            </a>
-            <a
-              className={linkClass(isHome && activeSection === 'impact')}
-              href={isHome ? '#impact' : '/#impact'}>
-              Impact
-            </a>
+            {navItems.map((item) => (
+              <a
+                key={item.label}
+                className={linkClass(isHome && activeSection === item.section)}
+                href={item.href}>
+                {item.label}
+              </a>
+            ))}
           </nav>
 
           <div className="flex items-center gap-3">

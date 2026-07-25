@@ -146,6 +146,7 @@ export type Database = {
           rescue_price: number;
           quantity_available: number;
           quantity_reserved: number;
+          max_per_customer: number;
           pickup_start: string;
           pickup_end: string;
           available_date: string;
@@ -165,6 +166,7 @@ export type Database = {
           rescue_price: number;
           quantity_available: number;
           quantity_reserved?: number;
+          max_per_customer?: number;
           pickup_start: string;
           pickup_end: string;
           available_date: string;
@@ -184,6 +186,7 @@ export type Database = {
           rescue_price?: number;
           quantity_available?: number;
           quantity_reserved?: number;
+          max_per_customer?: number;
           pickup_start?: string;
           pickup_end?: string;
           available_date?: string;

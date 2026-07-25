@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { CustomerActions } from '@/components/admin/CustomerActions';
 import { PageHeader, StatCard } from '@/components/admin/StatCard';
+import { fetchActiveCityOptions } from '@/lib/admin/cities';
 import { cityLabel, formatRelativeDays, weekAgoIso, todayIso } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
@@ -30,11 +31,13 @@ export default async function AdminCustomersPage({
     { count: newWeek },
     { count: ordersToday },
     { data: customers },
+    cities,
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer').gte('created_at', weekAgo),
     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', `${today}T00:00:00`),
     query,
+    fetchActiveCityOptions(supabase),
   ]);
 
   const customerIds = (customers ?? []).map((c) => c.id);
@@ -71,10 +74,11 @@ export default async function AdminCustomersPage({
         />
         <select name="city" defaultValue={params.city} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value="">All cities</option>
-          <option value="kathmandu">Kathmandu</option>
-          <option value="lalitpur">Lalitpur</option>
-          <option value="pokhara">Pokhara</option>
-          <option value="bhaktapur">Bhaktapur</option>
+          {cities.map((city) => (
+            <option key={city.id} value={city.id}>
+              {city.name}
+            </option>
+          ))}
         </select>
         <button type="submit" className="rounded-lg bg-[#D85A30] px-4 py-2 text-sm font-medium text-white">
           Filter

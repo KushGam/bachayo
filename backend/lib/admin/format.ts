@@ -82,11 +82,37 @@ export function cityLabel(cityId: string | null | undefined) {
     kathmandu: 'Kathmandu',
     lalitpur: 'Lalitpur',
     pokhara: 'Pokhara',
-    bharatpur: 'Bhaktapur',
     bhaktapur: 'Bhaktapur',
+    bharatpur: 'Chitwan (legacy)',
+    chitwan: 'Chitwan (Bharatpur)',
+    biratnagar: 'Biratnagar',
+    dharan: 'Dharan',
+    itahari: 'Itahari',
+    birgunj: 'Birgunj',
+    janakpur: 'Janakpur',
+    hetauda: 'Hetauda',
+    butwal: 'Butwal',
+    bhairahawa: 'Bhairahawa',
+    nepalgunj: 'Nepalgunj',
+    dhangadhi: 'Dhangadhi',
+    surkhet: 'Surkhet',
+    gorkha: 'Gorkha',
+    kavre: 'Kavre (Banepa)',
+    damak: 'Damak',
+    tansen: 'Tansen (Palpa)',
+    'other-nepal': 'Other (Nepal)',
+    unassigned: 'Unassigned',
+    unknown: 'Unassigned',
   };
   if (!cityId) return '—';
-  return map[cityId] ?? cityId;
+  if (map[cityId]) return map[cityId];
+  // Any worldwide city_id: "new-york" → "New York", "São Paulo" stays readable
+  return cityId
+    .replace(/[_/]+/g, '-')
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export function tierLabel(tier: string | null | undefined) {
