@@ -23,7 +23,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
   if (isExpoGo) {
     Alert.alert(
       'Google Sign-In',
-      'Google Sign-In is not available in Expo Go. Please use email or phone to sign in.',
+      'Google Sign-In is not available in Expo Go. Please use email or phone.',
       [{ text: 'OK', style: 'default' }],
     );
     return { success: false, expoGo: true };
@@ -44,7 +44,6 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
       };
     }
 
-    // Sign in to Supabase with Google token
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
@@ -63,7 +62,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
     if (error.code === statusCodes.IN_PROGRESS) {
       return {
         success: false,
-        error: new Error('Sign-in already in progress'),
+        error: new Error('Already signing in'),
       };
     }
     if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -73,7 +72,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
         error: new Error('Play Services unavailable'),
       };
     }
-    console.error('[Google] Unexpected error:', error);
+    console.error('[Google] Error:', error);
     return { success: false, error };
   }
 }
