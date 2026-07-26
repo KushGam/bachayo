@@ -72,8 +72,8 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="/for-restaurants#faq">
                 Partner FAQ
               </a>
-              <a className="block transition hover:text-white" href="tel:+9779762623241">
-                Call 9762623241
+              <a className="block transition hover:text-white" href="tel:+9779716318840">
+                Call 9716318840
               </a>
             </div>
           </div>
@@ -103,8 +103,8 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="mailto:hello@lastbag.app">
                 hello@lastbag.app
               </a>
-              <a className="block transition hover:text-white" href="tel:+9779762623241">
-                9762623241
+              <a className="block transition hover:text-white" href="tel:+9779716318840">
+                9716318840
               </a>
               <p className="pt-2 text-white/35">Available worldwide</p>
             </div>

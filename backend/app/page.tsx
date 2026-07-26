@@ -109,7 +109,7 @@ export default function HomeLanding() {
     {
       id: 'partner',
       q: 'I run a restaurant. How do I join?',
-      a: 'Call or WhatsApp 9762623241, or tap “For restaurants.” We’ll help you go live the same day with a free 30-day trial — no payment to start.',
+      a: 'Call or WhatsApp 9716318840, or tap “For restaurants.” We’ll help you go live the same day with a free 30-day trial — no payment to start.',
     },
     {
       id: 'pickup',
@@ -766,9 +766,9 @@ export default function HomeLanding() {
             <div className="mt-12 border-t border-white/15 pt-8">
               <p className="text-sm text-white/65">Talk to us</p>
               <a
-                href="tel:+9779762623241"
+                href="tel:+9779716318840"
                 className="mt-2 inline-block font-display text-2xl font-bold text-white transition hover:text-white/85">
-                9762623241
+                9716318840
               </a>
             </div>
           </FadeIn>

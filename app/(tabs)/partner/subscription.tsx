@@ -53,7 +53,7 @@ const PLAN_NAMES: Record<SubscriptionTier, string> = {
   medium: 'Medium Plan',
   large: 'Large Plan',
 };
-const SUPPORT_PHONE_DISPLAY = '9762623241';
+const SUPPORT_PHONE_DISPLAY = '9716318840';
 
 function tierMonthlyPrice(tier: SubscriptionTier) {
   return DEFAULT_TIER_PRICING[tier].monthlyPriceNpr;
@@ -321,7 +321,7 @@ export default function PartnerSubscriptionScreen() {
         <View style={styles.helpBlock}>
           <Text style={styles.helpLabel}>Questions? Call us:</Text>
           <Pressable
-            onPress={() => void openExternalUrl('tel:+9779762623241', 'Calling is not available on this device.')}
+            onPress={() => void openExternalUrl('tel:+9779716318840', 'Calling is not available on this device.')}
             hitSlop={8}>
             <Text style={styles.helpPhone}>{SUPPORT_PHONE_DISPLAY}</Text>
           </Pressable>

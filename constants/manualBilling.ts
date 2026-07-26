@@ -1,8 +1,8 @@
 /** Manual partner billing — partners pay via eSewa/Khalti/bank; admin marks paid. */
 export const MANUAL_BILLING = {
-  esewaId: '9762623241',
-  khaltiId: '9762623241',
-  whatsappPhone: '9779762623241',
+  esewaId: '9716318840',
+  khaltiId: '9716318840',
+  whatsappPhone: '9779716318840',
   supportEmail: 'lastbagnp@gmail.com',
   bank: {
     name: 'Prime Commercial Bank',

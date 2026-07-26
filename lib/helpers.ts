@@ -306,7 +306,7 @@ export async function openWhatsAppChat({
   } catch {
     Alert.alert(
       'WhatsApp unavailable',
-      'Open WhatsApp on your phone and message 9762623241, or try again on a real device.',
+      'Open WhatsApp on your phone and message 9716318840, or try again on a real device.',
     );
     return false;
   }

@@ -228,10 +228,10 @@ export function LandingNavbar() {
               For restaurants →
             </Link>
             <a
-              href="tel:+9779762623241"
+              href="tel:+9779716318840"
               className="mt-3 flex w-full items-center justify-center rounded-full border border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)]"
               onClick={() => setOpen(false)}>
-              Call 9762623241
+              Call 9716318840
             </a>
           </div>
         </aside>
