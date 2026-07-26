@@ -33,7 +33,7 @@ type SignupStepShellProps = {
   children: ReactNode;
 };
 
-const FOOTER_HEIGHT = 112;
+const FOOTER_FALLBACK_HEIGHT = 112;
 
 export function SignupStepShell({
   currentStep,
@@ -51,8 +51,13 @@ export function SignupStepShell({
 }: SignupStepShellProps) {
   const insets = useSafeAreaInsets();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // Footer height varies (e.g. with a Google button above Continue), so
+  // measure it — a fixed constant leaves content trapped underneath.
+  const [footerHeight, setFooterHeight] = useState(0);
+  const measuredFooter =
+    footerHeight > 0 ? footerHeight : FOOTER_FALLBACK_HEIGHT + insets.bottom;
   const bottomPad =
-    FOOTER_HEIGHT + insets.bottom + Spacing.xl + (keyboardVisible ? Spacing.xl : 0);
+    measuredFooter + Spacing.xl + (keyboardVisible ? Spacing.xl : 0);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -112,7 +117,8 @@ export function SignupStepShell({
 
       <View
         style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }, FloatingShadow]}
-        pointerEvents="box-none">
+        pointerEvents="box-none"
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
         {secondaryAction}
         <Button
           label={continueLabel}

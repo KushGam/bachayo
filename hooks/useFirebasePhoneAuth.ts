@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 
 import { formatNepalPhone } from '@/lib/auth';
-import { firebaseAuth } from '@/lib/firebase';
+import { getFirebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
@@ -58,7 +58,7 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
-        if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
+        if (!isFirebaseConfigured) {
           throw new Error(FIREBASE_NOT_CONFIGURED);
         }
 
@@ -68,7 +68,7 @@ export function useFirebasePhoneAuth() {
 
         const formatted = formatPhone(phone);
         const confirmationResult = await signInWithPhoneNumber(
-          firebaseAuth,
+          getFirebaseAuth(),
           formatted,
           null as never,
         );
@@ -124,7 +124,7 @@ export function useFirebasePhoneAuth() {
         };
       }
 
-      if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
+      if (!isFirebaseConfigured) {
         return {
           success: false as const,
           error: FIREBASE_NOT_CONFIGURED,
