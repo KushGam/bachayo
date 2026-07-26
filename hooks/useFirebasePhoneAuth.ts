@@ -1,18 +1,23 @@
 import { useCallback, useState } from 'react';
+import { Platform } from 'react-native';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
-import { formatNepalPhone, sendPhoneOtp, verifyPhoneOtp } from '@/lib/auth';
+import { formatNepalPhone } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
-/** Tracks that an OTP was requested this session (Supabase does not expose a verificationId). */
-let sharedOtpPendingPhone: string | null = null;
+const NATIVE_PHONE_AUTH_REQUIRED =
+  'Phone verification requires the iOS or Android app (not Expo Go).';
+
+/** Shared across screens so OTP verify works after navigation. */
+let sharedVerificationId: string | null = null;
 
 export function getSharedFirebaseVerificationId() {
-  return sharedOtpPendingPhone;
+  return sharedVerificationId;
 }
 
 export function setSharedFirebaseVerificationId(id: string | null) {
-  sharedOtpPendingPhone = id;
+  sharedVerificationId = id;
 }
 
 function digitsOnly(phone: string) {
@@ -23,10 +28,14 @@ function digitsOnly(phone: string) {
     .replace(/^0/, '');
 }
 
+function phoneEmailFromFormatted(formattedPhone: string) {
+  return `${formattedPhone.replace(/\D/g, '')}@lastbag.phone`;
+}
+
 export function useFirebasePhoneAuth() {
   const [loading, setLoading] = useState(false);
   const [verificationId, setVerificationId] = useState<string | null>(
-    sharedOtpPendingPhone,
+    sharedVerificationId,
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -44,29 +53,54 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
+        if (Platform.OS === 'web') {
+          throw new Error(NATIVE_PHONE_AUTH_REQUIRED);
+        }
+
         if (!validatePhone(phone)) {
           throw new Error(
             'Enter a valid NTC or Ncell number (starts with 97 or 98)',
           );
         }
 
-        const digits = digitsOnly(phone);
-        const { error: otpError } = await sendPhoneOtp(digits);
-        if (otpError) throw otpError;
+        const formatted = formatPhone(phone);
+        // Native Firebase Auth handles Play Integrity / APNs reCAPTCHA automatically.
+        const confirmation = await auth().signInWithPhoneNumber(formatted);
+        const vid = confirmation.verificationId;
 
-        sharedOtpPendingPhone = digits;
-        setVerificationId(digits);
+        if (!vid) {
+          throw new Error('Could not start phone verification. Try again.');
+        }
+
+        sharedVerificationId = vid;
+        setVerificationId(vid);
         return { success: true as const };
       } catch (err: unknown) {
+        const code =
+          err && typeof err === 'object' && 'code' in err
+            ? String((err as { code?: string }).code)
+            : '';
+        const messages: Record<string, string> = {
+          'auth/invalid-phone-number': 'Invalid phone number format.',
+          'auth/too-many-requests': 'Too many attempts. Try again later.',
+          'auth/quota-exceeded': 'SMS limit reached. Try again tomorrow.',
+          'auth/captcha-check-failed': 'Verification failed. Try again.',
+          'auth/missing-client-identifier':
+            'Firebase is not configured correctly for this build.',
+        };
+
         const message =
-          (err instanceof Error ? err.message : null) || 'Failed to send OTP.';
+          messages[code] ||
+          (err instanceof Error ? err.message : null) ||
+          'Failed to send OTP.';
+
         setError(message);
         return { success: false as const, error: message };
       } finally {
         setLoading(false);
       }
     },
-    [validatePhone],
+    [formatPhone, validatePhone],
   );
 
   const verifyOTP = useCallback(
@@ -81,11 +115,18 @@ export function useFirebasePhoneAuth() {
       },
       options?: { mode?: 'login' | 'signup' },
     ) => {
-      const digits = digitsOnly(userData.phone);
-      if (!sharedOtpPendingPhone && !verificationId) {
+      const activeVerificationId = sharedVerificationId || verificationId;
+      if (!activeVerificationId) {
         return {
           success: false as const,
           error: 'No verification in progress. Please request a new code.',
+        };
+      }
+
+      if (Platform.OS === 'web') {
+        return {
+          success: false as const,
+          error: NATIVE_PHONE_AUTH_REQUIRED,
         };
       }
 
@@ -93,24 +134,45 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
+        const credential = auth.PhoneAuthProvider.credential(
+          activeVerificationId,
+          code,
+        );
+        const result = await auth().signInWithCredential(credential);
+        const firebaseUser = result.user as FirebaseAuthTypes.User;
+        const formattedPhone = formatPhone(userData.phone);
+        const phoneEmail = phoneEmailFromFormatted(formattedPhone);
         const mode = options?.mode ?? 'signup';
-        const formattedPhone = formatNepalPhone(digits);
-        const { data, error: verifyError } = await verifyPhoneOtp(digits, code);
-        if (verifyError) throw verifyError;
-
-        const userId = data.user?.id;
-        if (!userId) {
-          throw new Error('Could not verify your session.');
-        }
 
         const { data: existing } = await supabase
           .from('profiles')
           .select('id, role, phone')
-          .eq('id', userId)
+          .eq('phone', formattedPhone)
           .maybeSingle();
 
         if (existing) {
-          sharedOtpPendingPhone = null;
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: phoneEmail,
+            password: firebaseUser.uid,
+          });
+
+          if (signInError) {
+            await supabase
+              .from('profiles')
+              .update({ firebase_uid: firebaseUser.uid } as never)
+              .eq('id', existing.id);
+
+            throw new Error(
+              'This number is registered. Please log in with email or password.',
+            );
+          }
+
+          await supabase
+            .from('profiles')
+            .update({ firebase_uid: firebaseUser.uid } as never)
+            .eq('id', existing.id);
+
+          sharedVerificationId = null;
           setVerificationId(null);
 
           return {
@@ -118,29 +180,6 @@ export function useFirebasePhoneAuth() {
             isNewUser: false as const,
             userId: existing.id,
             profile: existing as {
-              id: string;
-              role: UserRole | null;
-              phone: string | null;
-            },
-          };
-        }
-
-        // Also check by phone in case auth user is new but profile exists under another id
-        const { data: byPhone } = await supabase
-          .from('profiles')
-          .select('id, role, phone')
-          .eq('phone', formattedPhone)
-          .maybeSingle();
-
-        if (byPhone) {
-          sharedOtpPendingPhone = null;
-          setVerificationId(null);
-
-          return {
-            success: true as const,
-            isNewUser: false as const,
-            userId: byPhone.id,
-            profile: byPhone as {
               id: string;
               role: UserRole | null;
               phone: string | null;
@@ -156,41 +195,72 @@ export function useFirebasePhoneAuth() {
           };
         }
 
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: userId,
-          full_name: userData.name,
-          phone: formattedPhone,
-          email: userData.email?.trim() || null,
-          role: userData.role,
-          terms_accepted_at: userData.termsAccepted
-            ? new Date().toISOString()
-            : null,
-          terms_version: 'v1.0',
-          onboarding_completed: false,
-        } as never);
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: phoneEmail,
+          password: firebaseUser.uid,
+          options: {
+            data: {
+              full_name: userData.name,
+              phone: formattedPhone,
+              role: userData.role,
+              firebase_uid: firebaseUser.uid,
+            },
+          },
+        });
 
-        if (profileError) throw profileError;
+        if (signUpError) throw signUpError;
 
-        sharedOtpPendingPhone = null;
+        if (authData.user) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: authData.user.id,
+            full_name: userData.name,
+            phone: formattedPhone,
+            email: userData.email?.trim() || null,
+            role: userData.role,
+            firebase_uid: firebaseUser.uid,
+            terms_accepted_at: userData.termsAccepted
+              ? new Date().toISOString()
+              : null,
+            terms_version: 'v1.0',
+            onboarding_completed: false,
+          } as never);
+
+          if (profileError) throw profileError;
+        }
+
+        sharedVerificationId = null;
         setVerificationId(null);
 
         return {
           success: true as const,
           isNewUser: true as const,
-          userId,
+          userId: authData.user?.id,
           role: userData.role,
         };
       } catch (err: unknown) {
+        const errCode =
+          err && typeof err === 'object' && 'code' in err
+            ? String((err as { code?: string }).code)
+            : '';
+        const messages: Record<string, string> = {
+          'auth/invalid-verification-code':
+            'Wrong code. Please check and try again.',
+          'auth/code-expired': 'Code expired. Request a new one.',
+          'auth/session-expired': 'Session expired. Please start again.',
+        };
+
         const message =
+          messages[errCode] ||
           (err instanceof Error ? err.message : null) ||
           'Verification failed. Try again.';
+
         setError(message);
         return { success: false as const, error: message };
       } finally {
         setLoading(false);
       }
     },
-    [verificationId],
+    [formatPhone, verificationId],
   );
 
   return {

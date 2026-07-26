@@ -106,7 +106,16 @@
             ]
           }
         }
-      ]
+      ],
+      [
+        "@react-native-firebase/app",
+        {
+          "ios": {
+            "appDelegateLanguage": "objc"
+          }
+        }
+      ],
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true
