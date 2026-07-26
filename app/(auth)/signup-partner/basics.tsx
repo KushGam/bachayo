@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, StyleSheet, View } from 'react-native';
 
@@ -25,6 +26,7 @@ import {
   navigateAfterGoogleSignIn,
   phoneProfileExists,
 } from '@/lib/auth';
+import app from '@/lib/firebase';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -64,6 +66,7 @@ export default function PartnerBasicsScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const {
     control,
@@ -137,7 +140,7 @@ export default function PartnerBasicsScreen() {
         setPendingRole('partner');
         setPendingName(values.ownerName);
 
-        const result = await sendOTP(values.phone);
+        const result = await sendOTP(values.phone, recaptchaVerifier.current);
         if (!result.success) {
           setSubmitError(result.error || phoneAuthError || 'Could not send verification code.');
           setChecking(false);
@@ -378,6 +381,12 @@ export default function PartnerBasicsScreen() {
         await supabase.auth.signOut();
         Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');
       }}
+    />
+
+    <FirebaseRecaptchaVerifierModal
+      ref={recaptchaVerifier}
+      firebaseConfig={app.options}
+      attemptInvisibleVerification
     />
     </>
   );

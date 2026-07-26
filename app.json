@@ -12,7 +12,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.lastbag.app",
       "icon": "./assets/images/app-icon.png",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "LastBag uses the camera to scan pickup QR codes. LastBag \u0932\u0947 \u092a\u093f\u0915\u0905\u092a\u0915\u093e \u0932\u093e\u0917\u093f QR \u0915\u094b\u0921 \u0938\u094d\u0915\u094d\u092f\u093e\u0928 \u0917\u0930\u094d\u0928 \u0915\u094d\u092f\u093e\u092e\u0947\u0930\u093e \u091a\u093e\u0939\u093f\u0928\u094d\u091b\u0964",
         "NSLocationWhenInUseUsageDescription": "LastBag \u0932\u0947 \u0928\u091c\u093f\u0915\u0915\u093e \u0930\u0947\u0938\u094d\u0915\u094d\u092f\u0942 \u092c\u094d\u092f\u093e\u0917\u0939\u0930\u0942 \u0926\u0947\u0916\u093e\u0909\u0928 \u0924\u092a\u093e\u0908\u0902\u0915\u094b \u0938\u094d\u0925\u093e\u0928 \u092a\u094d\u0930\u092f\u094b\u0917 \u0917\u0930\u094d\u091b\u0964",
@@ -22,7 +21,6 @@
     },
     "android": {
       "package": "com.lastbag.app",
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
@@ -106,16 +104,7 @@
             ]
           }
         }
-      ],
-      [
-        "@react-native-firebase/app",
-        {
-          "ios": {
-            "appDelegateLanguage": "objc"
-          }
-        }
-      ],
-      "@react-native-firebase/auth"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

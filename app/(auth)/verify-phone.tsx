@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ import { Spacing, Type } from '@/constants/theme';
 import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { setAuthPassword } from '@/lib/auth';
+import app from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSignupStore } from '@/store/useSignupStore';
@@ -40,6 +42,7 @@ export default function VerifyPhoneScreen() {
   } = useAuthStore();
   const { customer, partner, signupPassword, setPhoneOtpVerified } =
     useSignupStore();
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const {
     verifyOTP,
@@ -202,7 +205,7 @@ export default function VerifyPhoneScreen() {
   const handleResend = async () => {
     if (secondsLeft > 0 || !phoneDigits) return;
     setError(null);
-    const result = await sendOTP(phoneDigits);
+    const result = await sendOTP(phoneDigits, recaptchaVerifier.current);
     if (result.success) {
       setSecondsLeft(RESEND_SECONDS);
       setCode('');
@@ -266,6 +269,12 @@ export default function VerifyPhoneScreen() {
           </Text>
         </Pressable>
       </View>
+
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={app.options}
+        attemptInvisibleVerification
+      />
     </View>
   );
 }

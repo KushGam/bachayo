@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
-import { Platform } from 'react-native';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
 
 import { formatNepalPhone } from '@/lib/auth';
+import { firebaseAuth } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
-const NATIVE_PHONE_AUTH_REQUIRED =
-  'Phone verification requires the iOS or Android app (not Expo Go).';
+const FIREBASE_NOT_CONFIGURED =
+  'Phone auth is not configured yet. Add Firebase keys to .env.local.';
 
 /** Shared across screens so OTP verify works after navigation. */
 let sharedVerificationId: string | null = null;
@@ -48,29 +48,30 @@ export function useFirebasePhoneAuth() {
   }, []);
 
   const sendOTP = useCallback(
-    async (phone: string) => {
+    async (phone: string, recaptchaVerifier?: unknown) => {
       setLoading(true);
       setError(null);
 
       try {
-        if (Platform.OS === 'web') {
-          throw new Error(NATIVE_PHONE_AUTH_REQUIRED);
+        if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
+          throw new Error(FIREBASE_NOT_CONFIGURED);
         }
 
         if (!validatePhone(phone)) {
-          throw new Error(
-            'Enter a valid NTC or Ncell number (starts with 97 or 98)',
-          );
+          throw new Error('Enter a valid NTC or Ncell number');
+        }
+
+        if (!recaptchaVerifier) {
+          throw new Error('reCAPTCHA verifier not ready. Please try again.');
         }
 
         const formatted = formatPhone(phone);
-        // Native Firebase Auth handles Play Integrity / APNs reCAPTCHA automatically.
-        const confirmation = await auth().signInWithPhoneNumber(formatted);
-        const vid = confirmation.verificationId;
-
-        if (!vid) {
-          throw new Error('Could not start phone verification. Try again.');
-        }
+        const provider = new PhoneAuthProvider(firebaseAuth);
+        const vid = await provider.verifyPhoneNumber(
+          formatted,
+          // expo-firebase-recaptcha implements ApplicationVerifier
+          recaptchaVerifier as never,
+        );
 
         sharedVerificationId = vid;
         setVerificationId(vid);
@@ -81,12 +82,10 @@ export function useFirebasePhoneAuth() {
             ? String((err as { code?: string }).code)
             : '';
         const messages: Record<string, string> = {
-          'auth/invalid-phone-number': 'Invalid phone number format.',
+          'auth/invalid-phone-number': 'Invalid phone number.',
           'auth/too-many-requests': 'Too many attempts. Try again later.',
           'auth/quota-exceeded': 'SMS limit reached. Try again tomorrow.',
           'auth/captcha-check-failed': 'Verification failed. Try again.',
-          'auth/missing-client-identifier':
-            'Firebase is not configured correctly for this build.',
         };
 
         const message =
@@ -123,10 +122,10 @@ export function useFirebasePhoneAuth() {
         };
       }
 
-      if (Platform.OS === 'web') {
+      if (!process.env.EXPO_PUBLIC_FIREBASE_API_KEY) {
         return {
           success: false as const,
-          error: NATIVE_PHONE_AUTH_REQUIRED,
+          error: FIREBASE_NOT_CONFIGURED,
         };
       }
 
@@ -134,12 +133,12 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
-        const credential = auth.PhoneAuthProvider.credential(
+        const credential = PhoneAuthProvider.credential(
           activeVerificationId,
           code,
         );
-        const result = await auth().signInWithCredential(credential);
-        const firebaseUser = result.user as FirebaseAuthTypes.User;
+        const result = await signInWithCredential(firebaseAuth, credential);
+        const firebaseUser = result.user;
         const formattedPhone = formatPhone(userData.phone);
         const phoneEmail = phoneEmailFromFormatted(formattedPhone);
         const mode = options?.mode ?? 'signup';
