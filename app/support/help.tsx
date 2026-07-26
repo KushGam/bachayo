@@ -179,7 +179,8 @@ export default function HelpScreen() {
       });
       setMessage('');
       setSubject(null);
-    } catch {
+    } catch (error) {
+      console.error('[support] submit failed:', error);
       setErrorMessage(`Couldn't send — try emailing ${SUPPORT_EMAIL} directly.`);
     } finally {
       setSubmitting(false);

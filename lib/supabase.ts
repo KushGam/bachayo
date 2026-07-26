@@ -7,6 +7,8 @@ import type { Database } from '@/types/database';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
 if (__DEV__) {
   console.log('[supabase] EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl || '(missing)');
   console.log(
@@ -15,13 +17,17 @@ if (__DEV__) {
   );
 }
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!isSupabaseConfigured) {
   console.error(
-    '[supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local',
+    '[supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY. Set them in EAS Environment Variables for production builds.',
   );
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// Avoid hard-crashing the app when env vars were not baked into the binary.
+const clientUrl = supabaseUrl || 'https://placeholder.supabase.co';
+const clientKey = supabaseAnonKey || 'public-anon-key';
+
+export const supabase = createClient<Database>(clientUrl, clientKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

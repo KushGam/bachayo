@@ -302,7 +302,7 @@ export async function updateSupportMessageStatus(
   status: 'new' | 'open' | 'resolved',
 ) {
   const supabase = await admin();
-  await supabase
+  const { error } = await supabase
     .from('support_messages')
     .update({
       status,
@@ -310,7 +310,10 @@ export async function updateSupportMessageStatus(
     })
     .eq('id', messageId);
 
+  if (error) throw new Error(error.message);
+
   revalidatePath('/admin/support');
+  revalidatePath(`/admin/support/${messageId}`);
   revalidatePath('/admin');
 }
 

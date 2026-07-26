@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
@@ -18,6 +19,78 @@ function escapeHtml(text: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function buildSupportEmailHtml(params: {
+  subject: string;
+  message: string;
+  email: string;
+  userId: string | null | undefined;
+  role: string | null | undefined;
+}) {
+  const safeSubject = escapeHtml(params.subject);
+  const safeMessage = escapeHtml(params.message).replace(/\n/g, '<br/>');
+  const safeEmail = escapeHtml(params.email);
+  const safeUserId = escapeHtml(params.userId ?? '—');
+  const safeRole = escapeHtml(params.role ?? '—');
+
+  return `
+    <h2>New support message</h2>
+    <p><b>From:</b> ${safeEmail}</p>
+    <p><b>User ID:</b> ${safeUserId}</p>
+    <p><b>Role:</b> ${safeRole}</p>
+    <p><b>Subject:</b> ${safeSubject}</p>
+    <hr/>
+    <p>${safeMessage}</p>
+    <p style="color:#6B7280;font-size:12px;margin-top:24px">Also saved in LastBag Admin → Support</p>
+  `;
+}
+
+async function sendSupportEmail(params: {
+  subject: string;
+  message: string;
+  email: string;
+  userId: string | null | undefined;
+  role: string | null | undefined;
+}) {
+  const html = buildSupportEmailHtml(params);
+  const mailSubject = `[LastBag Support] ${params.subject}`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    const resend = new Resend(resendApiKey);
+    const { error } = await resend.emails.send({
+      from: 'LastBag Support <noreply@lastbag.app>',
+      to: 'support@lastbag.app',
+      replyTo: params.email,
+      subject: mailSubject,
+      html,
+    });
+    if (error) throw error;
+    return;
+  }
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (gmailUser && gmailPass) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass },
+    });
+
+    await transporter.sendMail({
+      from: `"LastBag Support" <${gmailUser}>`,
+      to: process.env.SUPPORT_INBOX_EMAIL || 'support@lastbag.app',
+      replyTo: params.email,
+      subject: mailSubject,
+      html,
+    });
+    return;
+  }
+
+  console.warn(
+    '[support/contact] No RESEND_API_KEY or GMAIL_* configured — skipped email (saved to admin)',
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -55,39 +128,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Email is best-effort — admin inbox is the source of truth.
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (resendApiKey) {
-      try {
-        const resend = new Resend(resendApiKey);
-        const safeSubject = escapeHtml(trimmedSubject);
-        const safeMessage = escapeHtml(trimmedMessage).replace(/\n/g, '<br/>');
-        const safeEmail = escapeHtml(trimmedEmail);
-        const safeUserId = escapeHtml(userId ?? '—');
-        const safeRole = escapeHtml(role ?? '—');
-
-        const { error } = await resend.emails.send({
-          from: 'LastBag Support <noreply@lastbag.app>',
-          to: 'support@lastbag.app',
-          replyTo: trimmedEmail,
-          subject: `[LastBag Support] ${trimmedSubject}`,
-          html: `
-            <h2>New support message</h2>
-            <p><b>From:</b> ${safeEmail}</p>
-            <p><b>User ID:</b> ${safeUserId}</p>
-            <p><b>Role:</b> ${safeRole}</p>
-            <p><b>Subject:</b> ${safeSubject}</p>
-            <hr/>
-            <p>${safeMessage}</p>
-            <p style="color:#6B7280;font-size:12px;margin-top:24px">Also saved in LastBag Admin → Support</p>
-          `,
-        });
-
-        if (error) {
-          console.error('[support/contact] Resend error:', error);
-        }
-      } catch (emailError) {
-        console.error('[support/contact] email send failed:', emailError);
-      }
+    try {
+      await sendSupportEmail({
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        email: trimmedEmail,
+        userId,
+        role,
+      });
+    } catch (emailError) {
+      console.error('[support/contact] email send failed:', emailError);
     }
 
     return NextResponse.json({ success: true });

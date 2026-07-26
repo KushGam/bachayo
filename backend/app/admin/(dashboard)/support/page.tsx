@@ -120,9 +120,9 @@ export default async function AdminSupportPage({
             return (
               <article
                 key={row.id}
-                className="rounded-2xl border border-[#F0EDE8] bg-white p-5 transition hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]">
+                className="rounded-2xl border border-[#F0EDE8] bg-white p-5 transition hover:border-[#D85A30]/35 hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
+                  <Link href={`/admin/support/${row.id}`} className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${STATUS_STYLE[status]}`}>
@@ -138,20 +138,19 @@ export default async function AdminSupportPage({
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#9CA3AF]">
                       <span className="inline-flex items-center gap-1">
                         <Mail size={12} />
-                        <a
-                          href={`mailto:${row.email}?subject=Re: ${encodeURIComponent(row.subject)}`}
-                          className="font-medium text-[#D85A30] hover:underline">
-                          {row.email}
-                        </a>
+                        <span className="font-medium text-[#D85A30]">{row.email}</span>
                       </span>
                       <span>{formatWhen(row.created_at)}</span>
                     </div>
-                  </div>
+                  </Link>
                   <SupportStatusActions messageId={row.id} status={status} />
                 </div>
-                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#374151]">
-                  {row.message}
-                </p>
+                <Link href={`/admin/support/${row.id}`} className="mt-4 block">
+                  <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-[#374151]">
+                    {row.message}
+                  </p>
+                  <p className="mt-3 text-xs font-semibold text-[#D85A30]">Open message →</p>
+                </Link>
               </article>
             );
           })}
