@@ -9,14 +9,15 @@
     "userInterfaceStyle": "light",
     "primaryColor": "#D85A30",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.lastbag.app",
       "icon": "./assets/images/app-icon.png",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "LastBag uses the camera to scan pickup QR codes. LastBag ले पिकअपका लागि QR कोड स्क्यान गर्न क्यामेरा चाहिन्छ।",
         "NSLocationWhenInUseUsageDescription": "LastBag ले नजिकका रेस्क्यू ब्यागहरू देखाउन तपाईंको स्थान प्रयोग गर्छ।",
-        "NSUserNotificationsUsageDescription": "LastBag ले पिकअप रिमाइन्डर र बुकिङ अपडेटका लागि सूचना पठाउँछ।"
+        "NSUserNotificationsUsageDescription": "LastBag ले पिकअप रिमाइन्डर र बुकिङ अपडेटका लागि सूचना पठाउँछ।",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -90,6 +91,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7f7daa2d-25da-489e-9378-4495138d3f0c"
+      },
+      "router": {}
     }
   }
 }
