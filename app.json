@@ -85,7 +85,28 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "extraPods": [
+              {
+                "name": "AppCheckCore",
+                "version": "11.2.0"
+              },
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "RecaptchaInterop",
+                "modular_headers": true
+              }
+            ]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
