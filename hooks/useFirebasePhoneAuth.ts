@@ -1,15 +1,16 @@
-import { useCallback, useRef, useState } from 'react';
-import {
-  PhoneAuthProvider,
-  signInWithCredential,
-} from 'firebase/auth';
+import { useCallback, useState } from 'react';
+import { Platform } from 'react-native';
+import auth, { PhoneAuthProvider } from '@react-native-firebase/auth';
 
-import { firebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
+import { isFirebaseConfigured } from '@/lib/firebase';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
 const FIREBASE_NOT_CONFIGURED =
   'Phone auth is not configured yet. Add Firebase keys to .env.local.';
+
+const NATIVE_PHONE_AUTH_REQUIRED =
+  'Phone verification requires the iOS or Android app.';
 
 /** Shared across screens so OTP verify works after navigation. */
 let sharedVerificationId: string | null = null;
@@ -32,7 +33,6 @@ export function useFirebasePhoneAuth() {
     sharedVerificationId,
   );
   const [error, setError] = useState<string | null>(null);
-  const recaptchaVerifier = useRef<any>(null);
 
   const formatPhone = useCallback((phone: string) => {
     const clean = phone
@@ -58,8 +58,12 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
-        if (!isFirebaseConfigured || !firebaseAuth) {
+        if (!isFirebaseConfigured) {
           throw new Error(FIREBASE_NOT_CONFIGURED);
+        }
+
+        if (Platform.OS === 'web') {
+          throw new Error(NATIVE_PHONE_AUTH_REQUIRED);
         }
 
         if (!validatePhone(phone)) {
@@ -68,16 +72,10 @@ export function useFirebasePhoneAuth() {
           );
         }
 
-        if (!recaptchaVerifier.current) {
-          throw new Error('Verification UI is not ready. Please try again.');
-        }
-
         const formatted = formatPhone(phone);
-        const provider = new PhoneAuthProvider(firebaseAuth);
-        const vid = await provider.verifyPhoneNumber(
-          formatted,
-          recaptchaVerifier.current,
-        );
+        // Native Firebase Auth handles Play Integrity / APNs reCAPTCHA automatically.
+        const confirmation = await auth().signInWithPhoneNumber(formatted);
+        const vid = confirmation.verificationId;
 
         sharedVerificationId = vid;
         setVerificationId(vid);
@@ -128,10 +126,17 @@ export function useFirebasePhoneAuth() {
         };
       }
 
-      if (!isFirebaseConfigured || !firebaseAuth) {
+      if (!isFirebaseConfigured) {
         return {
           success: false as const,
           error: FIREBASE_NOT_CONFIGURED,
+        };
+      }
+
+      if (Platform.OS === 'web') {
+        return {
+          success: false as const,
+          error: NATIVE_PHONE_AUTH_REQUIRED,
         };
       }
 
@@ -143,7 +148,7 @@ export function useFirebasePhoneAuth() {
           activeVerificationId,
           code,
         );
-        const result = await signInWithCredential(firebaseAuth, credential);
+        const result = await auth().signInWithCredential(credential);
         const firebaseUser = result.user;
         const formattedPhone = formatPhone(userData.phone);
         const phoneEmail = phoneEmailFromFormatted(formattedPhone);
@@ -275,7 +280,6 @@ export function useFirebasePhoneAuth() {
     loading,
     error,
     verificationId,
-    recaptchaVerifier,
     setError,
     formatPhone,
     validatePhone,

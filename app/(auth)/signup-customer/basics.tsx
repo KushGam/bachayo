@@ -1,4 +1,3 @@
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -25,7 +24,6 @@ import {
   navigateAfterGoogleSignIn,
   phoneProfileExists,
 } from '@/lib/auth';
-import app, { isFirebaseConfigured } from '@/lib/firebase';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -61,7 +59,6 @@ export default function CustomerBasicsScreen() {
     sendOTP,
     loading: phoneLoading,
     error: phoneAuthError,
-    recaptchaVerifier,
   } = useFirebasePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -195,15 +192,6 @@ export default function CustomerBasicsScreen() {
 
   return (
     <>
-      {isFirebaseConfigured && app ? (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifier}
-          firebaseConfig={app.options}
-          attemptInvisibleVerification
-          title="Verify you're human"
-          cancelLabel="Cancel"
-        />
-      ) : null}
       <SignupStepShell
         currentStep={1}
         totalSteps={TOTAL_STEPS}

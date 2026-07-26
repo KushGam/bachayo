@@ -1,4 +1,3 @@
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,7 +29,6 @@ import {
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
-import app, { isFirebaseConfigured } from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
@@ -65,7 +63,6 @@ export default function LoginScreen() {
   const {
     sendOTP,
     loading: phoneLoading,
-    recaptchaVerifier,
     validatePhone,
   } = useFirebasePhoneAuth();
 
@@ -181,13 +178,6 @@ export default function LoginScreen() {
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
       <StatusBar style="dark" />
-      {isFirebaseConfigured && app ? (
-        <FirebaseRecaptchaVerifierModal
-          ref={recaptchaVerifier}
-          firebaseConfig={app.options}
-          attemptInvisibleVerification
-        />
-      ) : null}
 
       <AuthScreenHeader
         title="Welcome back"
