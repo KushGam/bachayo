@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
-import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
+import {
+  signInWithPhoneNumber,
+  type ConfirmationResult,
+} from 'firebase/auth';
 
 import { formatNepalPhone } from '@/lib/auth';
 import { firebaseAuth } from '@/lib/firebase';
@@ -10,14 +13,16 @@ const FIREBASE_NOT_CONFIGURED =
   'Phone auth is not configured yet. Add Firebase keys to .env.local.';
 
 /** Shared across screens so OTP verify works after navigation. */
-let sharedVerificationId: string | null = null;
+let sharedConfirmation: ConfirmationResult | null = null;
 
 export function getSharedFirebaseVerificationId() {
-  return sharedVerificationId;
+  return sharedConfirmation?.verificationId ?? null;
 }
 
-export function setSharedFirebaseVerificationId(id: string | null) {
-  sharedVerificationId = id;
+export function setSharedFirebaseVerificationId(_id: string | null) {
+  if (_id === null) {
+    sharedConfirmation = null;
+  }
 }
 
 function digitsOnly(phone: string) {
@@ -34,8 +39,8 @@ function phoneEmailFromFormatted(formattedPhone: string) {
 
 export function useFirebasePhoneAuth() {
   const [loading, setLoading] = useState(false);
-  const [verificationId, setVerificationId] = useState<string | null>(
-    sharedVerificationId,
+  const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(
+    sharedConfirmation,
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +53,7 @@ export function useFirebasePhoneAuth() {
   }, []);
 
   const sendOTP = useCallback(
-    async (phone: string, recaptchaVerifier?: unknown) => {
+    async (phone: string) => {
       setLoading(true);
       setError(null);
 
@@ -61,20 +66,15 @@ export function useFirebasePhoneAuth() {
           throw new Error('Enter a valid NTC or Ncell number');
         }
 
-        if (!recaptchaVerifier) {
-          throw new Error('reCAPTCHA verifier not ready. Please try again.');
-        }
-
         const formatted = formatPhone(phone);
-        const provider = new PhoneAuthProvider(firebaseAuth);
-        const vid = await provider.verifyPhoneNumber(
+        const confirmationResult = await signInWithPhoneNumber(
+          firebaseAuth,
           formatted,
-          // expo-firebase-recaptcha implements ApplicationVerifier
-          recaptchaVerifier as never,
+          null as never,
         );
 
-        sharedVerificationId = vid;
-        setVerificationId(vid);
+        sharedConfirmation = confirmationResult;
+        setConfirmation(confirmationResult);
         return { success: true as const };
       } catch (err: unknown) {
         const code =
@@ -86,6 +86,8 @@ export function useFirebasePhoneAuth() {
           'auth/too-many-requests': 'Too many attempts. Try again later.',
           'auth/quota-exceeded': 'SMS limit reached. Try again tomorrow.',
           'auth/captcha-check-failed': 'Verification failed. Try again.',
+          'auth/argument-error':
+            'Phone verification setup failed. Check Firebase config.',
         };
 
         const message =
@@ -114,8 +116,8 @@ export function useFirebasePhoneAuth() {
       },
       options?: { mode?: 'login' | 'signup' },
     ) => {
-      const activeVerificationId = sharedVerificationId || verificationId;
-      if (!activeVerificationId) {
+      const activeConfirmation = sharedConfirmation || confirmation;
+      if (!activeConfirmation) {
         return {
           success: false as const,
           error: 'No verification in progress. Please request a new code.',
@@ -133,11 +135,7 @@ export function useFirebasePhoneAuth() {
       setError(null);
 
       try {
-        const credential = PhoneAuthProvider.credential(
-          activeVerificationId,
-          code,
-        );
-        const result = await signInWithCredential(firebaseAuth, credential);
+        const result = await activeConfirmation.confirm(code);
         const firebaseUser = result.user;
         const formattedPhone = formatPhone(userData.phone);
         const phoneEmail = phoneEmailFromFormatted(formattedPhone);
@@ -171,8 +169,8 @@ export function useFirebasePhoneAuth() {
             .update({ firebase_uid: firebaseUser.uid } as never)
             .eq('id', existing.id);
 
-          sharedVerificationId = null;
-          setVerificationId(null);
+          sharedConfirmation = null;
+          setConfirmation(null);
 
           return {
             success: true as const,
@@ -227,8 +225,8 @@ export function useFirebasePhoneAuth() {
           if (profileError) throw profileError;
         }
 
-        sharedVerificationId = null;
-        setVerificationId(null);
+        sharedConfirmation = null;
+        setConfirmation(null);
 
         return {
           success: true as const,
@@ -259,7 +257,7 @@ export function useFirebasePhoneAuth() {
         setLoading(false);
       }
     },
-    [formatPhone, verificationId],
+    [confirmation, formatPhone],
   );
 
   return {
@@ -267,7 +265,7 @@ export function useFirebasePhoneAuth() {
     verifyOTP,
     loading,
     error,
-    verificationId,
+    confirmation,
     setError,
     formatPhone,
     validatePhone,

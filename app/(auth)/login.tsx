@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
 
 import { AuthButton } from '@/components/auth/AuthButton';
 import { AuthDivider } from '@/components/auth/AuthDivider';
@@ -30,7 +29,6 @@ import {
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
-import app from '@/lib/firebase';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
@@ -61,7 +59,6 @@ export default function LoginScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
   const goBack = useSafeBack('/(auth)/welcome');
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const {
     sendOTP,
@@ -90,7 +87,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const result = await sendOTP(phone, recaptchaVerifier.current);
+      const result = await sendOTP(phone);
       if (!result.success) {
         setSubmitError(result.error || 'Could not send verification code.');
         return;
@@ -343,11 +340,6 @@ export default function LoginScreen() {
           await supabase.auth.signOut();
           Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
         }}
-      />
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification
       />
     </Screen>
   );
