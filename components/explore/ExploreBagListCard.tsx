@@ -1,9 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronRight, MapPin, Package } from 'lucide-react-native';
+import { ChevronRight, Clock, MapPin } from 'lucide-react-native';
 
+import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { formatDistance, getDistanceColor, isTooFarToReserve } from '@/lib/distance';
+import { formatBagPickupLabel } from '@/lib/helpers';
+import { getRescueBagImageUrl } from '@/lib/images';
 import type { HomeBag } from '@/store/useBagsStore';
 
 type ExploreBagListCardProps = {
@@ -27,6 +30,11 @@ export function ExploreBagListCard({
   const tooFar = isTooFarToReserve(bag.distance_km);
   const distanceColor =
     bag.distance_km != null ? getDistanceColor(bag.distance_km) : Palette.textTertiary;
+  const pickupLabel = formatBagPickupLabel(bag.available_date, bag.pickup_start, bag.pickup_end);
+  const savingsPct =
+    bag.original_price > 0
+      ? Math.round(((bag.original_price - bag.rescue_price) / bag.original_price) * 100)
+      : 0;
 
   return (
     <Pressable
@@ -37,6 +45,19 @@ export function ExploreBagListCard({
         tooFar && styles.cardTooFar,
         pressed && styles.pressed,
       ]}>
+      <View style={styles.thumbWrap}>
+        <AppImage
+          source={{ uri: getRescueBagImageUrl(bag, 'thumb') }}
+          style={styles.thumb}
+          recyclingKey={bag.id}
+        />
+        {savingsPct > 0 ? (
+          <View style={styles.savingsChip}>
+            <Text style={styles.savingsText}>-{savingsPct}%</Text>
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.copy}>
         <Pressable onPress={onPartnerPress} hitSlop={6}>
           <Text numberOfLines={1} style={styles.partner}>
@@ -48,22 +69,29 @@ export function ExploreBagListCard({
         </Text>
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
-            <MapPin size={12} color={distanceColor} strokeWidth={2} />
+            <MapPin size={11} color={distanceColor} strokeWidth={2.4} />
             <Text style={[styles.meta, { color: distanceColor }]}>
               {bag.distance_km == null ? 'Nearby' : formatDistance(bag.distance_km)}
             </Text>
           </View>
           <Text style={styles.metaDot}>·</Text>
           <View style={styles.metaItem}>
-            <Package size={12} color={Palette.textTertiary} strokeWidth={2} />
-            <Text style={styles.meta}>{remaining} left</Text>
+            <Clock size={11} color={Palette.textTertiary} strokeWidth={2.4} />
+            <Text style={styles.meta} numberOfLines={1}>
+              {pickupLabel}
+            </Text>
           </View>
         </View>
+        <Text style={styles.stock}>{remaining} left today</Text>
       </View>
 
       <View style={styles.trailing}>
         <Text style={styles.price}>{priceLabel}</Text>
-        <ChevronRight size={16} color={Palette.textTertiary} strokeWidth={2.5} />
+        <ChevronRight
+          size={16}
+          color={selected ? Palette.primary : Palette.textTertiary}
+          strokeWidth={2.5}
+        />
       </View>
     </Pressable>
   );
@@ -73,7 +101,7 @@ const styles = StyleSheet.create({
   card: {
     ...CardChrome,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
+    padding: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
@@ -89,18 +117,46 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.92,
   },
+  thumbWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Palette.imagePlaceholder,
+    position: 'relative',
+  },
+  thumb: {
+    width: '100%',
+    height: '100%',
+  },
+  savingsChip: {
+    position: 'absolute',
+    left: 4,
+    bottom: 4,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  savingsText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Palette.white,
+  },
   copy: {
     flex: 1,
-    gap: 3,
+    gap: 2,
+    minWidth: 0,
   },
   partner: {
     ...Type.bodyMedium,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.textPrimary,
   },
   title: {
     ...Type.caption,
     color: Palette.textSecondary,
+    fontWeight: '500',
   },
   metaRow: {
     flexDirection: 'row',
@@ -112,6 +168,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    flexShrink: 1,
   },
   meta: {
     ...Type.label,
@@ -122,13 +179,20 @@ const styles = StyleSheet.create({
     ...Type.label,
     color: Palette.textTertiary,
   },
+  stock: {
+    ...Type.label,
+    color: Palette.success,
+    fontWeight: '600',
+    marginTop: 1,
+  },
   trailing: {
     alignItems: 'flex-end',
-    gap: 6,
+    gap: 8,
+    paddingRight: 2,
   },
   price: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: Palette.primaryDark,
     letterSpacing: -0.3,
   },

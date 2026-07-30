@@ -1,9 +1,25 @@
 import { useState } from 'react';
 
+import { config } from '@/constants/config';
 import { supabase } from '@/lib/supabase';
+import type { UserRole } from '@/types/database';
+
+type PhoneProfile = {
+  id: string;
+  role: string | null;
+  phone: string | null;
+};
 
 /** Shared across screens so OTP verify works after navigation. */
 let sharedPhoneForVerify: string | null = null;
+
+function cleanPhone(phone: string) {
+  return phone
+    .replace(/\s/g, '')
+    .replace(/^\+977/, '')
+    .replace(/^977/, '')
+    .replace(/^0/, '');
+}
 
 export function usePhoneAuth() {
   const [loading, setLoading] = useState(false);
@@ -12,23 +28,9 @@ export function usePhoneAuth() {
     sharedPhoneForVerify,
   );
 
-  const formatPhone = (phone: string) => {
-    const clean = phone
-      .replace(/\s/g, '')
-      .replace(/^\+977/, '')
-      .replace(/^977/, '')
-      .replace(/^0/, '');
-    return '+977' + clean;
-  };
+  const formatPhone = (phone: string) => `+977${cleanPhone(phone)}`;
 
-  const validatePhone = (phone: string) => {
-    const clean = phone
-      .replace(/\s/g, '')
-      .replace(/^\+977/, '')
-      .replace(/^977/, '')
-      .replace(/^0/, '');
-    return /^(97|98)\d{8}$/.test(clean);
-  };
+  const validatePhone = (phone: string) => /^(97|98)\d{8}$/.test(cleanPhone(phone));
 
   const sendOTP = async (phone: string) => {
     setLoading(true);
@@ -41,11 +43,17 @@ export function usePhoneAuth() {
 
       const formatted = formatPhone(phone);
 
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        phone: formatted,
+      const response = await fetch(`${config.apiUrl}/api/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formatted }),
       });
 
-      if (otpError) throw otpError;
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
 
       sharedPhoneForVerify = formatted;
       setPhoneForVerify(formatted);
@@ -65,7 +73,7 @@ export function usePhoneAuth() {
       name: string;
       phone: string;
       email?: string | null;
-      role: string;
+      role: UserRole;
     },
     options?: { mode?: 'login' | 'signup' },
   ) => {
@@ -82,22 +90,27 @@ export function usePhoneAuth() {
     setError(null);
 
     try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        phone,
-        token: code,
-        type: 'sms',
+      const response = await fetch(`${config.apiUrl}/api/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
       });
 
-      if (verifyError) throw verifyError;
+      const data = await response.json();
 
-      const user = data.user!;
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Invalid OTP');
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+
+      if (sessionError) throw sessionError;
+
       const mode = options?.mode ?? 'signup';
-
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id, role, approval_status, phone')
-        .eq('id', user.id)
-        .maybeSingle();
+      const existing = (data.profile ?? null) as PhoneProfile | null;
 
       if (existing) {
         sharedPhoneForVerify = null;
@@ -117,12 +130,16 @@ export function usePhoneAuth() {
         };
       }
 
-      const formatted = formatPhone(userData.phone);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Could not start your session');
 
       await supabase.from('profiles').upsert({
         id: user.id,
         full_name: userData.name,
-        phone: formatted,
+        phone,
         email: userData.email || null,
         role: userData.role,
         terms_accepted_at: new Date().toISOString(),
@@ -148,9 +165,16 @@ export function usePhoneAuth() {
     }
   };
 
+  const resetOtp = () => {
+    sharedPhoneForVerify = null;
+    setPhoneForVerify(null);
+    setError(null);
+  };
+
   return {
     sendOTP,
     verifyOTP,
+    resetOtp,
     loading,
     error,
     setError,

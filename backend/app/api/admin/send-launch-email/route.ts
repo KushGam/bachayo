@@ -173,7 +173,7 @@ function launchEmailHtml() {
                           lastbag.app
                         </a>
                         <p style="margin:12px 0 0;font-size:11px;color:#C4C0B8;">
-                          © 2026 LastBag · Mamata Technologies<br/>
+                          © 2026 LastBag · Mamta Technologies<br/>
                           You received this because you joined our waitlist.
                         </p>
                       </td>

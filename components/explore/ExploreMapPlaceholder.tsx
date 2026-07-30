@@ -1,16 +1,16 @@
-import { Map } from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 
-const GRID_SPACING = 60;
-const GRID_COLOR = Palette.border;
+const GRID_SPACING = 56;
 
 const FAKE_PINS = [
-  { top: '18%', left: '22%', price: '₨199' },
-  { top: '38%', right: '18%', price: '₨149' },
-  { bottom: '28%', left: '42%', price: '₨249' },
+  { top: '16%', left: '18%', price: '₨199' },
+  { top: '34%', right: '16%', price: '₨149', selected: true },
+  { bottom: '30%', left: '40%', price: '₨249' },
 ] as const;
 
 function MapGrid() {
@@ -28,9 +28,9 @@ function MapGrid() {
             left: 0,
             right: 0,
             top: index * GRID_SPACING,
-            height: 1,
-            backgroundColor: GRID_COLOR,
-            opacity: 0.55,
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: Palette.border,
+            opacity: 0.7,
           }}
         />
       ))}
@@ -42,9 +42,9 @@ function MapGrid() {
             top: 0,
             bottom: 0,
             left: index * GRID_SPACING,
-            width: 1,
-            backgroundColor: GRID_COLOR,
-            opacity: 0.55,
+            width: StyleSheet.hairlineWidth,
+            backgroundColor: Palette.border,
+            opacity: 0.7,
           }}
         />
       ))}
@@ -55,21 +55,33 @@ function MapGrid() {
 export function ExploreMapPlaceholder() {
   return (
     <View style={styles.container}>
+      <LinearGradient
+        colors={[Palette.primaryLight, Palette.surfaceMuted, '#E4E0D8']}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <MapGrid />
 
       {FAKE_PINS.map((pin, index) => (
-        <View key={index} style={[styles.fakePin, pin]}>
+        <View
+          key={index}
+          style={[
+            styles.fakePin,
+            pin,
+            'selected' in pin && pin.selected ? styles.fakePinSelected : null,
+          ]}>
           <Text style={styles.fakePinText}>{pin.price}</Text>
         </View>
       ))}
 
       <View style={styles.centerCard}>
         <View style={styles.iconWrap}>
-          <Map size={24} color={Palette.primary} strokeWidth={2} />
+          <MapPin size={22} color={Palette.primary} strokeWidth={2.2} />
         </View>
         <Text style={styles.centerTitle}>Map preview</Text>
         <Text style={styles.centerSubtitle}>
-          Full interactive map is available in the production LastBag app build.
+          Interactive map with live pins ships in the production LastBag build.
         </Text>
       </View>
     </View>
@@ -93,7 +105,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Palette.white,
     ...Platform.select({
       ios: {
@@ -106,6 +118,10 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  fakePinSelected: {
+    transform: [{ scale: 1.12 }],
+    backgroundColor: Palette.primaryDark,
+  },
   fakePinText: {
     color: Palette.white,
     fontSize: 12,
@@ -114,20 +130,24 @@ const styles = StyleSheet.create({
   centerCard: {
     ...CardChrome,
     borderRadius: Radius.lg,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
     alignItems: 'center',
     marginHorizontal: Spacing.xxl,
-    backgroundColor: Palette.surface,
+    backgroundColor: 'rgba(255,252,250,0.94)',
+    maxWidth: 280,
     ...FloatingShadow,
   },
   iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Palette.overlay.border,
   },
   centerTitle: {
     ...Type.bodyMedium,
@@ -140,6 +160,6 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Palette.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });

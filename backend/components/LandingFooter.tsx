@@ -34,7 +34,7 @@ export function LandingFooter() {
             </span>
           </div>
           <p className="text-sm text-white/40">Rescue food. Save money.</p>
-          <p className="mt-1 text-xs text-white/25">Mamata Technologies · Nepal 🇳🇵</p>
+          <p className="mt-1 text-xs text-white/25">Mamta Technologies · Nepal 🇳🇵</p>
         </div>
 
         <div className="grid grid-cols-2 gap-10 py-12 md:grid-cols-4">
@@ -112,7 +112,7 @@ export function LandingFooter() {
         </div>
 
         <div className="flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-8 md:flex-row md:items-center">
-          <p className="text-xs text-white/30">© 2026 LastBag · Mamata Technologies</p>
+          <p className="text-xs text-white/30">© 2026 LastBag · Mamta Technologies</p>
           <p className="text-xs text-white/30">Made with ❤️ in Nepal 🇳🇵</p>
         </div>
       </div>

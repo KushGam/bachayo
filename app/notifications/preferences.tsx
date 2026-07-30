@@ -11,8 +11,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RetryState } from '@/components/ui/RetryState';
-import { ListSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
 import {
   DEFAULT_NOTIFICATION_PREFS,
@@ -51,7 +49,6 @@ export default function NotificationPreferencesScreen() {
   const { isPartner } = useUserRole();
 
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -59,10 +56,7 @@ export default function NotificationPreferencesScreen() {
     setErrorText(null);
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from('profiles')
@@ -72,12 +66,10 @@ export default function NotificationPreferencesScreen() {
 
     if (error) {
       setErrorText(error.message);
-      setLoading(false);
       return;
     }
 
     setPrefs(mergeNotificationPrefs(data?.notification_prefs as Partial<NotificationPrefs> | null));
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -119,16 +111,15 @@ export default function NotificationPreferencesScreen() {
         </View>
       </View>
 
-      {loading ? (
-        <View style={styles.content}>
-          <ListSkeleton count={4} />
-        </View>
-      ) : errorText ? (
-        <View style={styles.content}>
-          <RetryState message={errorText} onRetry={() => void loadPrefs()} />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+          {errorText ? (
+            <Pressable style={styles.syncError} onPress={() => void loadPrefs()}>
+              <Text style={styles.syncErrorText}>
+                Couldn&apos;t sync preferences. Tap to retry.
+              </Text>
+            </Pressable>
+          ) : null}
+
           {isPartner ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Partner alerts</Text>
@@ -182,8 +173,7 @@ export default function NotificationPreferencesScreen() {
           )}
 
           {saving ? <Text style={styles.savingText}>Saving…</Text> : null}
-        </ScrollView>
-      )}
+      </ScrollView>
     </View>
   );
 }
@@ -269,6 +259,20 @@ const styles = StyleSheet.create({
   savingText: {
     fontSize: 13,
     color: '#6B7280',
+    textAlign: 'center',
+  },
+  syncError: {
+    borderRadius: 12,
+    backgroundColor: Palette.dangerSoft,
+    borderWidth: 1,
+    borderColor: Palette.dangerBorder,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  syncErrorText: {
+    color: Palette.dangerText,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

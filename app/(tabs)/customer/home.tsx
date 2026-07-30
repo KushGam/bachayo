@@ -896,7 +896,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   contentSheet: {
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
   sectionInset: {
     marginHorizontal: Spacing.lg,

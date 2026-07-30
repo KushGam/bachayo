@@ -3,7 +3,7 @@ import { SlidersHorizontal } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import { CardChrome, FloatingShadow, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 
 type ExploreHeaderProps = {
   searchTerm: string;
@@ -21,69 +21,72 @@ export function ExploreHeader({
   placeholder = 'Search restaurants, bakeries…',
 }: ExploreHeaderProps) {
   return (
-    <View style={styles.card}>
-      <View style={styles.searchRow}>
-        <SearchField
-          value={searchTerm}
-          onChangeText={onSearchChange}
-          placeholder={placeholder}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          containerStyle={styles.searchWrap}
+    <View style={styles.row}>
+      <SearchField
+        value={searchTerm}
+        onChangeText={onSearchChange}
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+        containerStyle={styles.searchWrap}
+        inputStyle={styles.searchInput}
+        height={44}
+      />
+      <Pressable
+        onPress={onFilterPress}
+        style={({ pressed }) => [
+          styles.filterButton,
+          filtersActive && styles.filterButtonActive,
+          pressed && styles.pressed,
+        ]}>
+        <SlidersHorizontal
+          size={18}
+          color={filtersActive ? Palette.primaryDark : Palette.primary}
+          strokeWidth={2.2}
         />
-        <Pressable
-          onPress={onFilterPress}
-          style={({ pressed }) => [
-            styles.filterButton,
-            filtersActive && styles.filterButtonActive,
-            pressed && styles.pressed,
-          ]}>
-          <SlidersHorizontal
-            size={18}
-            color={filtersActive ? Palette.primaryDark : Palette.primary}
-            strokeWidth={2.2}
-          />
-        </Pressable>
-      </View>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    ...CardChrome,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    backgroundColor: Palette.surface,
-    ...FloatingShadow,
-  },
-  searchRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
   searchWrap: {
     flex: 1,
-    backgroundColor: Palette.background,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-    height: 44,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  searchInput: {
+    fontSize: 14,
+    color: '#1A1A1A',
   },
   filterButton: {
     width: 44,
     height: 44,
-    borderRadius: Radius.md,
-    backgroundColor: Palette.primaryLight,
-    borderWidth: 1,
-    borderColor: Palette.overlay.border,
+    borderRadius: 14,
+    backgroundColor: 'white',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   filterButtonActive: {
-    backgroundColor: Palette.primaryLightAlt,
+    backgroundColor: Palette.primaryLight,
+    borderWidth: 1,
     borderColor: Palette.primaryMid,
   },
   pressed: {

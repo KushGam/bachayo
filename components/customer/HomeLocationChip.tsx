@@ -75,10 +75,10 @@ export function HomeLocationChip({
 const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
     marginBottom: 2,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: Radius.lg,
     backgroundColor: Palette.surface,
     borderWidth: 1,
@@ -93,9 +93,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.995 }],
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text } from 'react-native';
+import { Pressable, View, Text } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -39,6 +39,23 @@ const KATHMANDU_REGION: Region = {
   longitudeDelta: 0.12,
 };
 
+const MAP_STYLE = [
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+];
+
 function markerPriceLabel(paisa: number) {
   return `₨${Math.round(paisa / 100)}`;
 }
@@ -50,6 +67,7 @@ export default function ExploreMapNative() {
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
   const { latitude, longitude, maxDistanceKm, setMaxDistanceKm, requestLocation } =
     useLocationStore();
+  const mapRef = useRef<MapView>(null);
 
   const [region, setRegion] = useState<Region>(() => {
     const state = useLocationStore.getState();
@@ -216,7 +234,14 @@ export default function ExploreMapNative() {
   return (
     <View style={styles.container}>
       <View style={styles.mapArea}>
-        <MapView style={styles.map} region={region} onRegionChangeComplete={setRegion}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          region={region}
+          onRegionChangeComplete={setRegion}
+          customMapStyle={MAP_STYLE}
+          showsUserLocation
+          showsMyLocationButton={false}>
           {filteredBags.map((bag) => (
             <Marker
               key={bag.id}
@@ -225,12 +250,33 @@ export default function ExploreMapNative() {
                 longitude: bag.partner.longitude,
               }}
               onPress={() => onSelectMarker(bag)}>
-              <View style={styles.markerPin}>
-                <Text style={styles.markerPrice}>{markerPriceLabel(bag.rescue_price)}</Text>
+              <View style={styles.markerWrap}>
+                <View style={styles.markerPin}>
+                  <Text style={styles.markerPrice}>{markerPriceLabel(bag.rescue_price)}</Text>
+                </View>
+                <View style={styles.markerPointer} />
               </View>
             </Marker>
           ))}
         </MapView>
+
+        <Pressable
+          style={styles.recenterButton}
+          onPress={() => {
+            if (latitude != null && longitude != null) {
+              mapRef.current?.animateToRegion(
+                {
+                  latitude,
+                  longitude,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                },
+                600,
+              );
+            }
+          }}>
+          <Text style={styles.recenterIcon}>📍</Text>
+        </Pressable>
 
         <View style={[styles.floatingChrome, { paddingTop: insets.top + Spacing.sm }]}>
           <ExploreHeader

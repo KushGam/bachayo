@@ -209,7 +209,7 @@ function confirmationHtml(city: string | null) {
                         color:#C4C0B8;
                       ">
                         © 2026 LastBag ·
-                        Mamata Technologies
+                        Mamta Technologies
                         <br/>
                         Kathmandu, Nepal
                       </p>

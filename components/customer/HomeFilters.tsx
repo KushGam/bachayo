@@ -36,9 +36,6 @@ export function HomeFilters({
 }: HomeFiltersProps) {
   return (
     <View style={[styles.card, embedded && styles.cardEmbedded]}>
-      <Text style={styles.filterLabel}>
-        {locale === 'np' ? 'श्रेणी' : 'Category'}
-      </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -63,9 +60,6 @@ export function HomeFilters({
         })}
       </ScrollView>
 
-      <Text style={[styles.filterLabel, styles.distanceLabel]}>
-        {locale === 'np' ? 'दूरी' : 'Distance'}
-      </Text>
       <View style={styles.distanceTrack}>
         {distances.map((km) => {
           const active = maxDistanceKm === km;
@@ -99,7 +93,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    padding: Spacing.md,
+    padding: Spacing.sm,
     backgroundColor: Palette.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -108,17 +102,6 @@ const styles = StyleSheet.create({
   },
   cardEmbedded: {
     marginHorizontal: 0,
-  },
-  filterLabel: {
-    ...Type.label,
-    color: Palette.textTertiary,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginLeft: 2,
-  },
-  distanceLabel: {
-    marginTop: Spacing.xs,
   },
   categoryRow: {
     gap: Spacing.sm,

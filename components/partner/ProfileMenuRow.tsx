@@ -90,10 +90,11 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Type.bodyMedium,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   subtitle: {
     ...Type.label,
     color: Palette.textTertiary,
+    fontWeight: '500',
   },
 });

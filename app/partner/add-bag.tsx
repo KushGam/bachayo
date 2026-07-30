@@ -39,7 +39,7 @@ import {
 import { getCategoryById, getCategoryQuantityDefaults } from '@/constants/partnerCategories';
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
-import { formatRsNpr, getTodayIsoDateLocal } from '@/lib/helpers';
+import { formatRsNpr, getTodayIsoDateLocal, parsePickupDateTimeLocal } from '@/lib/helpers';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
 import { resolveBagImageUrl } from '@/lib/images';
@@ -395,6 +395,15 @@ export default function AddBagScreen() {
       return;
     }
 
+    const availableDate = getTodayIsoDateLocal();
+    const pickupEndAt = parsePickupDateTimeLocal(availableDate, values.pickup_end);
+    if (Date.now() >= pickupEndAt.getTime()) {
+      setSubmitError(
+        `This pickup window closed at ${formatDateTimeDisplay(pickupEndAt)}. Choose a later pickup end time.`,
+      );
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -428,7 +437,7 @@ export default function AddBagScreen() {
         : await supabase.from('rescue_bags').insert({
             ...bagPayload,
             partner_id: partnerId,
-            available_date: getTodayIsoDateLocal(),
+            available_date: availableDate,
           });
 
       if (error) throw error;
@@ -444,7 +453,7 @@ export default function AddBagScreen() {
         priceNpr: values.rescue_price_npr,
         pickup: `${values.pickup_start.slice(0, 5)} – ${values.pickup_end.slice(0, 5)}`,
       });
-      checkScale.value = withSpring(1, { damping: 12, stiffness: 140, duration: 300 });
+      checkScale.value = withSpring(1, { damping: 12, stiffness: 140 });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to list bag');
     } finally {

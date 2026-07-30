@@ -35,9 +35,9 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   applicationName: 'LastBag',
-  authors: [{ name: 'Mamata Technologies' }],
-  creator: 'Mamata Technologies',
-  publisher: 'Mamata Technologies',
+  authors: [{ name: 'Mamta Technologies' }],
+  creator: 'Mamta Technologies',
+  publisher: 'Mamta Technologies',
   formatDetection: {
     telephone: true,
     address: false,
@@ -90,7 +90,7 @@ const STRUCTURED_DATA = {
       '@type': 'Organization',
       '@id': 'https://lastbag.app/#organization',
       name: 'LastBag',
-      legalName: 'Mamata Technologies',
+      legalName: 'Mamta Technologies',
       url: 'https://lastbag.app',
       logo: 'https://lastbag.app/lastbag-logo.png',
       description:

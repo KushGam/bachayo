@@ -42,7 +42,9 @@ export function HomeMarketDigest({
               const Icon = icons[index] ?? ShoppingBag;
               const accent = Boolean(stat.accent) || (variant === 'impact' && index === 1);
               return (
-                <View key={`${stat.label}-${index}`} style={styles.tile}>
+                <View
+                  key={`${stat.label}-${index}`}
+                  style={[styles.tile, accent && styles.tileAccent]}>
                   <View style={[styles.iconWrap, accent && styles.iconWrapAccent]}>
                     <Icon
                       size={14}
@@ -74,12 +76,12 @@ const styles = StyleSheet.create({
   card: {
     ...CardChrome,
     marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
     borderRadius: 20,
     backgroundColor: Palette.surface,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.md,
     ...FloatingShadow,
   },
   header: {
@@ -102,12 +104,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   grid: {
-    gap: 8,
-    paddingBottom: 4,
+    gap: 10,
   },
   gridRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   tile: {
     flex: 1,
@@ -117,7 +118,11 @@ const styles = StyleSheet.create({
     borderColor: Palette.borderSubtle,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    gap: 4,
+    gap: 3,
+  },
+  tileAccent: {
+    backgroundColor: Palette.primaryLight,
+    borderColor: Palette.overlay.border,
   },
   iconWrap: {
     width: 28,
@@ -128,14 +133,14 @@ const styles = StyleSheet.create({
     borderColor: Palette.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   iconWrapAccent: {
-    backgroundColor: Palette.primaryLight,
+    backgroundColor: Palette.white,
     borderColor: Palette.overlay.border,
   },
   value: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     color: Palette.textPrimary,
     letterSpacing: -0.5,

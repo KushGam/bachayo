@@ -33,10 +33,15 @@ export type Database = {
           id: string;
           full_name: string | null;
           phone: string | null;
+          email: string | null;
           avatar_url: string | null;
           role: UserRole;
           push_token: string | null;
           created_at: string;
+          onboarding_completed: boolean | null;
+          terms_accepted_at: string | null;
+          terms_version: string | null;
+          notification_prefs: Json | null;
           privacy_settings?: {
             show_phone?: boolean;
             show_full_name?: boolean;
@@ -47,10 +52,15 @@ export type Database = {
           id: string;
           full_name?: string | null;
           phone?: string | null;
+          email?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
           push_token?: string | null;
           created_at?: string;
+          onboarding_completed?: boolean | null;
+          terms_accepted_at?: string | null;
+          terms_version?: string | null;
+          notification_prefs?: Json | null;
           privacy_settings?: {
             show_phone?: boolean;
             show_full_name?: boolean;
@@ -61,10 +71,15 @@ export type Database = {
           id?: string;
           full_name?: string | null;
           phone?: string | null;
+          email?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
           push_token?: string | null;
           created_at?: string;
+          onboarding_completed?: boolean | null;
+          terms_accepted_at?: string | null;
+          terms_version?: string | null;
+          notification_prefs?: Json | null;
           privacy_settings?: {
             show_phone?: boolean;
             show_full_name?: boolean;

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Spacing, Type } from '@/constants/theme';
 import { getInitials } from '@/lib/helpers';
 import { getOptimizedImageUrl } from '@/lib/images';
 
@@ -33,7 +33,8 @@ export function CustomerProfileHero({
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.hero, { paddingTop }]}>
-      <View style={styles.glow} pointerEvents="none" />
+      <View style={styles.glowPrimary} pointerEvents="none" />
+      <View style={styles.glowSecondary} pointerEvents="none" />
 
       <View style={styles.topRow}>
         <View>
@@ -45,7 +46,7 @@ export function CustomerProfileHero({
             onPress={onEdit}
             hitSlop={8}
             style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}>
-            <Pencil size={17} color={Palette.white} strokeWidth={2.2} />
+            <Pencil size={16} color={Palette.white} strokeWidth={2.2} />
           </Pressable>
         ) : (
           <View style={styles.editPlaceholder} />
@@ -70,9 +71,11 @@ export function CustomerProfileHero({
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.contact} numberOfLines={1}>
-          {contactLine}
-        </Text>
+        <View style={styles.contactPill}>
+          <Text style={styles.contact} numberOfLines={1}>
+            {contactLine}
+          </Text>
+        </View>
         {loadError ? <Text style={styles.loadError}>{loadError}</Text> : null}
       </View>
     </LinearGradient>
@@ -82,20 +85,29 @@ export function CustomerProfileHero({
 const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: Radius.lg + 8,
-    borderBottomRightRadius: Radius.lg + 8,
+    paddingBottom: Spacing.xl + 4,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
     alignItems: 'center',
   },
-  glow: {
+  glowPrimary: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    top: -70,
-    right: -50,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: -80,
+    right: -60,
+  },
+  glowSecondary: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -40,
+    left: -30,
   },
   topRow: {
     width: '100%',
@@ -107,79 +119,92 @@ const styles = StyleSheet.create({
   eyebrow: {
     ...Type.label,
     color: 'rgba(255,255,255,0.65)',
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: Palette.white,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
     marginTop: 2,
   },
   editBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   editPlaceholder: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
   },
   pressed: {
     opacity: 0.88,
   },
   identity: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   avatarRing: {
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
-    borderRadius: 44,
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 48,
     padding: 3,
-    marginBottom: 4,
+    marginBottom: 2,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
   },
   avatarInitials: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: Palette.white,
+    letterSpacing: -0.5,
   },
   name: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: Palette.white,
     textAlign: 'center',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+  },
+  contactPill: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    maxWidth: '92%',
   },
   contact: {
     ...Type.caption,
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
-    maxWidth: '90%',
+    fontWeight: '500',
   },
   loadError: {
     ...Type.caption,
     color: '#FECACA',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
 });

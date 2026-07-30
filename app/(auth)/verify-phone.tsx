@@ -257,9 +257,11 @@ export default function VerifyPhoneScreen() {
             ]}>
             {secondsLeft > 0
               ? `Resend code in ${secondsLeft}s`
-              : 'Resend code'}
+              : 'Resend code →'}
           </Text>
         </Pressable>
+
+        <Text style={styles.expiryHint}>Code expires in 5 minutes</Text>
       </View>
     </View>
   );
@@ -337,5 +339,11 @@ const styles = StyleSheet.create({
   resendDisabled: {
     color: Palette.textSecondary,
     fontWeight: '500',
+  },
+  expiryHint: {
+    marginTop: 8,
+    fontSize: 11,
+    color: Palette.textTertiary,
+    textAlign: 'center',
   },
 });

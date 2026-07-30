@@ -8,8 +8,12 @@ function requireEnv(name: string): string {
   return value;
 }
 
+export function supabaseUrl(): string {
+  return process.env.SUPABASE_URL || requireEnv('NEXT_PUBLIC_SUPABASE_URL');
+}
+
 export function createSupabaseAdmin() {
-  return createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+  return createClient(supabaseUrl(), requireEnv('SUPABASE_SERVICE_ROLE_KEY'), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
