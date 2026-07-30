@@ -118,8 +118,22 @@ export default function HomeLanding() {
     },
   ];
 
+  const faqStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+
   return (
     <main className="min-h-screen bg-[var(--bg)]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
+      />
       {/* HERO — one composition: brand, headline, line, CTAs, product visual */}
       <section className="grain relative flex min-h-[100svh] items-center overflow-hidden bg-[var(--ink)] pt-[72px]">
         <div

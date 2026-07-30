@@ -246,6 +246,51 @@ a {
   transform: translateY(-1px);
 }
 
+.skip-link {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 100;
+  translate: -50% -150%;
+  border-radius: 0 0 12px 12px;
+  background: var(--ink);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  transition: translate 0.2s var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  translate: -50% 0;
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .marquee-track,
+  .animate-float {
+    animation: none !important;
+  }
+}
+
 /* Admin panel */
 .admin-section-label {
   font-size: 11px;

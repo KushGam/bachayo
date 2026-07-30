@@ -22,12 +22,38 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'LastBag — Great food. Half the price.',
+  title: {
+    default: 'LastBag — Great food. Half the price.',
+    template: '%s · LastBag',
+  },
   description:
     'Rescue surplus bags from kitchens near you. Free to reserve, pay at pickup, save up to 70%. Zero commission for partners.',
   keywords:
     'food rescue, discount surplus food, LastBag, save food waste, restaurant surplus app',
-  metadataBase: new URL('https://bachayo.vercel.app'),
+  metadataBase: new URL('https://lastbag.app'),
+  alternates: {
+    canonical: '/',
+  },
+  applicationName: 'LastBag',
+  authors: [{ name: 'Mamata Technologies' }],
+  creator: 'Mamata Technologies',
+  publisher: 'Mamata Technologies',
+  formatDetection: {
+    telephone: true,
+    address: false,
+    email: false,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
   icons: {
     icon: [
       {
@@ -57,6 +83,51 @@ export const viewport: Viewport = {
   themeColor: '#D85A30',
 };
 
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://lastbag.app/#organization',
+      name: 'LastBag',
+      legalName: 'Mamata Technologies',
+      url: 'https://lastbag.app',
+      logo: 'https://lastbag.app/lastbag-logo.png',
+      description:
+        'LastBag helps people rescue surplus food from restaurants, cafés, bakeries, and marts across Nepal at up to 70% off.',
+      areaServed: { '@type': 'Country', name: 'Nepal' },
+      contactPoint: {
+        '@type': 'ContactPoint',
+        telephone: '+977-9716318840',
+        email: 'hello@lastbag.app',
+        contactType: 'customer service',
+        availableLanguage: ['English', 'Nepali'],
+      },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://lastbag.app/#website',
+      url: 'https://lastbag.app',
+      name: 'LastBag',
+      publisher: { '@id': 'https://lastbag.app/#organization' },
+      inLanguage: 'en-NP',
+    },
+    {
+      '@type': 'MobileApplication',
+      name: 'LastBag',
+      operatingSystem: 'iOS, Android',
+      applicationCategory: 'FoodAndDrinkApplication',
+      publisher: { '@id': 'https://lastbag.app/#organization' },
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'NPR',
+        description: 'Free to download and free to reserve. Pay only at pickup.',
+      },
+    },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -69,8 +140,17 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/favicon.svg" />
       </head>
       <body className="flex min-h-full flex-col bg-[var(--bg)] font-sans text-[var(--text)]">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+        />
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         <LandingNavbar />
-        <div className="flex-1">{children}</div>
+        <div id="main" className="flex-1">
+          {children}
+        </div>
         <LandingFooter />
       </body>
     </html>
