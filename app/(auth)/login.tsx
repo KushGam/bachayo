@@ -20,7 +20,7 @@ import { Screen } from '@/components/Screen';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
-import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
+import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   fetchUserRole,
@@ -64,7 +64,7 @@ export default function LoginScreen() {
     sendOTP,
     loading: phoneLoading,
     validatePhone,
-  } = useFirebasePhoneAuth();
+  } = usePhoneAuth();
 
   const emailForm = useForm({
     resolver: zodResolver(emailLoginSchema),

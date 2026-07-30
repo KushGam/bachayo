@@ -17,7 +17,7 @@ import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { Spacing } from '@/constants/theme';
-import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
+import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   emailProfileExists,
@@ -58,7 +58,7 @@ export default function PartnerBasicsScreen() {
     sendOTP,
     loading: phoneLoading,
     error: phoneAuthError,
-  } = useFirebasePhoneAuth();
+  } = usePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);

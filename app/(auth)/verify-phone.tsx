@@ -16,7 +16,7 @@ import { AuthButton } from '@/components/auth/AuthButton';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
-import { useFirebasePhoneAuth } from '@/hooks/useFirebasePhoneAuth';
+import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import { setAuthPassword } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
@@ -48,7 +48,7 @@ export default function VerifyPhoneScreen() {
     error,
     setError,
     formatPhone,
-  } = useFirebasePhoneAuth();
+  } = usePhoneAuth();
 
   const [code, setCode] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -112,17 +112,12 @@ export default function VerifyPhoneScreen() {
       setVerifying(true);
       setError(null);
 
-      const result = await verifyOTP(
-        otp,
-        {
-          name: displayName,
-          phone: phoneDigits,
-          email: displayEmail || null,
-          role,
-          termsAccepted: true,
-        },
-        { mode },
-      );
+      const result = await verifyOTP(otp, {
+        name: displayName,
+        phone: phoneDigits,
+        email: displayEmail || undefined,
+        role: pendingRole || role || 'customer',
+      }, { mode });
 
       if (!result.success) {
         setCode('');

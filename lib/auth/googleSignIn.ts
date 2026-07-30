@@ -1,15 +1,11 @@
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
-GoogleSignin.configure({
-  webClientId: '15006662352-h97ftr7kvuisj52lc8u49qgrk7928euu.apps.googleusercontent.com',
-  iosClientId: '15006662352-kt4cm0fcnsq1q3lithmps5rl68hhclpu.apps.googleusercontent.com',
-  scopes: ['email', 'profile'],
-  offlineAccess: true,
-});
+WebBrowser.maybeCompleteAuthSession();
 
 export type GoogleSignInNativeResult =
   | { success: true; user: any }
@@ -30,49 +26,93 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
   }
 
   try {
-    await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: true,
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'lastbag',
+      path: 'auth/callback',
     });
 
-    const response = await GoogleSignin.signIn();
-    const idToken = response.data?.idToken;
-
-    if (!idToken) {
-      return {
-        success: false,
-        error: new Error('No ID token received'),
-      };
-    }
-
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      token: idToken,
+      options: {
+        redirectTo: redirectUri,
+        scopes: 'openid email profile',
+        skipBrowserRedirect: true,
+      },
     });
 
-    if (error) {
-      console.error('[Google] Supabase error:', error);
-      return { success: false, error };
+    if (error || !data?.url) {
+      return {
+        success: false,
+        error: error ?? new Error('No OAuth URL'),
+      };
     }
 
-    return { success: true, user: data.user };
-  } catch (error: any) {
-    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-      return { success: false, cancelled: true };
-    }
-    if (error.code === statusCodes.IN_PROGRESS) {
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri, {
+      showInRecents: true,
+      preferEphemeralSession: false,
+    });
+
+    if (result.type !== 'success') {
       return {
         success: false,
-        error: new Error('Already signing in'),
+        cancelled: result.type === 'cancel' || result.type === 'dismiss',
       };
     }
-    if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-      Alert.alert('Google Play Services required', 'Please update Google Play Services.');
+
+    const url = result.url;
+    const hashParams = new URLSearchParams(url.split('#')[1] || '');
+    const queryString = url.split('?')[1]?.split('#')[0] || '';
+    const queryParams = new URLSearchParams(queryString);
+
+    const accessToken =
+      hashParams.get('access_token') || queryParams.get('access_token');
+    const refreshToken =
+      hashParams.get('refresh_token') || queryParams.get('refresh_token');
+
+    if (accessToken) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      });
+
+      if (sessionError || !sessionData.user) {
+        return {
+          success: false,
+          error: sessionError,
+        };
+      }
+
       return {
-        success: false,
-        error: new Error('Play Services unavailable'),
+        success: true,
+        user: sessionData.user,
       };
     }
-    console.error('[Google] Error:', error);
-    return { success: false, error };
+
+    const code = queryParams.get('code') || hashParams.get('code');
+
+    if (code) {
+      const { data: exchangeData, error: exchangeError } =
+        await supabase.auth.exchangeCodeForSession(code);
+
+      if (exchangeError || !exchangeData.user) {
+        return {
+          success: false,
+          error: exchangeError,
+        };
+      }
+
+      return {
+        success: true,
+        user: exchangeData.user,
+      };
+    }
+
+    return {
+      success: false,
+      error: new Error('No tokens in callback'),
+    };
+  } catch (err) {
+    console.error('[Google] Error:', err);
+    return { success: false, error: err };
   }
 }

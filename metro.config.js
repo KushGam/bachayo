@@ -4,11 +4,9 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Needed for some CJS packages (Firebase).
 config.resolver.sourceExts.push('cjs');
 
 // Keep package exports ON so subpath imports like `@posthog/core/surveys` work.
-// Firebase Auth RN persistence falls back in lib/firebase.ts if unavailable.
 config.resolver.unstable_enablePackageExports = true;
 
 // Explicit fallback for PostHog survey subpath (avoids "Unable to resolve" if
