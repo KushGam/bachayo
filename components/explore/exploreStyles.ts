@@ -18,9 +18,7 @@ export const exploreStyles = StyleSheet.create({
     backgroundColor: Palette.surfaceMuted,
   },
   map: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
   floatingChrome: {
     position: 'absolute',
@@ -113,7 +111,7 @@ export const exploreStyles = StyleSheet.create({
     paddingVertical: 0,
   },
   categoryChips: {
-    marginTop: 0,
+    marginTop: 8,
   },
   categoryChipsContent: {
     gap: 6,
@@ -187,6 +185,7 @@ export const exploreStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 25,
     backgroundColor: Palette.surface,
     borderTopLeftRadius: Radius.lg + 8,
     borderTopRightRadius: Radius.lg + 8,

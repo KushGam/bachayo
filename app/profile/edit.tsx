@@ -509,9 +509,7 @@ export default function EditProfileScreen() {
             <Text style={styles.fieldSubtext}>
               {isGoogleAuth
                 ? 'You sign in with Google. This email is managed by your Google account.'
-                : hasPasswordAuth
-                  ? 'To change your login email, use Change email in the Account section below.'
-                  : 'Email is linked to your sign-in method and cannot be edited here.'}
+                : 'Email is linked to your sign-in method and cannot be edited here.'}
             </Text>
           </View>
 
@@ -569,18 +567,6 @@ export default function EditProfileScreen() {
               <Text style={styles.linkAction}>Change →</Text>
             </Pressable>
           </View>
-
-          {hasPasswordAuth ? (
-            <View style={[styles.accountRow, styles.accountRowBorder]}>
-              <View style={styles.accountCopy}>
-                <Text style={styles.accountLabel}>Email</Text>
-                <Text style={styles.accountValue}>{email || 'Not set'}</Text>
-              </View>
-              <Pressable onPress={() => router.push('/(auth)/change-email')}>
-                <Text style={styles.linkAction}>Change →</Text>
-              </Pressable>
-            </View>
-          ) : null}
 
           {hasPasswordAuth ? (
             <View style={[styles.accountRow, styles.accountRowBorder]}>

@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { KeyboardAwareScrollView } from '@/components/ui/KeyboardAwareScrollView';
 import { Palette } from '@/constants/Colors';
 import { formatNepalPhone } from '@/lib/auth';
-import { confirmPhoneOtpOnly, requestPhoneOtp } from '@/lib/auth/otpClient';
+import { confirmPhoneOtpOnly, requestPhoneOtpDetailed } from '@/lib/auth/otpClient';
 import { supabase } from '@/lib/supabase';
 
 const RESEND_SECONDS = 60;
@@ -27,6 +27,7 @@ export default function ChangePhoneScreen() {
   const insets = useSafeAreaInsets();
   const [phoneDigits, setPhoneDigits] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpId, setOtpId] = useState<string | null>(null);
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -44,7 +45,7 @@ export default function ChangePhoneScreen() {
     }
 
     setLoading(true);
-    const result = await requestPhoneOtp(formatNepalPhone(phoneDigits));
+    const result = await requestPhoneOtpDetailed(formatNepalPhone(phoneDigits));
     setLoading(false);
 
     if (!result.success) {
@@ -52,6 +53,7 @@ export default function ChangePhoneScreen() {
       return;
     }
 
+    setOtpId(result.otp_id);
     setStep('otp');
     setSecondsLeft(RESEND_SECONDS);
   };
@@ -62,10 +64,15 @@ export default function ChangePhoneScreen() {
       return;
     }
 
+    if (!otpId) {
+      Alert.alert('Verification failed', 'Missing verification session. Please request a new code.');
+      return;
+    }
+
     setLoading(true);
     const formattedPhone = formatNepalPhone(phoneDigits);
 
-    const result = await confirmPhoneOtpOnly(formattedPhone, otp);
+    const result = await confirmPhoneOtpOnly(formattedPhone, otp, otpId);
     if (!result.success) {
       setLoading(false);
       Alert.alert('Verification failed', result.error);

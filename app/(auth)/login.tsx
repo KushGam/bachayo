@@ -235,6 +235,10 @@ export default function LoginScreen() {
                   placeholder="you@email.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="username"
+                  importantForAutofill="yes"
                   error={emailForm.formState.errors.email?.message}
                 />
               )}

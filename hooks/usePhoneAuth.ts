@@ -13,6 +13,7 @@ type PhoneProfile = {
 
 /** Shared across screens so OTP verify works after navigation. */
 let sharedPhoneForVerify: string | null = null;
+let sharedOtpId: string | null = null;
 
 function cleanPhone(phone: string) {
   return phone
@@ -57,6 +58,7 @@ export function usePhoneAuth() {
       }
 
       sharedPhoneForVerify = formatted;
+      sharedOtpId = typeof data.otp_id === 'string' ? data.otp_id : null;
       setPhoneForVerify(formatted);
       return { success: true as const };
     } catch (err: any) {
@@ -91,10 +93,14 @@ export function usePhoneAuth() {
     setError(null);
 
     try {
+      if (!sharedOtpId) {
+        throw new Error('Missing verification session. Please request a new code.');
+      }
+
       const response = await fetch(`${config.apiUrl}/api/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ phone, code, otp_id: sharedOtpId }),
       });
 
       const data = await response.json();
@@ -115,6 +121,7 @@ export function usePhoneAuth() {
 
       if (existing) {
         sharedPhoneForVerify = null;
+        sharedOtpId = null;
         setPhoneForVerify(null);
         return {
           success: true as const,
@@ -149,6 +156,7 @@ export function usePhoneAuth() {
       });
 
       sharedPhoneForVerify = null;
+      sharedOtpId = null;
       setPhoneForVerify(null);
 
       return {
@@ -168,6 +176,7 @@ export function usePhoneAuth() {
 
   const resetOtp = () => {
     sharedPhoneForVerify = null;
+    sharedOtpId = null;
     setPhoneForVerify(null);
     setError(null);
   };

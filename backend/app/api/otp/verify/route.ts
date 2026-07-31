@@ -13,21 +13,30 @@ const ERROR_COPY: Record<string, string> = {
   OTP_EXPIRED: 'Code expired. Request a new one.',
   MAX_ATTEMPTS_EXCEEDED: 'Too many failed attempts. Request a new code.',
   OTP_NOT_FOUND: 'Invalid verification. Please restart.',
+  NETWORK_ERROR: 'OTP service unreachable. Try again later.',
 };
 
 export async function POST(request: NextRequest) {
   let phone: unknown;
   let code: unknown;
+  let otp_id: unknown;
   let intent: unknown;
 
   try {
-    ({ phone, code, intent } = await request.json());
+    ({ phone, code, otp_id, intent } = await request.json());
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
   if (typeof phone !== 'string' || typeof code !== 'string' || !phone || !code) {
     return NextResponse.json({ error: 'Phone and code required' }, { status: 400 });
+  }
+
+  if (typeof otp_id !== 'string' || !otp_id) {
+    return NextResponse.json(
+      { error: 'Missing verification session. Please request a new code.' },
+      { status: 400 },
+    );
   }
 
   if (!isValidNepalMobile(phone)) {
@@ -38,7 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await verifyOtp(phone, code);
+    const result = await verifyOtp(otp_id, code);
 
     if (result.verified === false) {
       return NextResponse.json({ error: 'Invalid OTP code' }, { status: 400 });
@@ -47,9 +56,9 @@ export async function POST(request: NextRequest) {
     console.error('[NepalOTP] verify failed:', error);
 
     if (error instanceof NepalOtpError) {
-      if (error.code === 'MISSING_API_KEY') {
+      if (error.code === 'MISSING_API_KEY' || error.code === 'NETWORK_ERROR') {
         return NextResponse.json(
-          { error: 'Service temporarily unavailable.' },
+          { error: ERROR_COPY[error.code] || 'Service temporarily unavailable.' },
           { status: 503 },
         );
       }

@@ -258,24 +258,46 @@ export default function ExploreMapNative() {
     setSearching(true);
 
     try {
-      const results = await Location.geocodeAsync(`${query}, Nepal`);
+      const trimmed = query.trim().replace(/,?\s*nepal$/i, '');
+      const results = await Location.geocodeAsync(`${trimmed}, Nepal`);
       if (results.length > 0) {
         const { latitude: lat, longitude: lng } = results[0];
-        mapRef.current?.animateToRegion(
-          {
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
-          },
-          800,
-        );
+        const nextRegion: Region = {
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.03,
+          longitudeDelta: 0.03,
+        };
+        setRegion(nextRegion);
+        mapRef.current?.animateToRegion(nextRegion, 800);
       }
     } catch (err) {
       console.warn('Location search failed:', err);
     } finally {
       setSearching(false);
     }
+  };
+
+  const goToUserLocation = async (deltas = { latitudeDelta: 0.02, longitudeDelta: 0.02 }) => {
+    let lat = latitude;
+    let lng = longitude;
+
+    if (lat == null || lng == null) {
+      const granted = await requestLocation();
+      if (!granted) return;
+      const state = useLocationStore.getState();
+      lat = state.latitude;
+      lng = state.longitude;
+      if (lat == null || lng == null) return;
+    }
+
+    const nextRegion: Region = {
+      latitude: lat,
+      longitude: lng,
+      ...deltas,
+    };
+    setRegion(nextRegion);
+    mapRef.current?.animateToRegion(nextRegion, 600);
   };
 
   const onSelectMarker = (bag: HomeBag) => {
@@ -320,7 +342,11 @@ export default function ExploreMapNative() {
           ref={mapRef}
           style={styles.map}
           region={region}
-          onRegionChangeComplete={setRegion}
+          onRegionChangeComplete={(next) => {
+            if (next?.latitude != null && next?.longitude != null) {
+              setRegion(next);
+            }
+          }}
           showsUserLocation
           showsMyLocationButton={false}
           customMapStyle={MAP_STYLE}
@@ -331,6 +357,10 @@ export default function ExploreMapNative() {
           extent={512}
           nodeSize={64}
           minPoints={3}
+          mapRef={(map) => {
+            // Library types this as Ref<MapView>, but runtime passes the MapView instance.
+            mapRef.current = map as unknown as MapView | null;
+          }}
           renderCluster={(cluster) => {
             const { id, geometry, onPress, properties } = cluster;
             const pointCount = properties.point_count as number;
@@ -374,7 +404,8 @@ export default function ExploreMapNative() {
 
             return (
               <Marker
-                key={bag.id}
+                // Remount on selection so selected styles update with tracksViewChanges={false}
+                key={`${bag.id}-${selected ? 'sel' : 'idle'}`}
                 coordinate={{
                   latitude: bag.partner.latitude,
                   longitude: bag.partner.longitude,
@@ -393,7 +424,7 @@ export default function ExploreMapNative() {
                   <View
                     style={[styles.markerPointer, selected && styles.markerPointerSelected]}
                   />
-                  {bagsLeft <= 3 ? (
+                  {bagsLeft > 0 && bagsLeft <= 3 ? (
                     <View style={styles.markerBadge}>
                       <Text style={styles.markerBadgeText}>{bagsLeft} left!</Text>
                     </View>
@@ -410,39 +441,15 @@ export default function ExploreMapNative() {
           })}
         </ClusteredMapView>
 
-        <Pressable
-          style={styles.nearMeButton}
-          onPress={() => {
-            if (latitude != null && longitude != null) {
-              mapRef.current?.animateToRegion(
-                {
-                  latitude,
-                  longitude,
-                  latitudeDelta: 0.02,
-                  longitudeDelta: 0.02,
-                },
-                600,
-              );
-            }
-          }}>
+        <Pressable style={styles.nearMeButton} onPress={() => void goToUserLocation()}>
           <Text style={styles.recenterIcon}>📍</Text>
         </Pressable>
 
         <Pressable
           style={styles.recenterButton}
-          onPress={() => {
-            if (latitude != null && longitude != null) {
-              mapRef.current?.animateToRegion(
-                {
-                  latitude,
-                  longitude,
-                  latitudeDelta: 0.05,
-                  longitudeDelta: 0.05,
-                },
-                600,
-              );
-            }
-          }}>
+          onPress={() =>
+            void goToUserLocation({ latitudeDelta: 0.05, longitudeDelta: 0.05 })
+          }>
           <Text style={styles.recenterIcon}>◎</Text>
         </Pressable>
 

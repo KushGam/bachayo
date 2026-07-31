@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       phone: toE164NepalPhone(phone),
-      otp_id: result.otp_id ?? null,
+      otp_id: result.otp_id,
     });
   } catch (error) {
     console.error('[NepalOTP] send failed:', error);
@@ -45,13 +45,25 @@ export async function POST(request: NextRequest) {
           { status: 429 },
         );
       }
-      if (error.code === 'INSUFFICIENT_BALANCE' || error.code === 'MISSING_API_KEY') {
+      if (
+        error.code === 'INSUFFICIENT_BALANCE' ||
+        error.code === 'MISSING_API_KEY' ||
+        error.code === 'NETWORK_ERROR'
+      ) {
         return NextResponse.json(
-          { error: 'Service temporarily unavailable.' },
+          {
+            error:
+              error.code === 'NETWORK_ERROR'
+                ? 'OTP service unreachable. Try again later or contact support.'
+                : 'Service temporarily unavailable.',
+          },
           { status: 503 },
         );
       }
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status >= 400 && error.status < 600 ? error.status : 500 },
+      );
     }
 
     return NextResponse.json({ error: 'Failed to send OTP' }, { status: 500 });
