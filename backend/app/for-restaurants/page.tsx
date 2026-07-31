@@ -195,10 +195,10 @@ export default function ForRestaurantsPage() {
             {[
               {
                 tier: 'Small',
-                price: 'NPR 800',
+                price: 'NPR 1,000',
                 active: false,
                 features: [
-                  'List daily rescue bags',
+                  'Up to 5 bag listings / day',
                   'Customer pickup confirmations',
                   'Basic review visibility',
                   'Email support',
@@ -207,10 +207,10 @@ export default function ForRestaurantsPage() {
               },
               {
                 tier: 'Medium',
-                price: 'NPR 1,800',
+                price: 'NPR 1,500',
                 active: true,
                 features: [
-                  'Everything in Small',
+                  'Up to 15 bag listings / day',
                   'Priority listing visibility',
                   'Expanded weekly reporting',
                   'Faster support responses',
@@ -222,10 +222,10 @@ export default function ForRestaurantsPage() {
                 price: 'NPR 3,500',
                 active: false,
                 features: [
-                  'Everything in Medium',
-                  'Multi-day listing options',
+                  'Unlimited bag listings',
+                  'Multi-branch support',
                   'Advanced performance tracking',
-                  'Community promotions',
+                  'Featured placement',
                   'Dedicated partner onboarding',
                 ],
               },

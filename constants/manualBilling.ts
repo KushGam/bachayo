@@ -19,28 +19,18 @@ export const PLAN_FEATURES: Record<
 > = {
   small: {
     title: 'Small Plan',
-    features: [
-      'Up to 5 bags per day',
-      'Basic order management',
-      'Customer QR pickup',
-      'Email support',
-    ],
+    features: ['Up to 5 bag listings / day', 'QR pickup', 'Email support'],
   },
   medium: {
     title: 'Medium Plan',
     popular: true,
-    features: [
-      'Unlimited bags per day',
-      'Full order management',
-      'Sales analytics',
-      'Priority support + chat',
-    ],
+    features: ['Up to 15 bag listings / day', 'Analytics', 'Priority support'],
   },
   large: {
     title: 'Large Plan',
     features: [
-      'Everything in Medium',
-      'Multi-branch support',
+      'Unlimited bag listings',
+      'Multi-branch',
       'Featured placement',
       'Dedicated support',
     ],

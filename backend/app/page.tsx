@@ -665,23 +665,23 @@ export default function HomeLanding() {
               {[
                 {
                   tier: 'Small',
-                  price: 'NPR 800',
+                  price: 'NPR 1,000',
                   desc: 'Café, dhaba, home bakery',
-                  features: ['Up to 5 bags / day', 'QR pickup', 'Email support'],
+                  features: ['Up to 5 listings / day', 'QR pickup', 'Email support'],
                   popular: false,
                 },
                 {
                   tier: 'Medium',
-                  price: 'NPR 1,800',
+                  price: 'NPR 1,500',
                   desc: 'Restaurant, bakery, café',
-                  features: ['Unlimited bags', 'Analytics', 'Priority support'],
+                  features: ['Up to 15 listings / day', 'Analytics', 'Priority support'],
                   popular: true,
                 },
                 {
                   tier: 'Large',
                   price: 'NPR 3,500',
                   desc: 'Hotel, mart, multi-branch',
-                  features: ['Multi-branch', 'Featured placement', 'Dedicated support'],
+                  features: ['Unlimited listings', 'Featured placement', 'Dedicated support'],
                   popular: false,
                 },
               ].map((plan) => (

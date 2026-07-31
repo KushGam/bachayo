@@ -27,6 +27,7 @@ import {
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { customerBasicsSchema, type CustomerBasicsValues } from '@/lib/validation/signup';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -380,6 +381,7 @@ export default function CustomerBasicsScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
+          await clearPushTokenForCurrentUser();
           await supabase.auth.signOut();
           Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');
         }}

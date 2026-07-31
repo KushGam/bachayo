@@ -30,6 +30,7 @@ import { BagPreviewCard } from '@/components/partner/BagPreviewCard';
 import { ConfettiBurst } from '@/components/partner/ConfettiBurst';
 import { Button } from '@/components/ui/Button';
 import { ListSkeleton } from '@/components/ui/Skeleton';
+import { canAddListing, coercePlanId, getMaxListings, type PlanId } from '@/constants/plans';
 import {
   CATEGORY_BAG_CONFIG,
   MART_BAG_TYPES,
@@ -185,6 +186,10 @@ export default function AddBagScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [serviceType, setServiceType] = useState<'takeaway' | 'dinein' | 'both'>('both');
   const [dineInExtraCharge, setDineInExtraCharge] = useState('0');
+  const [limitReached, setLimitReached] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<PlanId>('small');
+  const [maxAllowed, setMaxAllowed] = useState<number | null>(5);
+  const [checkingLimit, setCheckingLimit] = useState(true);
 
   const config = CATEGORY_BAG_CONFIG[partnerCategory] ?? CATEGORY_BAG_CONFIG.restaurant;
   const quantityDefaults = getCategoryQuantityDefaults(partnerCategory);
@@ -247,12 +252,13 @@ export default function AddBagScreen() {
       const userId = sessionData.session?.user?.id;
       if (!userId) {
         setLoadingPartner(false);
+        setCheckingLimit(false);
         return;
       }
 
       const { data } = await supabase
         .from('partners')
-        .select('id, name, cover_image_url, category')
+        .select('id, name, cover_image_url, category, subscription_tier')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -262,6 +268,11 @@ export default function AddBagScreen() {
         setPartnerCover(data.cover_image_url);
         const cat = (data.category ?? 'restaurant') as PartnerCategory;
         setPartnerCategory(cat);
+        const planId = coercePlanId(
+          (data as { subscription_tier?: string | null }).subscription_tier,
+        );
+        setCurrentPlan(planId);
+        setMaxAllowed(getMaxListings(planId));
         const qtyDefaults = getCategoryQuantityDefaults(cat);
         setValue('quantity_available', qtyDefaults.default);
         setValue('max_per_customer', Math.min(3, qtyDefaults.default));
@@ -308,6 +319,38 @@ export default function AddBagScreen() {
     if (prefill.service_type) setServiceType(prefill.service_type);
     setDineInExtraCharge(String(Math.round((prefill.dinein_extra_charge ?? 0) / 100)));
   }, [loadingPartner, setValue]);
+
+  useEffect(() => {
+    if (!partnerId || loadingPartner) return;
+
+    if (editingBagId) {
+      setLimitReached(false);
+      setCheckingLimit(false);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      setCheckingLimit(true);
+      const today = getTodayIsoDateLocal();
+      const { count } = await supabase
+        .from('rescue_bags')
+        .select('*', { count: 'exact', head: true })
+        .eq('partner_id', partnerId)
+        .eq('available_date', today);
+
+      if (cancelled) return;
+
+      const todayCount = count ?? 0;
+      setMaxAllowed(getMaxListings(currentPlan));
+      setLimitReached(!canAddListing(currentPlan, todayCount));
+      setCheckingLimit(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [partnerId, loadingPartner, editingBagId, currentPlan]);
 
   const applyPickupPreset = (start: string, end: string, label?: string) => {
     setPickupStartDate(timeFromString(start));
@@ -402,6 +445,20 @@ export default function AddBagScreen() {
         `This pickup window closed at ${formatDateTimeDisplay(pickupEndAt)}. Choose a later pickup end time.`,
       );
       return;
+    }
+
+    if (!editingBagId) {
+      const today = getTodayIsoDateLocal();
+      const { count } = await supabase
+        .from('rescue_bags')
+        .select('*', { count: 'exact', head: true })
+        .eq('partner_id', partnerId)
+        .eq('available_date', today);
+      if (!canAddListing(currentPlan, count ?? 0)) {
+        setLimitReached(true);
+        setMaxAllowed(getMaxListings(currentPlan));
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -538,11 +595,42 @@ export default function AddBagScreen() {
     );
   }
 
-  if (loadingPartner) {
+  if (loadingPartner || checkingLimit) {
     return (
       <View style={styles.screen}>
         <StatusBar style="dark" />
         <ListSkeleton count={2} />
+      </View>
+    );
+  }
+
+  if (limitReached && !editingBagId) {
+    const planLabel = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+    return (
+      <View style={[styles.screen, styles.limitScreen, { paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
+        <Pressable onPress={() => router.back()} style={styles.limitBack} hitSlop={8}>
+          <ChevronLeft size={22} color="#1A1A1A" strokeWidth={2.4} />
+        </Pressable>
+        <Text style={styles.limitEmoji}>🛍</Text>
+        <Text style={styles.limitTitle}>Daily listing limit reached</Text>
+        <Text style={styles.limitBody}>
+          You&apos;ve used all {maxAllowed} bag listings for today on the {planLabel} plan. Upgrade
+          your plan to list more bags.
+        </Text>
+        <View style={styles.limitBadge}>
+          <Text style={styles.limitBadgeText}>
+            Current plan: {planLabel} plan ({maxAllowed} listings/day)
+          </Text>
+        </View>
+        <Pressable
+          style={styles.limitUpgradeBtn}
+          onPress={() => router.push('/(tabs)/partner/subscription')}>
+          <Text style={styles.limitUpgradeText}>Upgrade plan →</Text>
+        </Pressable>
+        <Pressable style={styles.limitTomorrowBtn} onPress={() => router.back()}>
+          <Text style={styles.limitTomorrowText}>Come back tomorrow</Text>
+        </Pressable>
       </View>
     );
   }
@@ -1857,4 +1945,72 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   outlineBtnText: { fontSize: 15, fontWeight: '700', color: Palette.white },
+  limitScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#F5F3EF',
+  },
+  limitBack: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  limitEmoji: {
+    fontSize: 48,
+  },
+  limitTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  limitBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 22,
+  },
+  limitBadge: {
+    backgroundColor: '#F5F3EF',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  limitBadgeText: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  limitUpgradeBtn: {
+    marginTop: 20,
+    backgroundColor: '#D85A30',
+    borderRadius: 999,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+  },
+  limitUpgradeText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  limitTomorrowBtn: {
+    marginTop: 12,
+  },
+  limitTomorrowText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+  },
 });

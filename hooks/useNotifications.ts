@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { getRouteFromNotificationData, setupPushNotifications, type NotificationData } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ function isExpoGo() {
 
 export function useNotificationObserver() {
   const router = useRouter();
+  const lastHandledId = useRef<string | null>(null);
 
   useEffect(() => {
     if (isExpoGo()) {
@@ -19,6 +20,13 @@ export function useNotificationObserver() {
     }
 
     const handleResponse = (response: Notifications.NotificationResponse) => {
+      // getLastNotificationResponseAsync replays the tap that cold-started the
+      // app, and the listener fires for that same tap — without this guard the
+      // user gets navigated twice and lands on a duplicated back stack.
+      const id = response.notification.request.identifier;
+      if (lastHandledId.current === id) return;
+      lastHandledId.current = id;
+
       const data = response.notification.request.content.data as NotificationData;
       const route = getRouteFromNotificationData(data);
       if (route) {

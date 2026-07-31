@@ -15,7 +15,7 @@ export function ManualPaymentForm({
 }) {
   const [partnerId, setPartnerId] = useState(partners[0]?.id ?? '');
   const [tier, setTier] = useState<'small' | 'medium' | 'large'>('small');
-  const [amount, setAmount] = useState(String(tierPrices.small ?? 800));
+  const [amount, setAmount] = useState(String(tierPrices.small ?? 1000));
   const [method, setMethod] = useState('esewa');
   const [ref, setRef] = useState('');
   const [months, setMonths] = useState('1');
@@ -31,12 +31,12 @@ export function ManualPaymentForm({
     const nextTier = (p?.subscription_tier ?? 'small') as 'small' | 'medium' | 'large';
     setPartnerId(id);
     setTier(nextTier);
-    setAmount(String(tierPrices[nextTier] ?? 800));
+    setAmount(String(tierPrices[nextTier] ?? 1000));
   }
 
   function applyTier(next: 'small' | 'medium' | 'large') {
     setTier(next);
-    setAmount(String(tierPrices[next] ?? 800));
+    setAmount(String(tierPrices[next] ?? 1000));
   }
 
   return (

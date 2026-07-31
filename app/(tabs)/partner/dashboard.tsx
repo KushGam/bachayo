@@ -27,6 +27,7 @@ import { SubscriptionBanner } from '@/components/partner/SubscriptionBanner';
 import { RetryState } from '@/components/ui/RetryState';
 import { OrderCardSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
+import { coercePlanId, getMaxListings } from '@/constants/plans';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -561,6 +562,15 @@ export default function PartnerDashboardScreen() {
 
       {partner && showOverlapBanner ? <SubscriptionBanner partner={partner} placement="overlap" /> : null}
 
+      {partner ? (
+        <ListingUsageRow
+          todayCount={todayStats.bagsListed}
+          planId={coercePlanId(
+            (partner as Partner & PartnerSubscriptionFields).subscription_tier,
+          )}
+        />
+      ) : null}
+
       {partner && !isPartnerLocationVerified(partner as PartnerLocationFields) ? (
         <View style={styles.locationPrompt}>
           <Text style={styles.locationPromptEmoji}>📍</Text>
@@ -724,6 +734,42 @@ export default function PartnerDashboardScreen() {
           </Pressable>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function ListingUsageRow({
+  todayCount,
+  planId,
+}: {
+  todayCount: number;
+  planId: ReturnType<typeof coercePlanId>;
+}) {
+  const maxAllowed = getMaxListings(planId);
+  const atLimit = maxAllowed != null && todayCount >= maxAllowed;
+  const progressPct =
+    maxAllowed && maxAllowed > 0 ? Math.min((todayCount / maxAllowed) * 100, 100) : 0;
+
+  return (
+    <View style={styles.listingUsageRow}>
+      <Text style={styles.listingUsageLabel}>Today&apos;s listings</Text>
+      <View style={styles.listingUsageRight}>
+        <Text style={[styles.listingUsageCount, atLimit && styles.listingUsageCountLimit]}>
+          {todayCount}
+        </Text>
+        <Text style={styles.listingUsageMax}>/ {maxAllowed ?? '∞'}</Text>
+        <View style={styles.listingUsageTrack}>
+          <View
+            style={[
+              styles.listingUsageFill,
+              {
+                width: `${maxAllowed ? progressPct : 0}%`,
+                backgroundColor: atLimit ? '#DC2626' : '#D85A30',
+              },
+            ]}
+          />
+        </View>
+      </View>
     </View>
   );
 }
@@ -892,5 +938,51 @@ const styles = StyleSheet.create({
     color: Palette.white,
     ...Type.bodyMedium,
     fontWeight: '700',
+  },
+  listingUsageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDE8',
+  },
+  listingUsageLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  listingUsageRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  listingUsageCount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  listingUsageCountLimit: {
+    color: '#DC2626',
+  },
+  listingUsageMax: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  listingUsageTrack: {
+    width: 60,
+    height: 4,
+    backgroundColor: '#F0EDE8',
+    borderRadius: 2,
+    marginLeft: 4,
+    overflow: 'hidden',
+  },
+  listingUsageFill: {
+    height: 4,
+    borderRadius: 2,
   },
 });

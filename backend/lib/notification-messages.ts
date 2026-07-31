@@ -120,44 +120,9 @@ export function customerReviewRequest(input: {
   };
 }
 
-export function customerCancellationConfirmed(input: {
-  orderId: string;
-  bagId: string;
-  bagTitle: string;
-}): NotificationPayload {
-  return {
-    title: 'Reservation cancelled',
-    body: `Your ${input.bagTitle} reservation has been cancelled. The slot is now free for others.`,
-    type: 'cancellation',
-    data: {
-      order_id: input.orderId,
-      bag_id: input.bagId,
-      orderId: input.orderId,
-      bagId: input.bagId,
-      type: 'cancellation',
-    },
-  };
-}
-
-export function partnerCancellation(input: {
-  orderId: string;
-  bagId: string;
-  customerName: string;
-  bagTitle: string;
-}): NotificationPayload {
-  return {
-    title: 'Reservation cancelled',
-    body: `${input.customerName} cancelled their ${input.bagTitle} reservation. Slot is now free.`,
-    type: 'cancellation',
-    data: {
-      order_id: input.orderId,
-      bag_id: input.bagId,
-      orderId: input.orderId,
-      bagId: input.bagId,
-      type: 'partner_dashboard',
-    },
-  };
-}
+// Cancellation notifications for both sides are sent from the app in
+// lib/orders.ts, at the moment the cancellation succeeds. Duplicating the copy
+// here only creates two places to edit it.
 
 export function partnerBagSoldOut(input: {
   bagId: string;
@@ -225,6 +190,24 @@ export function customerNewBagNearby(input: {
   return {
     title: 'New rescue bag nearby! 🛍',
     body: `${input.partnerName} just listed a bag for ₨${input.priceNpr}. Pickup ${window} — grab it before it's gone!`,
+    type: 'new_bag',
+    data: {
+      bag_id: input.bagId,
+      partner_id: input.partnerId,
+      bagId: input.bagId,
+      type: 'new_bag',
+    },
+  };
+}
+
+export function customerBagAlmostGone(input: {
+  bagId: string;
+  partnerId: string;
+  partnerName: string;
+}): NotificationPayload {
+  return {
+    title: 'Almost gone! ⚡',
+    body: `Only 1 bag left at ${input.partnerName}. Grab it before someone else does!`,
     type: 'new_bag',
     data: {
       bag_id: input.bagId,

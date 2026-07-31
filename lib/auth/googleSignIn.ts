@@ -47,9 +47,12 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
       };
     }
 
+    // Keeps the flow inside the app: ASWebAuthenticationSession on iOS,
+    // Chrome Custom Tabs on Android — never a hand-off to Safari/Chrome.
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri, {
-      showInRecents: true,
+      showInRecents: false,
       preferEphemeralSession: false,
+      createTask: false,
     });
 
     if (result.type !== 'success') {

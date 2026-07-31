@@ -1,3 +1,6 @@
+import type { SubscriptionStatus, SubscriptionTier } from '@/constants/subscriptions';
+import type { PartnerApprovalStatus } from '@/lib/partnerApproval';
+
 export type Json =
   | string
   | number
@@ -5,6 +8,8 @@ export type Json =
   | null
   | { [key: string]: Json | undefined }
   | Json[];
+
+export type MessageSenderRole = 'customer' | 'partner';
 
 export type UserRole = 'customer' | 'partner' | 'admin';
 
@@ -105,6 +110,21 @@ export type Database = {
           rating: number;
           total_reviews: number;
           created_at: string;
+          city_id: string | null;
+          area_id: string | null;
+          website: string | null;
+          location_verified: boolean | null;
+          approval_status: PartnerApprovalStatus | null;
+          subscription_tier: SubscriptionTier | null;
+          subscription_status: SubscriptionStatus | null;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          avg_daily_meals: number | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          payment_method_on_file: boolean | null;
+          payment_method_type: string | null;
+          payment_method_mask: string | null;
         };
         Insert: {
           id?: string;
@@ -122,6 +142,21 @@ export type Database = {
           rating?: number;
           total_reviews?: number;
           created_at?: string;
+          city_id?: string | null;
+          area_id?: string | null;
+          website?: string | null;
+          location_verified?: boolean | null;
+          approval_status?: PartnerApprovalStatus | null;
+          subscription_tier?: SubscriptionTier | null;
+          subscription_status?: SubscriptionStatus | null;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          avg_daily_meals?: number | null;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          payment_method_on_file?: boolean | null;
+          payment_method_type?: string | null;
+          payment_method_mask?: string | null;
         };
         Update: {
           id?: string;
@@ -139,6 +174,21 @@ export type Database = {
           rating?: number;
           total_reviews?: number;
           created_at?: string;
+          city_id?: string | null;
+          area_id?: string | null;
+          website?: string | null;
+          location_verified?: boolean | null;
+          approval_status?: PartnerApprovalStatus | null;
+          subscription_tier?: SubscriptionTier | null;
+          subscription_status?: SubscriptionStatus | null;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          avg_daily_meals?: number | null;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          payment_method_on_file?: boolean | null;
+          payment_method_type?: string | null;
+          payment_method_mask?: string | null;
         };
         Relationships: [
           {
@@ -404,6 +454,160 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          title: string;
+          body: string;
+          type: string;
+          data: Json | null;
+          is_read: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          title: string;
+          body: string;
+          type: string;
+          data?: Json | null;
+          is_read?: boolean | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          title?: string;
+          body?: string;
+          type?: string;
+          data?: Json | null;
+          is_read?: boolean | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      order_messages: {
+        Row: {
+          id: string;
+          order_id: string | null;
+          sender_id: string | null;
+          sender_role: MessageSenderRole | null;
+          message: string;
+          is_read: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id?: string | null;
+          sender_id?: string | null;
+          sender_role?: MessageSenderRole | null;
+          message: string;
+          is_read?: boolean | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string | null;
+          sender_id?: string | null;
+          sender_role?: MessageSenderRole | null;
+          message?: string;
+          is_read?: boolean | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'order_messages_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_messages_sender_id_fkey';
+            columns: ['sender_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      subscription_payments: {
+        Row: {
+          id: string;
+          partner_id: string | null;
+          tier: SubscriptionTier;
+          amount: number;
+          status: string;
+          payment_method: string | null;
+          payment_ref: string | null;
+          period_start: string | null;
+          period_end: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id?: string | null;
+          tier: SubscriptionTier;
+          amount: number;
+          status: string;
+          payment_method?: string | null;
+          payment_ref?: string | null;
+          period_start?: string | null;
+          period_end?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string | null;
+          tier?: SubscriptionTier;
+          amount?: number;
+          status?: string;
+          payment_method?: string | null;
+          payment_ref?: string | null;
+          period_start?: string | null;
+          period_end?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'subscription_payments_partner_id_fkey';
+            columns: ['partner_id'];
+            isOneToOne: false;
+            referencedRelation: 'partners';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      subscription_tier_pricing: {
+        Row: {
+          tier: SubscriptionTier;
+          monthly_price_npr: number;
+          max_bags_per_month: number | null;
+          label: string;
+        };
+        Insert: {
+          tier: SubscriptionTier;
+          monthly_price_npr: number;
+          max_bags_per_month?: number | null;
+          label: string;
+        };
+        Update: {
+          tier?: SubscriptionTier;
+          monthly_price_npr?: number;
+          max_bags_per_month?: number | null;
+          label?: string;
+        };
+        Relationships: [];
       };
     };
     Views: {

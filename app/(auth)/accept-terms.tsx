@@ -17,6 +17,7 @@ import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
 import { fetchUserRole } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { hasAcceptedTerms, recordTermsAcceptance } from '@/lib/terms';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -96,6 +97,7 @@ export default function AcceptTermsScreen() {
           style: 'destructive',
           onPress: () => {
             void (async () => {
+              await clearPushTokenForCurrentUser();
               await supabase.auth.signOut();
               setAuthRole(null);
               router.replace('/(auth)/welcome');

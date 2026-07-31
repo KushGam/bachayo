@@ -4,6 +4,7 @@ import {
   isTooFarToReserve,
   MAX_RESERVE_DISTANCE_KM,
 } from '@/lib/distance';
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 import { useBagsStore } from '@/store/useBagsStore';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -145,18 +146,16 @@ export async function notifyPartnerReservation(input: {
   const pickup = formatPickupWindow(input.pickupStart, input.pickupEnd);
   const qtyLabel = input.quantity === 1 ? '' : `${input.quantity}× `;
 
-  await supabase.functions.invoke('send-notification', {
-    body: {
-      user_id: input.partnerUserId,
-      title: 'New reservation! 🎉',
-      body: `${input.customerName} reserved ${qtyLabel}${input.bagTitle}. Pickup ${pickup} · Pay at counter`,
-      type: 'reservation',
-      data: {
-        bag_id: input.bagId,
-        partner_id: input.partnerId,
-        bagId: input.bagId,
-        type: 'partner_dashboard',
-      },
+  await sendNotification({
+    userId: input.partnerUserId,
+    title: 'New reservation! 🎉',
+    body: `${input.customerName} reserved ${qtyLabel}${input.bagTitle}. Pickup ${pickup} · Pay at counter`,
+    type: 'reservation',
+    data: {
+      bag_id: input.bagId,
+      partner_id: input.partnerId,
+      bagId: input.bagId,
+      type: 'partner_dashboard',
     },
   });
 }

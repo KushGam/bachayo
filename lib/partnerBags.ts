@@ -1,6 +1,7 @@
 import { formatRsPaisa, getTodayIsoDateLocal, parsePickupDateTimeLocal } from '@/lib/helpers';
 import { isConfirmedOrderStatus, isReservedOrderStatus } from '@/lib/orderStatus';
 import { reconcileMissedOrders } from '@/lib/orders';
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 import type { Order, Profile } from '@/types/database';
 
@@ -580,20 +581,18 @@ export async function cancelBagWithCustomerNotification(input: {
     for (const order of rows) {
       if (!order.customer_id) continue;
       try {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            user_id: order.customer_id,
-            title,
-            body,
+        await sendNotification({
+          userId: order.customer_id,
+          title,
+          body,
+          type: 'bag_cancelled',
+          data: {
+            order_id: order.id,
+            bag_id: bagId,
+            orderId: order.id,
+            bagId,
             type: 'bag_cancelled',
-            data: {
-              order_id: order.id,
-              bag_id: bagId,
-              orderId: order.id,
-              bagId,
-              type: 'bag_cancelled',
-              reason,
-            },
+            reason,
           },
         });
         notifiedCount += 1;

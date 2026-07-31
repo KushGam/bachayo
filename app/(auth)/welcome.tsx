@@ -16,6 +16,7 @@ import { Border, Spacing, Type } from '@/constants/theme';
 import { fetchUserRole, navigateAfterGoogleSignIn } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -128,6 +129,7 @@ export default function WelcomeScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
+          await clearPushTokenForCurrentUser();
           await supabase.auth.signOut();
           Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
         }}

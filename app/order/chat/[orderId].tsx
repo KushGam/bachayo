@@ -28,6 +28,7 @@ import {
 } from '@/lib/orderMessages';
 import { formatNprPaisa, formatTime12h, getInitials } from '@/lib/helpers';
 import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 
 type ChatOrder = {
@@ -200,16 +201,16 @@ export default function OrderChatScreen() {
       const receiverUserId =
         isPartner || !order ? order?.customer_id : order.partner.user_id;
       if (receiverUserId) {
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            user_id: receiverUserId,
-            title: isPartner
+        await sendNotification({
+          userId: receiverUserId,
+          title:
+            (isPartner
               ? order?.partner.name
-              : getDisplayName(order?.customer ?? { full_name: null }) || order?.partner.name,
-            body: text.slice(0, 100),
-            type: 'order_message',
-            data: { order_id: orderId },
-          },
+              : getDisplayName(order?.customer ?? { full_name: null }) || order?.partner.name) ??
+            'New message',
+          body: text.slice(0, 100),
+          type: 'order_message',
+          data: { order_id: orderId, orderId, type: 'order_message' },
         });
       }
     } catch {

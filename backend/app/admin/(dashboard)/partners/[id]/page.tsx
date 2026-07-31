@@ -71,7 +71,7 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
 
   const revenue = (fulfilledOrders ?? []).reduce((sum, o) => sum + (o.total_price ?? 0), 0) / 100;
   const tier = partner.subscription_tier ?? 'small';
-  const tierPrice = TIER_PRICES_NPR[tier] ?? 800;
+  const tierPrice = TIER_PRICES_NPR[tier] ?? 1000;
   const status = partner.subscription_status ?? 'trial';
   const approvalStatus = (partner as { approval_status?: string }).approval_status ?? 'approved';
   const rejectionReason = (partner as { rejection_reason?: string | null }).rejection_reason;

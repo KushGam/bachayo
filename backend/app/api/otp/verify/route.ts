@@ -18,9 +18,10 @@ const ERROR_COPY: Record<string, string> = {
 export async function POST(request: NextRequest) {
   let phone: unknown;
   let code: unknown;
+  let intent: unknown;
 
   try {
-    ({ phone, code } = await request.json());
+    ({ phone, code, intent } = await request.json());
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
@@ -57,6 +58,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Verification failed' }, { status: 400 });
+  }
+
+  // "Change my number" only needs proof the code was correct — the caller
+  // already has a session and must not be swapped onto a different one.
+  if (intent === 'verify_only') {
+    return NextResponse.json({ success: true });
   }
 
   try {

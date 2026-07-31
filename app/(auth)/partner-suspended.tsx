@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing } from '@/constants/theme';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -62,6 +63,7 @@ export default function PartnerSuspendedScreen() {
   }, [router]);
 
   const signOut = useCallback(async () => {
+    await clearPushTokenForCurrentUser();
     await supabase.auth.signOut();
     setAuthRole(null);
     router.replace('/(auth)/welcome');

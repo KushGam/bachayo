@@ -54,7 +54,7 @@ export async function markPartnerPaid(partnerId: string) {
     .single();
 
   const tier = (partner?.subscription_tier ?? 'small') as keyof typeof TIER_PRICES_NPR;
-  const amount = TIER_PRICES_NPR[tier] ?? 800;
+  const amount = TIER_PRICES_NPR[tier] ?? 1000;
   const now = new Date();
   const periodEnd = new Date(now);
   periodEnd.setMonth(periodEnd.getMonth() + 1);

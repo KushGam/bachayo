@@ -38,6 +38,51 @@ function isExpoGo() {
 
 let missingProjectIdLogged = false;
 
+/**
+ * Android groups notifications by channel and lets users mute each one
+ * independently, so a customer can silence "new bags" marketing without losing
+ * the pickup reminder for a bag they already paid for.
+ *
+ * Importance is fixed at creation time — Android ignores changes to an existing
+ * channel, so renaming a channel id is the only way to alter these later.
+ */
+export async function ensureAndroidChannels() {
+  if (Platform.OS !== 'android') return;
+
+  await Notifications.setNotificationChannelAsync('orders', {
+    name: 'Orders & Reservations',
+    description: 'New reservations and order updates',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: Palette.primary,
+    sound: 'default',
+  });
+
+  await Notifications.setNotificationChannelAsync('bags', {
+    name: 'New Rescue Bags',
+    description: 'New bags from restaurants near you',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250],
+    lightColor: Palette.primary,
+    sound: 'default',
+  });
+
+  await Notifications.setNotificationChannelAsync('reminders', {
+    name: 'Pickup Reminders',
+    description: 'Reminders to pick up your bag',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250],
+    lightColor: Palette.primary,
+  });
+
+  await Notifications.setNotificationChannelAsync('system', {
+    name: 'Account & Subscription',
+    description: 'Account updates and subscription alerts',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    lightColor: Palette.primary,
+  });
+}
+
 export async function registerForPushNotificationsAsync() {
   if (!Device.isDevice) {
     return null;
@@ -57,15 +102,6 @@ export async function registerForPushNotificationsAsync() {
       );
     }
     return null;
-  }
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: Palette.primary,
-    });
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -96,11 +132,48 @@ export async function savePushToken(pushToken: string) {
   const userId = sessionData.session?.user?.id;
   if (!userId) return;
 
-  await supabase.from('profiles').update({ push_token: pushToken }).eq('id', userId);
+  const { error } = await supabase
+    .from('profiles')
+    .update({ push_token: pushToken })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[Push] Failed to save token:', error.message);
+  }
+}
+
+export async function clearPushToken(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ push_token: null })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('[Push] Failed to clear token:', error.message);
+  }
+}
+
+/**
+ * Detach this device's push token from the signed-in account.
+ * Must run before supabase.auth.signOut() — afterwards RLS blocks the update
+ * and the next person to use this device keeps receiving the old user's pushes.
+ */
+export async function clearPushTokenForCurrentUser(): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await clearPushToken(user.id);
+    }
+  } catch (err) {
+    console.error('[Push] Failed to clear token:', err);
+  }
 }
 
 export async function setupPushNotifications() {
   ensureNotificationHandler();
+  await ensureAndroidChannels();
   const token = await registerForPushNotificationsAsync();
   if (token) {
     await savePushToken(token);
@@ -114,8 +187,35 @@ export type NotificationData = {
   order_id?: string;
   bagId?: string;
   bag_id?: string;
+  partner_id?: string;
   review_id?: string;
+  [key: string]: unknown;
 };
+
+export type AndroidChannelId = 'orders' | 'bags' | 'reminders' | 'system';
+
+/**
+ * Kept in sync with backend/lib/notification-channels.ts, which stamps the
+ * channel onto outgoing pushes. Unlisted types fall back to `system`.
+ */
+export const ANDROID_CHANNEL_BY_TYPE: Record<string, AndroidChannelId> = {
+  reservation: 'orders',
+  bag_cancelled: 'orders',
+  cancellation: 'orders',
+  order_message: 'orders',
+  pickup_confirmed: 'orders',
+  new_bag: 'bags',
+  bag_expiring: 'bags',
+  pickup_reminder: 'reminders',
+  subscription: 'system',
+  review_request: 'system',
+  review_reply: 'system',
+  system: 'system',
+};
+
+export function getAndroidChannelId(type: string | undefined): AndroidChannelId {
+  return (type && ANDROID_CHANNEL_BY_TYPE[type]) || 'system';
+}
 
 export function getRouteFromNotificationData(data: NotificationData) {
   const orderId = data.orderId ?? data.order_id;
@@ -131,7 +231,7 @@ export function getRouteFromNotificationData(data: NotificationData) {
   if (type === 'pickup_confirmed' && orderId) {
     return '/(tabs)/customer/my-bags' as const;
   }
-  if (type === 'cancellation') {
+  if (type === 'cancellation' || type === 'bag_cancelled') {
     return '/(tabs)/customer/my-bags' as const;
   }
   if ((type === 'pickup_reminder' || type === 'order') && orderId) {
@@ -160,6 +260,11 @@ export function getRouteFromNotificationData(data: NotificationData) {
   }
   if (type === 'bag' && bagId) {
     return `/bag/${bagId}` as const;
+  }
+  // Anything without a dedicated screen (announcements, generic system notices)
+  // still needs somewhere to land — a tap that does nothing reads as a bug.
+  if (type) {
+    return '/notifications' as const;
   }
   return null;
 }

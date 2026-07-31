@@ -228,20 +228,6 @@ export async function navigateAfterPasswordSignIn(
   return { ok: true as const };
 }
 
-export async function sendPhoneOtp(phoneDigits: string) {
-  return supabase.auth.signInWithOtp({
-    phone: formatNepalPhone(phoneDigits),
-  });
-}
-
-export async function verifyPhoneOtp(phoneDigits: string, token: string) {
-  return supabase.auth.verifyOtp({
-    phone: formatNepalPhone(phoneDigits),
-    token,
-    type: 'sms',
-  });
-}
-
 export async function upsertProfile(
   userId: string,
   phoneDigits: string,

@@ -22,6 +22,7 @@ import { Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { friendlyAuthError } from '@/lib/auth/authErrors';
 import {
   fetchUserRole,
   navigateAfterGoogleSignIn,
@@ -31,6 +32,7 @@ import {
 } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { passwordField, phoneSchema } from '@/lib/validation/auth';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -110,11 +112,7 @@ export default function LoginScreen() {
     try {
       const { data, error } = await signInWithEmail(values.email, values.password);
       if (error || !data.user) {
-        setSubmitError(
-          error?.message?.toLowerCase().includes('invalid login credentials')
-            ? 'Incorrect email or password.'
-            : error?.message || t(locale, 'authError'),
-        );
+        setSubmitError(friendlyAuthError(error, t(locale, 'authError')));
         return;
       }
       const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
@@ -134,8 +132,8 @@ export default function LoginScreen() {
       if (error || !data.user) {
         setSubmitError(
           error?.message?.toLowerCase().includes('invalid login credentials')
-            ? 'Incorrect phone or password.'
-            : error?.message || t(locale, 'authError'),
+            ? 'Wrong phone number or password. Please try again.'
+            : friendlyAuthError(error, t(locale, 'authError')),
         );
         return;
       }
@@ -337,6 +335,7 @@ export default function LoginScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
+          await clearPushTokenForCurrentUser();
           await supabase.auth.signOut();
           Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
         }}

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -15,6 +16,7 @@ export default function PartnerDeletedScreen() {
 
   useEffect(() => {
     void (async () => {
+      await clearPushTokenForCurrentUser();
       await supabase.auth.signOut();
       setAuthRole(null);
       router.replace('/(auth)/welcome?accountRemoved=1');

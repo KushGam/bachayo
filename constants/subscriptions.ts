@@ -20,14 +20,14 @@ export const TIER_SIGNUP_OPTIONS: {
     tier: 'small',
     title: 'Small',
     mealsLabel: 'Under 50 meals/day',
-    priceLabel: 'NPR 800/mo',
+    priceLabel: 'NPR 1,000/mo',
     avgDailyMeals: 25,
   },
   {
     tier: 'medium',
     title: 'Medium',
     mealsLabel: '50–200 meals/day',
-    priceLabel: 'NPR 1,800/mo',
+    priceLabel: 'NPR 1,500/mo',
     avgDailyMeals: 125,
   },
   {
@@ -43,11 +43,15 @@ export const DEFAULT_TIER_PRICING: Record<
   SubscriptionTier,
   { monthlyPriceNpr: number; maxBagsPerMonth: number | null; label: string }
 > = {
-  small: { monthlyPriceNpr: 800, maxBagsPerMonth: 300, label: 'Small — cafe, bakery, home kitchen' },
-  medium: {
-    monthlyPriceNpr: 1800,
+  small: {
+    monthlyPriceNpr: 1000,
     maxBagsPerMonth: null,
-    label: 'Medium — restaurant, bakery, cafe chain',
+    label: 'Small — café, dhaba, home bakery',
+  },
+  medium: {
+    monthlyPriceNpr: 1500,
+    maxBagsPerMonth: null,
+    label: 'Medium — restaurant, bakery, café',
   },
   large: {
     monthlyPriceNpr: 3500,

@@ -1,6 +1,6 @@
 export const TIER_PRICES_NPR: Record<string, number> = {
-  small: 800,
-  medium: 1800,
+  small: 1000,
+  medium: 1500,
   large: 3500,
 };
 

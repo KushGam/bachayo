@@ -67,6 +67,7 @@ import {
 } from '@/lib/partnerProfile';
 import { getStatusLabel } from '@/lib/subscriptions';
 import { resolvePartnerCoverUrl } from '@/lib/images';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore, type Locale } from '@/store/useAuthStore';
 import { usePartnerStore } from '@/store/usePartnerStore';
@@ -274,11 +275,13 @@ export default function PartnerProfileScreen() {
         style: 'destructive',
         onPress: () => {
           void hapticWarning();
-          void supabase.auth.signOut().then(() => {
+          void (async () => {
+            await clearPushTokenForCurrentUser();
+            await supabase.auth.signOut();
             clearPartner();
             reset();
             router.replace('/(auth)/welcome');
-          });
+          })();
         },
       },
     ]);

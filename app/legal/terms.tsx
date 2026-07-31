@@ -55,8 +55,8 @@ LastBag may remove Partners who repeatedly fail to honour reservations or receiv
 
       <LegalSection title="5. Subscription (Partners only)">
         {`Partners access LastBag through a monthly subscription:
-• Small: NPR 800/month
-• Medium: NPR 1,800/month
+• Small: NPR 1,000/month
+• Medium: NPR 1,500/month
 • Large: NPR 3,500/month
 
 A 30-day free trial is provided on signup. After the trial, listings are paused until a subscription is active. Subscriptions renew monthly. Cancellation takes effect at the end of the current period.`}

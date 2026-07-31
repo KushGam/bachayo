@@ -1,7 +1,9 @@
-import type { PaymentGateway } from '@/constants/payments';
 import type { SubscriptionTier } from '@/constants/subscriptions';
 import { addOneMonth, getTierPricing } from '@/lib/subscriptions';
 import { supabase } from '@/lib/supabase';
+
+/** Payment gateways are disabled for v1 (cash on pickup), so this stays local. */
+export type SubscriptionPaymentMethod = 'esewa' | 'khalti' | 'cash';
 
 export async function fetchTierPricing() {
   const { data, error } = await supabase.from('subscription_tier_pricing').select('*');
@@ -42,7 +44,7 @@ export async function activatePartnerSubscription({
 }: {
   partnerId: string;
   tier: SubscriptionTier;
-  paymentMethod: PaymentGateway;
+  paymentMethod: SubscriptionPaymentMethod;
   paymentMask: string;
   paymentRef: string;
   amountNpr: number;

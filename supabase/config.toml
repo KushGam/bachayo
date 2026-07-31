@@ -1,26 +1,7 @@
-[functions.payment-initiate]
-verify_jwt = true
-
-[functions.payment-verify]
-verify_jwt = true
-
-[functions.payment-esewa-submit]
-verify_jwt = false
-
-[functions.send-notification]
-verify_jwt = true
-
-[functions.webhook-order-insert]
-verify_jwt = false
-
-[functions.webhook-bag-stock]
-verify_jwt = false
-
-[functions.cron-expiring-bags]
-verify_jwt = false
-
-[functions.cron-missed-orders]
-verify_jwt = false
-
-[functions.cron-process-scheduled]
-verify_jwt = false
+# No Edge Functions are deployed for LastBag.
+#
+# All server-side logic (notifications, webhooks, cron) lives in Next.js API
+# routes under backend/app/api/. See supabase/functions/README.md.
+#
+# The payment-* functions were removed along with the in-app payment feature —
+# v1 partners pay manually and an admin marks the invoice paid.

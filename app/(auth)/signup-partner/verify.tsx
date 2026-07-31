@@ -9,6 +9,7 @@ import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { signUpWithEmail } from '@/lib/auth';
+import { friendlyAuthError } from '@/lib/auth/authErrors';
 import { hapticSuccess } from '@/lib/haptics';
 import { createPartnerAccount } from '@/lib/signupProfile';
 import { markTermsAcceptedLocally } from '@/lib/terms';
@@ -64,7 +65,7 @@ export default function PartnerVerifyScreen() {
       } else {
         const { data, error } = await signUpWithEmail(partner.email, signupPassword);
         if (error || !data.user) {
-          setSubmitError(error?.message ?? 'Could not create your account.');
+          setSubmitError(friendlyAuthError(error, 'Could not create your account.'));
           setLoading(false);
           return;
         }

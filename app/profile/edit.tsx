@@ -26,6 +26,7 @@ import { FOOD_PREFERENCE_OPTIONS } from '@/constants/foodPreferences';
 import { Palette } from '@/constants/Colors';
 import { getInitials } from '@/lib/helpers';
 import { getProfileAvatarUrl } from '@/lib/images';
+import { clearPushToken } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { uploadAvatar } from '@/lib/upload';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -397,6 +398,9 @@ export default function EditProfileScreen() {
     if (!userId || deleteConfirmText !== 'DELETE') return;
     setDeleting(true);
     try {
+      // Clear first: if RLS silently blocks the delete, the row survives and
+      // would otherwise keep pushing to whoever next uses this device.
+      await clearPushToken(userId);
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
       if (error) throw error;
       await supabase.auth.signOut();

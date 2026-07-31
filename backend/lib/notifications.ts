@@ -1,11 +1,20 @@
-import axios from 'axios';
-
-import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import { sendExpoPush } from '@/lib/expo-push';
+import { getAndroidChannelId } from '@/lib/notification-channels';
+import { shouldSendNotification } from '@/lib/notification-prefs';
+import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
 export type DeliverNotificationOptions = {
   type?: string;
   data?: Record<string, unknown>;
+  /** Bypass the user's notification preferences. Use only for account-critical alerts. */
+  force?: boolean;
+};
+
+export type DeliverNotificationResult = {
+  success: boolean;
+  error?: string;
+  skipped?: boolean;
+  reason?: string;
 };
 
 async function saveInboxNotification(
@@ -34,11 +43,18 @@ export async function deliverNotification(
   title: string,
   body: string,
   options?: DeliverNotificationOptions,
-) {
+): Promise<DeliverNotificationResult> {
   const supabase = createSupabaseAdmin();
   const notificationType = options?.type ?? 'system';
   const notificationData = options?.data ?? null;
   const pushData = notificationData ?? { type: notificationType };
+
+  if (!options?.force) {
+    const allowed = await shouldSendNotification(userId, notificationType);
+    if (!allowed) {
+      return { success: true, skipped: true, reason: 'User preference' };
+    }
+  }
 
   const { data: profile, error } = await supabase
     .from('profiles')
@@ -59,6 +75,7 @@ export async function deliverNotification(
         body,
         sound: 'default',
         data: pushData,
+        channelId: getAndroidChannelId(notificationType),
       },
     ]);
     pushSent = true;
@@ -80,64 +97,28 @@ export async function deliverNotification(
   return { success: true };
 }
 
-export function verifyInternalSecret(headerValue: string | null) {
-  const expected = process.env.INTERNAL_SECRET;
-  if (!expected) {
-    throw new Error('INTERNAL_SECRET is not configured');
-  }
-  if (headerValue !== expected) {
-    throw new Error('Unauthorized');
-  }
-}
-
-function getBaseUrl() {
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
-  }
-  return 'http://localhost:3000';
-}
-
+/**
+ * Kept as a thin alias so existing call sites read the same. It used to POST to
+ * /api/send-notification over the network, which cost a round trip and needed
+ * INTERNAL_SECRET set just to talk to ourselves.
+ */
 export async function callSendNotification(
   userId: string,
   title: string,
   body: string,
   options?: DeliverNotificationOptions,
-) {
-  const baseUrl = getBaseUrl();
-  const secret = process.env.INTERNAL_SECRET;
-  if (!secret) {
-    throw new Error('INTERNAL_SECRET is not configured');
-  }
-
-  const { data: responseData } = await axios.post(
-    `${baseUrl}/api/send-notification`,
-    {
-      user_id: userId,
-      title,
-      body,
-      type: options?.type,
-      data: options?.data,
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-secret': secret,
-      },
-    },
-  );
-
-  return responseData as { success: boolean; error?: string };
+): Promise<DeliverNotificationResult> {
+  return deliverNotification(userId, title, body, options);
 }
 
 export async function sendNotificationPayload(
   userId: string,
   payload: { title: string; body: string; type: string; data: Record<string, unknown> },
-) {
-  return callSendNotification(userId, payload.title, payload.body, {
+  options?: { force?: boolean },
+): Promise<DeliverNotificationResult> {
+  return deliverNotification(userId, payload.title, payload.body, {
     type: payload.type,
     data: payload.data,
+    force: options?.force,
   });
 }

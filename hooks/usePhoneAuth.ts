@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { config } from '@/constants/config';
+import { friendlyAuthError } from '@/lib/auth/authErrors';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
@@ -59,7 +60,7 @@ export function usePhoneAuth() {
       setPhoneForVerify(formatted);
       return { success: true as const };
     } catch (err: any) {
-      const message = err.message || 'Failed to send OTP';
+      const message = friendlyAuthError(err, 'Failed to send OTP');
       setError(message);
       return { success: false as const, error: message };
     } finally {
@@ -157,7 +158,7 @@ export function usePhoneAuth() {
         role: userData.role,
       };
     } catch (err: any) {
-      const message = err.message || 'Verification failed';
+      const message = friendlyAuthError(err, 'Verification failed');
       setError(message);
       return { success: false as const, error: message };
     } finally {

@@ -1,3 +1,4 @@
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 import {
   CANCELLATION_BLOCKED_MESSAGE,
@@ -334,23 +335,17 @@ export async function notifyCustomerPickupConfirmed(
   const restaurant = partnerName ?? 'the restaurant';
   const bagTitle = order.bag?.title ?? 'your rescue bag';
 
-  try {
-    await supabase.functions.invoke('send-notification', {
-      body: {
-        user_id: order.customer_id,
-        title: 'Pickup confirmed! 🎉',
-        body: `Enjoy ${bagTitle} from ${restaurant}! Leave a review to help others.`,
-        type: 'pickup_confirmed',
-        data: {
-          order_id: order.id,
-          orderId: order.id,
-          type: 'pickup_confirmed',
-        },
-      },
-    });
-  } catch (notifyError) {
-    console.warn('[notifyCustomerPickupConfirmed] failed:', notifyError);
-  }
+  await sendNotification({
+    userId: order.customer_id,
+    title: 'Pickup confirmed! 🎉',
+    body: `Enjoy ${bagTitle} from ${restaurant}! Leave a review to help others.`,
+    type: 'pickup_confirmed',
+    data: {
+      order_id: order.id,
+      orderId: order.id,
+      type: 'pickup_confirmed',
+    },
+  });
 }
 
 type PickupNotifyOrder = {
@@ -487,47 +482,35 @@ export async function cancelReservation(orderId: string, reason?: string | null)
     .maybeSingle();
 
   if (order.partner.user_id) {
-    try {
-      const customerName = order.customer_name?.trim() || 'A customer';
-      await supabase.functions.invoke('send-notification', {
-        body: {
-          user_id: order.partner.user_id,
-          title: 'Customer cancelled',
-          body: `${customerName} cancelled their ${bag.title} reservation. Slot is now free.`,
-          type: 'cancellation',
-          data: {
-            order_id: orderId,
-            bag_id: order.bag_id,
-            orderId,
-            bagId: order.bag_id,
-            type: 'partner_dashboard',
-          },
-        },
-      });
-    } catch (notifyError) {
-      console.warn('[cancelReservation] partner notification failed:', notifyError);
-    }
-  }
-
-  try {
-    await supabase.functions.invoke('send-notification', {
-      body: {
-        user_id: order.customer_id,
-        title: 'Reservation cancelled',
-        body: `Your ${bag.title} reservation has been cancelled. The slot is now free for others.`,
-        type: 'cancellation',
-        data: {
-          order_id: orderId,
-          bag_id: order.bag_id,
-          orderId,
-          bagId: order.bag_id,
-          type: 'cancellation',
-        },
+    const customerName = order.customer_name?.trim() || 'A customer';
+    await sendNotification({
+      userId: order.partner.user_id,
+      title: 'Customer cancelled',
+      body: `${customerName} cancelled their ${bag.title} reservation. Slot is now free.`,
+      type: 'cancellation',
+      data: {
+        order_id: orderId,
+        bag_id: order.bag_id,
+        orderId,
+        bagId: order.bag_id,
+        type: 'partner_dashboard',
       },
     });
-  } catch (notifyError) {
-    console.warn('[cancelReservation] customer notification failed:', notifyError);
   }
+
+  await sendNotification({
+    userId: order.customer_id,
+    title: 'Reservation cancelled',
+    body: `Your ${bag.title} reservation has been cancelled. The slot is now free for others.`,
+    type: 'cancellation',
+    data: {
+      order_id: orderId,
+      bag_id: order.bag_id,
+      orderId,
+      bagId: order.bag_id,
+      type: 'cancellation',
+    },
+  });
 
   return {
     error: null,
@@ -672,26 +655,20 @@ export async function reduceReservationQuantity(
       };
 
   if (order.partner.user_id) {
-    try {
-      const customerName = order.customer_name?.trim() || 'A customer';
-      await supabase.functions.invoke('send-notification', {
-        body: {
-          user_id: order.partner.user_id,
-          title: 'Customer reduced quantity',
-          body: `${customerName} cancelled ${cancelledQty} of ${order.quantity} on ${order.bag.title}. Slot(s) freed.`,
-          type: 'cancellation',
-          data: {
-            order_id: orderId,
-            bag_id: order.bag_id,
-            orderId,
-            bagId: order.bag_id,
-            type: 'partner_dashboard',
-          },
-        },
-      });
-    } catch (notifyError) {
-      console.warn('[reduceReservationQuantity] partner notification failed:', notifyError);
-    }
+    const customerName = order.customer_name?.trim() || 'A customer';
+    await sendNotification({
+      userId: order.partner.user_id,
+      title: 'Customer reduced quantity',
+      body: `${customerName} cancelled ${cancelledQty} of ${order.quantity} on ${order.bag.title}. Slot(s) freed.`,
+      type: 'cancellation',
+      data: {
+        order_id: orderId,
+        bag_id: order.bag_id,
+        orderId,
+        bagId: order.bag_id,
+        type: 'partner_dashboard',
+      },
+    });
   }
 
   const updated = updatedRow as unknown as CustomerOrderWithDetails & {

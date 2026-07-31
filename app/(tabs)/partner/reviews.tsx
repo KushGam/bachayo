@@ -23,6 +23,7 @@ import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
 import { fetchPartnerReviews } from '@/lib/orders';
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 
 export default function PartnerReviewsScreen() {
@@ -141,20 +142,17 @@ export default function PartnerReviewsScreen() {
     setDraftReplies((prev) => ({ ...prev, [review.id]: '' }));
 
     if (review.customer_id) {
-      await supabase.functions
-        .invoke('send-notification', {
-          body: {
-            user_id: review.customer_id,
-            title: `${partnerName} replied to your review`,
-            body: `${trimmed.slice(0, 80)}${trimmed.length > 80 ? '...' : ''}`,
-            type: 'review_reply',
-            data: {
-              review_id: review.id,
-              partner_id: review.partner_id,
-            },
-          },
-        })
-        .catch(console.error);
+      await sendNotification({
+        userId: review.customer_id,
+        title: `${partnerName} replied to your review`,
+        body: `${trimmed.slice(0, 80)}${trimmed.length > 80 ? '...' : ''}`,
+        type: 'review_reply',
+        data: {
+          review_id: review.id,
+          partner_id: review.partner_id,
+          type: 'review_reply',
+        },
+      });
     }
   };
 

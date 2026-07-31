@@ -1,49 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getNepalNow, timeToMinutes, verifyCronRequest } from '@/lib/cron-auth';
 import { partnerBagExpiring } from '@/lib/notification-messages';
 import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
-
-function verifyCronRequest(request: NextRequest) {
-  if (request.headers.get('x-vercel-cron') === '1') {
-    return;
-  }
-
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = request.headers.get('authorization');
-    if (auth === `Bearer ${cronSecret}`) {
-      return;
-    }
-  }
-
-  throw new Error('Unauthorized cron');
-}
-
-function getNepalNow() {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kathmandu',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(new Date());
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '0';
-
-  return {
-    today: `${get('year')}-${get('month')}-${get('day')}`,
-    nowMinutes: Number(get('hour')) * 60 + Number(get('minute')),
-  };
-}
-
-function timeToMinutes(time: string) {
-  const [h, m] = time.split(':').map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,7 +31,8 @@ export async function GET(request: NextRequest) {
 
       const endMinutes = timeToMinutes(bag.pickup_end);
       const diff = endMinutes - nowMinutes;
-      if (diff < 0 || diff > 60) continue;
+      // Half-open window so the hourly cron matches each bag exactly once.
+      if (diff <= 0 || diff > 60) continue;
 
       const { data: partner } = await supabase
         .from('partners')

@@ -46,6 +46,7 @@ import { fetchCustomerImpactStats } from '@/lib/customerStats';
 import { formatRsPaisa } from '@/lib/helpers';
 import { getProfileAvatarUrl } from '@/lib/images';
 import { hapticWarning } from '@/lib/haptics';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore, type Locale } from '@/store/useAuthStore';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -248,10 +249,12 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: () => {
           void hapticWarning();
-          void supabase.auth.signOut().then(() => {
+          void (async () => {
+            await clearPushTokenForCurrentUser();
+            await supabase.auth.signOut();
             reset();
             router.replace('/(auth)/welcome');
-          });
+          })();
         },
       },
     ]);

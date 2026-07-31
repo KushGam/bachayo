@@ -16,7 +16,8 @@ import { PhoneInput } from '@/components/auth/PhoneInput';
 import { Button } from '@/components/ui/Button';
 import { KeyboardAwareScrollView } from '@/components/ui/KeyboardAwareScrollView';
 import { Palette } from '@/constants/Colors';
-import { formatNepalPhone, sendPhoneOtp, verifyPhoneOtp } from '@/lib/auth';
+import { formatNepalPhone } from '@/lib/auth';
+import { confirmPhoneOtpOnly, requestPhoneOtp } from '@/lib/auth/otpClient';
 import { supabase } from '@/lib/supabase';
 
 const RESEND_SECONDS = 60;
@@ -43,11 +44,11 @@ export default function ChangePhoneScreen() {
     }
 
     setLoading(true);
-    const { error } = await sendPhoneOtp(phoneDigits);
+    const result = await requestPhoneOtp(formatNepalPhone(phoneDigits));
     setLoading(false);
 
-    if (error) {
-      Alert.alert('Could not send OTP', error.message);
+    if (!result.success) {
+      Alert.alert('Could not send OTP', result.error);
       return;
     }
 
@@ -62,21 +63,26 @@ export default function ChangePhoneScreen() {
     }
 
     setLoading(true);
-    const { data, error } = await verifyPhoneOtp(phoneDigits, otp);
-    if (error) {
+    const formattedPhone = formatNepalPhone(phoneDigits);
+
+    const result = await confirmPhoneOtpOnly(formattedPhone, otp);
+    if (!result.success) {
       setLoading(false);
-      Alert.alert('Verification failed', error.message);
+      Alert.alert('Verification failed', result.error);
       return;
     }
 
-    const userId = data.user?.id;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     if (!userId) {
       setLoading(false);
       Alert.alert('Error', 'Could not verify your session.');
       return;
     }
 
-    const formattedPhone = formatNepalPhone(phoneDigits);
     const { error: profileError } = await supabase
       .from('profiles')
       .update({ phone: formattedPhone, updated_at: new Date().toISOString() } as never)

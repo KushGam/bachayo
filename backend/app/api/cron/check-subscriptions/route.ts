@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { callSendNotification, sendNotificationPayload } from '@/lib/notifications';
+import { sendNotificationPayload } from '@/lib/notifications';
 import {
   customerReviewRequest,
+  partnerSubscriptionReminder,
   partnerTrialEnding,
 } from '@/lib/notification-messages';
+import { verifyCronRequest } from '@/lib/cron-auth';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
-
-function verifyCronRequest(request: NextRequest) {
-  if (request.headers.get('x-vercel-cron') === '1') {
-    return;
-  }
-
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && request.headers.get('authorization') === `Bearer ${cronSecret}`) {
-    return;
-  }
-
-  throw new Error('Unauthorized cron');
-}
 
 function getSiteUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
@@ -83,14 +72,13 @@ export async function GET(request: NextRequest) {
         // Only ping once when roughly 7 days remain (same window as old trial warning)
         if (daysLeft < 6 || daysLeft > 7) continue;
 
-        await callSendNotification(
+        await sendNotificationPayload(
           partner.user_id,
-          `⚠️ Subscription expires in ${daysLeft} days`,
-          `Renew your ${partner.subscription_tier} plan to keep your bags live on LastBag.`,
-          {
-            type: 'subscription',
-            data: { partner_id: partner.id, type: 'subscription' },
-          },
+          partnerSubscriptionReminder({
+            partnerId: partner.id,
+            title: `⚠️ Subscription expires in ${daysLeft} days`,
+            body: `Renew your ${partner.subscription_tier} plan to keep your bags live on LastBag.`,
+          }),
         );
         summary.expiringReminders += 1;
       } catch (err) {
@@ -124,14 +112,16 @@ export async function GET(request: NextRequest) {
           .eq('status', 'active');
 
         if (partner.user_id) {
-          await callSendNotification(
+          // Force: their listings just went dark. This is account state, not a
+          // reminder they can opt out of.
+          await sendNotificationPayload(
             partner.user_id,
-            '🚫 Subscription expired',
-            'Your LastBag listings are now hidden. Renew to go live again.',
-            {
-              type: 'subscription',
-              data: { partner_id: partner.id, type: 'subscription' },
-            },
+            partnerSubscriptionReminder({
+              partnerId: partner.id,
+              title: '🚫 Subscription expired',
+              body: 'Your LastBag listings are now hidden. Renew to go live again.',
+            }),
+            { force: true },
           );
         }
 
@@ -178,14 +168,14 @@ export async function GET(request: NextRequest) {
           .eq('status', 'active');
 
         if (partner.user_id) {
-          await callSendNotification(
+          await sendNotificationPayload(
             partner.user_id,
-            'Trial ended',
-            'Your free trial ended — renew on the billing screen to keep your bags visible',
-            {
-              type: 'subscription',
-              data: { partner_id: partner.id, type: 'subscription' },
-            },
+            partnerSubscriptionReminder({
+              partnerId: partner.id,
+              title: 'Trial ended',
+              body: 'Your free trial ended — renew on the billing screen to keep your bags visible',
+            }),
+            { force: true },
           );
         }
         summary.trialPastDue += 1;

@@ -107,8 +107,8 @@ export default function TermsOfServicePage() {
         <Section title="5. Subscription (Partners only)">
           <p>Partners access LastBag through a monthly subscription:</p>
           <ul className="list-disc space-y-2 pl-5">
-            <li>Small: NPR 800/month</li>
-            <li>Medium: NPR 1,800/month</li>
+            <li>Small: NPR 1,000/month</li>
+            <li>Medium: NPR 1,500/month</li>
             <li>Large: NPR 3,500/month</li>
           </ul>
           <p>

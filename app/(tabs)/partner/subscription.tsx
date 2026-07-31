@@ -11,9 +11,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MANUAL_BILLING, PLAN_FEATURES } from '@/constants/manualBilling';
-import type { SubscriptionStatus, SubscriptionTier } from '@/constants/subscriptions';
-import { DEFAULT_TIER_PRICING } from '@/constants/subscriptions';
+import { MANUAL_BILLING } from '@/constants/manualBilling';
+import {
+  PLANS,
+  coercePlanId,
+  getDiscountedPrice,
+  getPlan,
+  getPlanPrice,
+  type PlanId,
+} from '@/constants/plans';
+import type { SubscriptionStatus } from '@/constants/subscriptions';
 import { Palette } from '@/constants/Colors';
 import { openExternalUrl, openWhatsAppChat } from '@/lib/helpers';
 import { fetchSubscriptionPayments } from '@/lib/subscriptionBilling';
@@ -46,29 +53,22 @@ type PaymentRow = {
 
 type DurationMonths = 1 | 3 | 12;
 
-const TIERS: SubscriptionTier[] = ['small', 'medium', 'large'];
+const TIERS: PlanId[] = PLANS.map((plan) => plan.id);
 const DURATIONS: DurationMonths[] = [1, 3, 12];
-const PLAN_NAMES: Record<SubscriptionTier, string> = {
+const PLAN_NAMES: Record<PlanId, string> = {
   small: 'Small Plan',
   medium: 'Medium Plan',
   large: 'Large Plan',
 };
 const SUPPORT_PHONE_DISPLAY = '9716318840';
 
-function tierMonthlyPrice(tier: SubscriptionTier) {
-  return DEFAULT_TIER_PRICING[tier].monthlyPriceNpr;
+function planAmount(tier: PlanId, months: DurationMonths) {
+  return getDiscountedPrice(tier, months);
 }
 
-function planAmount(tier: SubscriptionTier, months: DurationMonths) {
-  const monthly = tierMonthlyPrice(tier);
-  if (months === 1) return monthly;
-  if (months === 3) return Math.round(monthly * 3 * 0.95);
-  return Math.round(monthly * 12 * 0.9);
-}
-
-function planSavings(tier: SubscriptionTier, months: DurationMonths) {
+function planSavings(tier: PlanId, months: DurationMonths) {
   if (months === 1) return 0;
-  return tierMonthlyPrice(tier) * months - planAmount(tier, months);
+  return getPlanPrice(tier) * months - planAmount(tier, months);
 }
 
 function formatNpr(amount: number) {
@@ -89,7 +89,7 @@ export default function PartnerSubscriptionScreen() {
   const insets = useSafeAreaInsets();
   const [partner, setPartner] = useState<PartnerRow | null>(null);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('small');
+  const [selectedTier, setSelectedTier] = useState<PlanId>('small');
   const [selectedMonths, setSelectedMonths] = useState<DurationMonths>(1);
   const [loading, setLoading] = useState(true);
 
@@ -114,7 +114,7 @@ export default function PartnerSubscriptionScreen() {
       if (partnerData) {
         const row = partnerData as PartnerRow;
         setPartner(row);
-        setSelectedTier((row.subscription_tier ?? 'small') as SubscriptionTier);
+        setSelectedTier(coercePlanId(row.subscription_tier));
         const { data: paymentRows } = await fetchSubscriptionPayments(row.id);
         setPayments(((paymentRows ?? []) as PaymentRow[]).slice(0, 6));
       }
@@ -129,7 +129,7 @@ export default function PartnerSubscriptionScreen() {
     void load();
   }, [load]);
 
-  const tier = (partner?.subscription_tier ?? 'small') as SubscriptionTier;
+  const tier = coercePlanId(partner?.subscription_tier);
   const status = (partner?.subscription_status ?? 'trial') as SubscriptionStatus;
   const expiryIso = getSubscriptionExpiryIso(partner);
   const daysUntilExpiry = getDaysUntil(expiryIso);
@@ -339,14 +339,14 @@ function CurrentPlanCard({
   daysUntilExpiry,
   expiryIso,
 }: {
-  tier: SubscriptionTier;
+  tier: PlanId;
   status: SubscriptionStatus;
   partnerName: string;
   trialDays: number;
   daysUntilExpiry: number | null;
   expiryIso: string | null;
 }) {
-  const price = tierMonthlyPrice(tier);
+  const price = getPlanPrice(tier);
   const daysLeft =
     status === 'trial'
       ? trialDays
@@ -429,13 +429,13 @@ function PlanOptionCard({
   selected,
   onSelect,
 }: {
-  tier: SubscriptionTier;
+  tier: PlanId;
   isCurrent: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const meta = PLAN_FEATURES[tier];
-  const price = tierMonthlyPrice(tier);
+  const plan = getPlan(tier);
+  if (!plan) return null;
 
   return (
     <Pressable
@@ -443,9 +443,9 @@ function PlanOptionCard({
       style={[
         styles.optionCard,
         selected ? styles.optionCardSelected : null,
-        meta.popular ? { marginTop: 14 } : null,
+        plan.popular ? { marginTop: 14 } : null,
       ]}>
-      {meta.popular ? (
+      {plan.popular ? (
         <View style={styles.popularBadge}>
           <Text style={styles.popularBadgeText}>Most popular</Text>
         </View>
@@ -458,12 +458,15 @@ function PlanOptionCard({
       ) : null}
 
       <View style={[styles.optionTop, isCurrent && styles.optionTopWithBadge]}>
-        <Text style={styles.optionTitle}>{meta.title}</Text>
-        <Text style={styles.optionPrice}>NPR {formatNpr(price)}/mo</Text>
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <Text style={styles.optionTitle}>{plan.name} Plan</Text>
+          <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{plan.tagline}</Text>
+        </View>
+        <Text style={styles.optionPrice}>{plan.priceDisplay}</Text>
       </View>
 
       <View style={styles.featureList}>
-        {meta.features.map((feature) => (
+        {plan.features.map((feature) => (
           <Text key={feature} style={styles.featureText}>
             ✓ {feature}
           </Text>
