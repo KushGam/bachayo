@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { getPlan, PLAN_IDS } from '@/lib/plans';
 
 type PlanPageProps = {
@@ -129,11 +130,9 @@ export default async function PlanPage({ params }: PlanPageProps) {
           ))}
         </div>
 
-        <a
-          href="https://lastbag.app/download"
-          className="block w-full rounded-2xl bg-[#D85A30] py-4 text-center text-lg font-bold text-white transition hover:bg-[#C24E28]">
+        <ContactTrialCta className="block w-full rounded-2xl bg-[#D85A30] py-4 text-center text-lg font-bold text-white transition hover:bg-[#C24E28]">
           {plan.cta}
-        </a>
+        </ContactTrialCta>
 
         <p className="mt-4 text-center text-sm text-white/30">
           Questions? WhatsApp us: 9762623241
