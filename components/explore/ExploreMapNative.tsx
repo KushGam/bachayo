@@ -1,12 +1,25 @@
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Marker, type Region } from 'react-native-maps';
+import ClusteredMapView from 'react-native-map-clustering';
 
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
+import {
+  HOME_CATEGORY_FILTERS,
+  type HomeCategoryFilter,
+} from '@/constants/partnerCategories';
 import { enrichBagsWithLiveStock, isBagBookable } from '@/lib/bagStock';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import {
@@ -45,19 +58,61 @@ const MAP_STYLE = [
     stylers: [{ visibility: 'off' }],
   },
   {
+    featureType: 'poi.attraction',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
     featureType: 'transit',
     elementType: 'labels.icon',
     stylers: [{ visibility: 'off' }],
   },
   {
-    featureType: 'poi.park',
-    elementType: 'labels',
+    featureType: 'road',
+    elementType: 'labels.icon',
     stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'landscape',
+    elementType: 'geometry',
+    stylers: [{ color: '#f5f5f5' }],
   },
 ];
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  nepali: '🍛',
+  restaurant: '🍛',
+  cafe: '☕',
+  bakery: '🥐',
+  fastfood: '🍔',
+  hotel: '🏨',
+  mart: '🛒',
+  dessert: '🍰',
+  pizza: '🍕',
+  chinese: '🍜',
+  indian: '🍲',
+  default: '🛍',
+};
+
+const MAP_CATEGORY_CHIPS: { id: HomeCategoryFilter; label: string; emoji: string }[] = [
+  { id: 'all', label: 'All', emoji: '🛍' },
+  { id: 'restaurant', label: 'Nepali', emoji: '🍛' },
+  { id: 'cafe', label: 'Café', emoji: '☕' },
+  { id: 'bakery', label: 'Bakery', emoji: '🥐' },
+  { id: 'mart', label: 'Mart', emoji: '🛒' },
+  { id: 'hotel', label: 'Hotel', emoji: '🏨' },
+];
+
+function getCategoryEmoji(category: string | null | undefined) {
+  if (!category) return CATEGORY_EMOJI.default;
+  return CATEGORY_EMOJI[category.toLowerCase()] ?? CATEGORY_EMOJI.default;
+}
+
 function markerPriceLabel(paisa: number) {
   return `₨${Math.round(paisa / 100)}`;
+}
+
+function getBagsLeft(bag: HomeBag): number {
+  return (bag.quantity_available ?? 0) - (bag.quantity_reserved ?? 0);
 }
 
 export default function ExploreMapNative() {
@@ -67,7 +122,7 @@ export default function ExploreMapNative() {
   const { bags, setBags, selectedCategory, setSelectedCategory } = useBagsStore();
   const { latitude, longitude, maxDistanceKm, setMaxDistanceKm, requestLocation } =
     useLocationStore();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<MapView | null>(null);
 
   const [region, setRegion] = useState<Region>(() => {
     const state = useLocationStore.getState();
@@ -91,6 +146,8 @@ export default function ExploreMapNative() {
     },
   );
   const [searchTerm, setSearchTerm] = useState('');
+  const [locationSearch, setLocationSearch] = useState('');
+  const [searching, setSearching] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBagId, setSelectedBagId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,6 +253,31 @@ export default function ExploreMapNative() {
     };
   }, []);
 
+  const searchLocation = async (query: string) => {
+    if (!query.trim()) return;
+    setSearching(true);
+
+    try {
+      const results = await Location.geocodeAsync(`${query}, Nepal`);
+      if (results.length > 0) {
+        const { latitude: lat, longitude: lng } = results[0];
+        mapRef.current?.animateToRegion(
+          {
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.03,
+            longitudeDelta: 0.03,
+          },
+          800,
+        );
+      }
+    } catch (err) {
+      console.warn('Location search failed:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const onSelectMarker = (bag: HomeBag) => {
     setSelectedBagId(bag.id);
     setRegion((prev) => ({
@@ -234,31 +316,117 @@ export default function ExploreMapNative() {
   return (
     <View style={styles.container}>
       <View style={styles.mapArea}>
-        <MapView
+        <ClusteredMapView
           ref={mapRef}
           style={styles.map}
           region={region}
           onRegionChangeComplete={setRegion}
-          customMapStyle={MAP_STYLE}
           showsUserLocation
-          showsMyLocationButton={false}>
-          {filteredBags.map((bag) => (
-            <Marker
-              key={bag.id}
-              coordinate={{
-                latitude: bag.partner.latitude,
-                longitude: bag.partner.longitude,
-              }}
-              onPress={() => onSelectMarker(bag)}>
-              <View style={styles.markerWrap}>
-                <View style={styles.markerPin}>
-                  <Text style={styles.markerPrice}>{markerPriceLabel(bag.rescue_price)}</Text>
+          showsMyLocationButton={false}
+          customMapStyle={MAP_STYLE}
+          clusterColor="#D85A30"
+          clusterTextColor="white"
+          clusterFontFamily="System"
+          radius={60}
+          extent={512}
+          nodeSize={64}
+          minPoints={3}
+          renderCluster={(cluster) => {
+            const { id, geometry, onPress, properties } = cluster;
+            const pointCount = properties.point_count as number;
+            const size = pointCount < 5 ? 40 : pointCount < 10 ? 48 : 56;
+
+            return (
+              <Marker
+                key={`cluster-${id}`}
+                coordinate={{
+                  longitude: geometry.coordinates[0],
+                  latitude: geometry.coordinates[1],
+                }}
+                onPress={onPress}
+                tracksViewChanges={false}>
+                <View
+                  style={{
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    backgroundColor: '#D85A30',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 3,
+                    borderColor: 'white',
+                    shadowColor: '#D85A30',
+                    shadowOpacity: 0.4,
+                    shadowRadius: 8,
+                    elevation: 6,
+                  }}>
+                  <Text style={{ color: 'white', fontSize: 14, fontWeight: '900' }}>
+                    {pointCount}
+                  </Text>
                 </View>
-                <View style={styles.markerPointer} />
-              </View>
-            </Marker>
-          ))}
-        </MapView>
+              </Marker>
+            );
+          }}>
+          {filteredBags.map((bag) => {
+            const selected = selectedBagId === bag.id;
+            const bagsLeft = getBagsLeft(bag);
+            const rating = bag.partner.rating ?? 0;
+
+            return (
+              <Marker
+                key={bag.id}
+                coordinate={{
+                  latitude: bag.partner.latitude,
+                  longitude: bag.partner.longitude,
+                }}
+                onPress={() => onSelectMarker(bag)}
+                tracksViewChanges={false}>
+                <View style={styles.markerWrap}>
+                  <View style={[styles.markerPin, selected && styles.markerPinSelected]}>
+                    <Text style={styles.markerEmoji}>
+                      {getCategoryEmoji(bag.partner.category)}
+                    </Text>
+                    <Text style={styles.markerPrice}>
+                      {markerPriceLabel(bag.rescue_price)}
+                    </Text>
+                  </View>
+                  <View
+                    style={[styles.markerPointer, selected && styles.markerPointerSelected]}
+                  />
+                  {bagsLeft <= 3 ? (
+                    <View style={styles.markerBadge}>
+                      <Text style={styles.markerBadgeText}>{bagsLeft} left!</Text>
+                    </View>
+                  ) : null}
+                  {rating >= 4.5 ? (
+                    <View style={styles.markerBadge}>
+                      <Text style={{ fontSize: 9 }}>⭐</Text>
+                      <Text style={styles.markerBadgeText}>{rating.toFixed(1)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </Marker>
+            );
+          })}
+        </ClusteredMapView>
+
+        <Pressable
+          style={styles.nearMeButton}
+          onPress={() => {
+            if (latitude != null && longitude != null) {
+              mapRef.current?.animateToRegion(
+                {
+                  latitude,
+                  longitude,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                },
+                600,
+              );
+            }
+          }}>
+          <Text style={styles.recenterIcon}>📍</Text>
+        </Pressable>
 
         <Pressable
           style={styles.recenterButton}
@@ -275,7 +443,7 @@ export default function ExploreMapNative() {
               );
             }
           }}>
-          <Text style={styles.recenterIcon}>📍</Text>
+          <Text style={styles.recenterIcon}>◎</Text>
         </Pressable>
 
         <View style={[styles.floatingChrome, { paddingTop: insets.top + Spacing.sm }]}>
@@ -286,6 +454,45 @@ export default function ExploreMapNative() {
             filtersActive={filtersActive}
             placeholder={searchPlaceholder}
           />
+
+          <View style={styles.locationSearchRow}>
+            <Text style={{ fontSize: 16 }}>🔍</Text>
+            <TextInput
+              value={locationSearch}
+              onChangeText={setLocationSearch}
+              placeholder="Search area (e.g. Thamel)"
+              placeholderTextColor="#9CA3AF"
+              style={styles.locationSearchInput}
+              returnKeyType="search"
+              onSubmitEditing={() => void searchLocation(locationSearch)}
+            />
+            {searching ? <ActivityIndicator size="small" color="#D85A30" /> : null}
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryChips}
+            contentContainerStyle={styles.categoryChipsContent}>
+            {MAP_CATEGORY_CHIPS.map((cat) => {
+              const active = selectedCategory === cat.id;
+              return (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => setSelectedCategory(cat.id)}
+                  style={[styles.categoryChip, active && styles.categoryChipActive]}>
+                  <Text style={{ fontSize: 14 }}>{cat.emoji}</Text>
+                  <Text
+                    style={[styles.categoryChipLabel, active && styles.categoryChipLabelActive]}>
+                    {locale === 'np'
+                      ? (HOME_CATEGORY_FILTERS.find((f) => f.key === cat.id)?.labelNp ?? cat.label)
+                      : cat.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           <ExploreFilterPanel
             visible={isFilterOpen}
             locale={locale}
