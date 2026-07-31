@@ -1,7 +1,9 @@
 import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
+import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
+import { PlanModal } from '@/components/PlanModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
 
 const VALUE_TICKER = [
@@ -621,7 +623,12 @@ export default function HomeLanding() {
               'radial-gradient(ellipse 50% 40% at 85% 10%, rgba(216,90,48,0.18), transparent 55%)',
           }}
         />
-        <div className="relative mx-auto grid max-w-[1120px] items-start gap-16 px-6 lg:grid-cols-2 lg:gap-20">
+        <div className="relative mx-auto max-w-[1120px] px-6">
+          <FadeIn>
+            <LaunchOfferBanner />
+          </FadeIn>
+
+          <div className="grid items-start gap-16 lg:grid-cols-2 lg:gap-20">
           <FadeIn>
             <p className="section-label">For partners</p>
             <h2
@@ -661,67 +668,9 @@ export default function HomeLanding() {
           </FadeIn>
 
           <FadeIn delay={120}>
-            <div className="space-y-3">
-              {[
-                {
-                  tier: 'Small',
-                  price: 'NPR 1,000',
-                  desc: 'Café, dhaba, home bakery',
-                  features: ['Up to 5 listings / day', 'QR pickup', 'Email support'],
-                  popular: false,
-                },
-                {
-                  tier: 'Medium',
-                  price: 'NPR 1,500',
-                  desc: 'Restaurant, bakery, café',
-                  features: ['Up to 15 listings / day', 'Analytics', 'Priority support'],
-                  popular: true,
-                },
-                {
-                  tier: 'Large',
-                  price: 'NPR 3,500',
-                  desc: 'Hotel, mart, multi-branch',
-                  features: ['Unlimited listings', 'Featured placement', 'Dedicated support'],
-                  popular: false,
-                },
-              ].map((plan) => (
-                <div
-                  key={plan.tier}
-                  className={`rounded-2xl p-6 transition duration-300 ${
-                    plan.popular
-                      ? 'border border-[var(--primary)] bg-[#1c1c1c] shadow-[0_0_0_1px_rgba(216,90,48,0.25),0_20px_50px_rgba(216,90,48,0.12)]'
-                      : 'border border-white/10 bg-[#191919] hover:border-white/18'
-                  }`}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div>
-                      <p className="font-display text-lg font-bold text-white">
-                        {plan.tier}
-                        {plan.popular ? (
-                          <span className="ml-2 rounded-full bg-[var(--primary)]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary)]">
-                            Popular
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="mt-1 text-sm text-white/40">{plan.desc}</p>
-                    </div>
-                    <p>
-                      <span className="font-display text-xl font-bold text-[var(--primary)]">
-                        {plan.price}
-                      </span>
-                      <span className="text-sm text-white/35">/mo</span>
-                    </p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-                    {plan.features.map((f) => (
-                      <span key={f} className="text-sm text-white/55">
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <PlanModal />
           </FadeIn>
+          </div>
         </div>
       </section>
 

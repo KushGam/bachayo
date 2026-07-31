@@ -232,6 +232,14 @@ export default function PartnerSubscriptionScreen() {
           />
         ))}
 
+        <View style={styles.launchOfferNotice}>
+          <Text style={styles.launchOfferTitle}>🎉 Launch offer:</Text>
+          <Text style={styles.launchOfferBody}>
+            First month FREE · Second month 50% off
+          </Text>
+          <Text style={styles.launchOfferHint}>Contact us on WhatsApp to activate</Text>
+        </View>
+
         <Text style={[styles.sectionLabel, { marginTop: 20 }]}>HOW LONG?</Text>
         <View style={styles.durationRow}>
           {DURATIONS.map((months) => {
@@ -636,6 +644,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
     color: '#6B7280',
+  },
+  launchOfferNotice: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  launchOfferTitle: {
+    color: '#16A34A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  launchOfferBody: {
+    color: '#16A34A',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  launchOfferHint: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: 4,
   },
   optionCard: {
     backgroundColor: '#FFF',

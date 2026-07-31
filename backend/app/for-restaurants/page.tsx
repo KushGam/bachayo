@@ -4,6 +4,8 @@ import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
+import { PlanModal } from '@/components/PlanModal';
 
 export default function ForRestaurantsPage() {
   const faqItems = [
@@ -191,86 +193,9 @@ export default function ForRestaurantsPage() {
             Start with a 30-day free trial. After that, pick the tier that fits your business size.
           </p>
 
-          <div className="mt-14 grid gap-5 md:grid-cols-3">
-            {[
-              {
-                tier: 'Small',
-                price: 'NPR 1,000',
-                active: false,
-                features: [
-                  'Up to 5 bag listings / day',
-                  'Customer pickup confirmations',
-                  'Basic review visibility',
-                  'Email support',
-                  'Waste reduction insights',
-                ],
-              },
-              {
-                tier: 'Medium',
-                price: 'NPR 1,500',
-                active: true,
-                features: [
-                  'Up to 15 bag listings / day',
-                  'Priority listing visibility',
-                  'Expanded weekly reporting',
-                  'Faster support responses',
-                  'Review highlights & tips',
-                ],
-              },
-              {
-                tier: 'Large',
-                price: 'NPR 3,500',
-                active: false,
-                features: [
-                  'Unlimited bag listings',
-                  'Multi-branch support',
-                  'Advanced performance tracking',
-                  'Featured placement',
-                  'Dedicated partner onboarding',
-                ],
-              },
-            ].map((tier) => (
-              <FadeIn key={tier.tier}>
-                <div
-                  className={`flex h-full flex-col rounded-3xl border p-8 ${
-                    tier.active
-                      ? 'border-[var(--primary)] bg-[var(--primary-light)] shadow-lg shadow-[var(--primary)]/10'
-                      : 'border-[var(--border)] bg-[var(--bg)]'
-                  }`}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
-                    {tier.tier}
-                    {tier.active ? ' · Popular' : ''}
-                  </p>
-                  <p className="mt-4 font-display text-4xl font-extrabold tracking-tight text-[var(--ink)]">
-                    {tier.price}
-                    <span className="ml-1 text-base font-semibold text-[var(--text-secondary)]">
-                      /mo
-                    </span>
-                  </p>
-                  <p className="mt-2 text-sm text-[var(--text-secondary)]">30-day free trial</p>
-
-                  <ul className="mt-8 flex-1 space-y-3">
-                    {tier.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-start gap-3 text-sm text-[var(--text-secondary)]">
-                        <span className="mt-0.5 font-bold text-[var(--primary)]">✓</span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <ContactTrialCta
-                    className={`mt-8 inline-flex w-full items-center justify-center rounded-full px-6 py-3.5 text-base font-semibold transition ${
-                      tier.active
-                        ? 'bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)]'
-                        : 'bg-[var(--ink)] text-white hover:bg-[#2a2420]'
-                    }`}>
-                    Start free trial
-                  </ContactTrialCta>
-                </div>
-              </FadeIn>
-            ))}
+          <div className="mt-14">
+            <LaunchOfferBanner />
+            <PlanModal />
           </div>
         </div>
       </section>
