@@ -1,7 +1,11 @@
 import { useState } from 'react';
 
 import { config } from '@/constants/config';
-import { friendlyAuthError } from '@/lib/auth/authErrors';
+import {
+  classifyOtpError,
+  friendlyAuthError,
+  isNetworkError,
+} from '@/lib/auth/authErrors';
 import { supabase } from '@/lib/supabase';
 import type { UserRole } from '@/types/database';
 
@@ -9,6 +13,14 @@ type PhoneProfile = {
   id: string;
   role: string | null;
   phone: string | null;
+};
+
+export type PhoneAuthFailure = {
+  success: false;
+  error: string;
+  kind: ReturnType<typeof classifyOtpError>;
+  retryAfterSeconds?: number;
+  code?: string;
 };
 
 /** Shared across screens so OTP verify works after navigation. */
@@ -21,6 +33,15 @@ function cleanPhone(phone: string) {
     .replace(/^\+977/, '')
     .replace(/^977/, '')
     .replace(/^0/, '');
+}
+
+function readRetryAfter(data: Record<string, unknown>, response: Response): number | undefined {
+  const bodyRetry = data.retry_after ?? data.retryAfter;
+  if (typeof bodyRetry === 'number' && bodyRetry > 0) return bodyRetry;
+  if (typeof bodyRetry === 'string' && Number(bodyRetry) > 0) return Number(bodyRetry);
+  const header = response.headers.get('Retry-After');
+  if (header && Number(header) > 0) return Number(header);
+  return undefined;
 }
 
 export function usePhoneAuth() {
@@ -45,26 +66,68 @@ export function usePhoneAuth() {
 
       const formatted = formatPhone(phone);
 
-      const response = await fetch(`${config.apiUrl}/api/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formatted }),
-      });
+      let response: Response;
+      try {
+        response = await fetch(`${config.apiUrl}/api/otp/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: formatted }),
+        });
+      } catch (err) {
+        const message = friendlyAuthError(
+          err,
+          'No internet connection. Please check your connection and try again.',
+        );
+        setError(message);
+        return {
+          success: false as const,
+          error: message,
+          kind: 'network' as const,
+        };
+      }
 
-      const data = await response.json();
+      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to send OTP');
+        const code = typeof data.code === 'string' ? data.code : undefined;
+        const retryAfterSeconds = readRetryAfter(data, response);
+        const message =
+          code === 'RATE_LIMIT_EXCEEDED' || response.status === 429
+            ? retryAfterSeconds
+              ? `Too many attempts. Please wait before requesting a new code. Try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.`
+              : 'Too many attempts. Please wait before requesting a new code.'
+            : friendlyAuthError(
+                { code, message: data.error },
+                typeof data.error === 'string' ? data.error : 'Failed to send OTP',
+              );
+
+        setError(message);
+        return {
+          success: false as const,
+          error: message,
+          kind: classifyOtpError({ code, message }),
+          retryAfterSeconds,
+          code,
+        };
       }
 
       sharedPhoneForVerify = formatted;
       sharedOtpId = typeof data.otp_id === 'string' ? data.otp_id : null;
       setPhoneForVerify(formatted);
       return { success: true as const };
-    } catch (err: any) {
-      const message = friendlyAuthError(err, 'Failed to send OTP');
+    } catch (err: unknown) {
+      const message = friendlyAuthError(
+        err,
+        isNetworkError(err)
+          ? 'No internet connection. Please check your connection and try again.'
+          : 'Failed to send OTP',
+      );
       setError(message);
-      return { success: false as const, error: message };
+      return {
+        success: false as const,
+        error: message,
+        kind: classifyOtpError(err),
+      };
     } finally {
       setLoading(false);
     }
@@ -86,6 +149,7 @@ export function usePhoneAuth() {
       return {
         success: false as const,
         error: 'No phone number to verify',
+        kind: 'other' as const,
       };
     }
 
@@ -97,21 +161,46 @@ export function usePhoneAuth() {
         throw new Error('Missing verification session. Please request a new code.');
       }
 
-      const response = await fetch(`${config.apiUrl}/api/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, otp_id: sharedOtpId }),
-      });
+      let response: Response;
+      try {
+        response = await fetch(`${config.apiUrl}/api/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code, otp_id: sharedOtpId }),
+        });
+      } catch (err) {
+        const message = friendlyAuthError(
+          err,
+          'No internet connection. Please check your connection and try again.',
+        );
+        setError(message);
+        return {
+          success: false as const,
+          error: message,
+          kind: 'network' as const,
+        };
+      }
 
-      const data = await response.json();
+      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Invalid OTP');
+        const apiCode = typeof data.code === 'string' ? data.code : undefined;
+        const message = friendlyAuthError(
+          { code: apiCode, message: data.error },
+          typeof data.error === 'string' ? data.error : 'Invalid OTP',
+        );
+        setError(message);
+        return {
+          success: false as const,
+          error: message,
+          kind: classifyOtpError({ code: apiCode, message }),
+          code: apiCode,
+        };
       }
 
       const { error: sessionError } = await supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
+        access_token: String(data.access_token ?? ''),
+        refresh_token: String(data.refresh_token ?? ''),
       });
 
       if (sessionError) throw sessionError;
@@ -165,10 +254,14 @@ export function usePhoneAuth() {
         userId: user.id,
         role: userData.role,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = friendlyAuthError(err, 'Verification failed');
       setError(message);
-      return { success: false as const, error: message };
+      return {
+        success: false as const,
+        error: message,
+        kind: classifyOtpError(err),
+      };
     } finally {
       setLoading(false);
     }

@@ -10,6 +10,7 @@ import { AuthButton } from '@/components/auth/AuthButton';
 import { AuthDivider } from '@/components/auth/AuthDivider';
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthFormCard } from '@/components/auth/AuthFormCard';
+import { AuthNoAccountPrompt } from '@/components/auth/AuthNoAccountPrompt';
 import { AuthScreenHeader } from '@/components/auth/AuthScreenHeader';
 import { FormField } from '@/components/auth/FormField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
@@ -22,7 +23,12 @@ import { Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
-import { friendlyAuthError } from '@/lib/auth/authErrors';
+import {
+  friendlyAuthError,
+  isInvalidCredentialsError,
+  isNetworkError,
+} from '@/lib/auth/authErrors';
+import { markIntentionalSignOut } from '@/lib/auth/signOutIntent';
 import {
   fetchUserRole,
   navigateAfterGoogleSignIn,
@@ -56,6 +62,7 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [emailNoAccount, setEmailNoAccount] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -81,6 +88,7 @@ export default function LoginScreen() {
   const handleSendPhoneCode = async () => {
     setSubmitError(null);
     setPhoneError(null);
+    setEmailNoAccount(false);
 
     if (!validatePhone(phone)) {
       setPhoneError('Enter a valid Nepal number');
@@ -91,7 +99,10 @@ export default function LoginScreen() {
     try {
       const result = await sendOTP(phone);
       if (!result.success) {
-        setSubmitError(result.error || 'Could not send verification code.');
+        setSubmitError(
+          result.error ||
+            friendlyAuthError(result.error, 'Could not send verification code.'),
+        );
         return;
       }
 
@@ -101,6 +112,15 @@ export default function LoginScreen() {
         pathname: '/(auth)/verify-phone',
         params: { mode: 'login' },
       } as never);
+    } catch (err) {
+      setSubmitError(
+        friendlyAuthError(
+          err,
+          isNetworkError(err)
+            ? 'No internet connection. Please check your connection and try again.'
+            : t(locale, 'authError'),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -108,17 +128,29 @@ export default function LoginScreen() {
 
   const onEmailSubmit = emailForm.handleSubmit(async (values) => {
     setSubmitError(null);
+    setEmailNoAccount(false);
     setLoading(true);
     try {
       const { data, error } = await signInWithEmail(values.email, values.password);
       if (error || !data.user) {
+        if (isInvalidCredentialsError(error)) {
+          setEmailNoAccount(true);
+          return;
+        }
         setSubmitError(friendlyAuthError(error, t(locale, 'authError')));
         return;
       }
       const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
       if (!result.ok) setSubmitError(result.error);
-    } catch {
-      setSubmitError(t(locale, 'authError'));
+    } catch (err) {
+      setSubmitError(
+        friendlyAuthError(
+          err,
+          isNetworkError(err)
+            ? 'No internet connection. Please check your connection and try again.'
+            : t(locale, 'authError'),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -126,12 +158,13 @@ export default function LoginScreen() {
 
   const onPasswordSubmit = passwordForm.handleSubmit(async (values) => {
     setSubmitError(null);
+    setEmailNoAccount(false);
     setLoading(true);
     try {
       const { data, error } = await signInWithPhone(values.phone, values.password);
       if (error || !data.user) {
         setSubmitError(
-          error?.message?.toLowerCase().includes('invalid login credentials')
+          isInvalidCredentialsError(error)
             ? 'Wrong phone number or password. Please try again.'
             : friendlyAuthError(error, t(locale, 'authError')),
         );
@@ -139,13 +172,25 @@ export default function LoginScreen() {
       }
       const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
       if (!result.ok) setSubmitError(result.error);
-    } catch {
-      setSubmitError(t(locale, 'authError'));
+    } catch (err) {
+      setSubmitError(
+        friendlyAuthError(
+          err,
+          isNetworkError(err)
+            ? 'No internet connection. Please check your connection and try again.'
+            : t(locale, 'authError'),
+        ),
+      );
     } finally {
       setLoading(false);
     }
   });
 
+  const clearEmailForm = () => {
+    emailForm.reset({ email: '', password: '' });
+    setEmailNoAccount(false);
+    setSubmitError(null);
+  };
   const handleGoogleSignIn = async () => {
     setSubmitError(null);
     setGoogleLoading(true);
@@ -160,8 +205,12 @@ export default function LoginScreen() {
         setPendingGoogleUserId(result.userId);
         setShowTermsModal(true);
       }
-    } catch {
-      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Google Sign-In failed. Please try phone or email instead.';
+      Alert.alert('Google Sign-In failed', message);
     } finally {
       setGoogleLoading(false);
     }
@@ -193,6 +242,7 @@ export default function LoginScreen() {
                 setTab(key);
                 setSubmitError(null);
                 setPhoneError(null);
+                setEmailNoAccount(false);
               }}
               style={[styles.option, active && styles.optionActive]}>
               <Text style={[styles.optionText, active && styles.optionTextActive]}>
@@ -257,12 +307,30 @@ export default function LoginScreen() {
               )}
             />
             {submitError ? <AuthErrorBanner message={submitError} /> : null}
+            {emailNoAccount ? (
+              <AuthNoAccountPrompt
+                title="No account found with this email."
+                body="Want to sign up instead?"
+                primaryLabel="Sign up →"
+                secondaryLabel="Try again"
+                onPrimary={() => router.push('/(auth)/welcome')}
+                onSecondary={clearEmailForm}
+              />
+            ) : null}
             <AuthButton
               label="Log in"
               onPress={onEmailSubmit}
               loading={loading}
               style={styles.submit}
             />
+            {submitError && submitError.toLowerCase().includes('internet') ? (
+              <AuthButton
+                label="Try again →"
+                onPress={onEmailSubmit}
+                variant="secondary"
+                style={styles.submit}
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -339,6 +407,7 @@ export default function LoginScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
+          markIntentionalSignOut();
           await clearPushTokenForCurrentUser();
           await supabase.auth.signOut();
           Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');

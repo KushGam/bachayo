@@ -54,8 +54,12 @@ export default function WelcomeScreen() {
         setPendingGoogleUserId(result.userId);
         setShowTermsModal(true);
       }
-    } catch {
-      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Google Sign-In failed. Please try phone or email instead.';
+      Alert.alert('Google Sign-In failed', message);
     } finally {
       setGoogleLoading(false);
     }

@@ -57,25 +57,6 @@ const TESTIMONIALS = [
   },
 ];
 
-function AppleIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M16.7 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.9-.8-1.5 0-2.8.9-3.6 2.2-1.5 2.7-.4 6.6 1.1 8.8.7 1.1 1.6 2.3 2.8 2.2 1.1-.1 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-.9 2.7-2 .9-1.2 1.2-2.4 1.2-2.5-.1 0-2.2-.9-2.2-3.6zM14.5 5.8c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.8-.9 2.9 1 .1 2-.5 2.6-1.3z" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="20" height="22" viewBox="0 0 22 24" fill="none" aria-hidden>
-      <path d="M1 2.5v19L14.5 12 1 2.5z" fill="#EA4335" />
-      <path d="M14.5 12L1 21.5l16.5-3.2L14.5 12z" fill="#FBBC04" />
-      <path d="M1 2.5L14.5 12l3-6.3L1 2.5z" fill="#4285F4" />
-      <path d="M17.5 5.7L14.5 12l3 6.3L21 12l-3.5-6.3z" fill="#34A853" />
-    </svg>
-  );
-}
-
 export default function HomeLanding() {
   const faqItems = [
     {
@@ -173,8 +154,8 @@ export default function HomeLanding() {
               </p>
 
               <div className="mt-10 flex flex-wrap justify-center gap-3 lg:justify-start">
-                <a href="#download" className="btn-primary text-[15px]">
-                  Download the app
+                <a href="#waitlist" className="btn-primary text-[15px]">
+                  App coming soon
                 </a>
                 <ContactTrialCta className="btn-ghost-light text-[15px]">
                   Partner with us
@@ -674,7 +655,7 @@ export default function HomeLanding() {
         </div>
       </section>
 
-      {/* Download */}
+      {/* App coming soon → waitlist */}
       <section id="download" className="relative overflow-hidden bg-[var(--primary)] py-24 md:py-28">
         <div
           className="pointer-events-none absolute inset-0 opacity-50"
@@ -685,45 +666,21 @@ export default function HomeLanding() {
         />
         <div className="relative mx-auto max-w-2xl px-6 text-center">
           <FadeIn>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
+              App coming soon
+            </p>
             <h2
-              className="font-display font-bold tracking-tight text-white"
+              className="mt-4 font-display font-bold tracking-tight text-white"
               style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
               Your next meal is waiting.
             </h2>
             <p className="mt-5 text-lg text-white/75">
-              Free to use. Free to reserve. Pay only when you pick up.
+              Join the waitlist and we&apos;ll notify you the moment LastBag launches on iOS and
+              Android.
             </p>
 
-            <div className="mt-10 flex flex-wrap justify-center gap-3">
-              <a
-                href="https://apps.apple.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-black">
-                <AppleIcon />
-                <span className="text-left">
-                  <span className="block text-[10px] text-white/55">Download on the</span>
-                  <span className="block text-sm font-semibold">App Store</span>
-                </span>
-              </a>
-              <a
-                href="https://play.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-full bg-[var(--ink)] px-6 py-3.5 text-white shadow-[0_12px_30px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-black">
-                <PlayIcon />
-                <span className="text-left">
-                  <span className="block text-[10px] text-white/55">Get it on</span>
-                  <span className="block text-sm font-semibold">Google Play</span>
-                </span>
-              </a>
-            </div>
-
-            <p className="mt-5 text-sm text-white/55">Coming soon to iOS and Android</p>
-            <a
-              href="#waitlist"
-              className="mt-3 inline-block text-sm text-white/70 underline-offset-4 transition hover:text-white hover:underline">
-              Notify me when it launches
+            <a href="#waitlist" className="btn-primary mt-10 inline-flex bg-white !text-[var(--primary)] hover:!bg-[#fff7f3] text-[15px]">
+              Join the waitlist →
             </a>
 
             <div className="mt-12 border-t border-white/15 pt-8">

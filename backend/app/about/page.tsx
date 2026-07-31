@@ -161,8 +161,8 @@ export default function AboutPage() {
             Whether you want to save on meals or list surplus from your business, LastBag is ready.
           </p>
           <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/#download" className="btn-primary bg-white !text-[var(--primary)] hover:!bg-[#fff7f3]">
-              Download the app
+            <Link href="/#waitlist" className="btn-primary bg-white !text-[var(--primary)] hover:!bg-[#fff7f3]">
+              App coming soon
             </Link>
             <Link href="/for-restaurants" className="btn-ghost-light">
               Partner with us

@@ -1,17 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { PARTNER_SUPPORT_WHATSAPP } from '@/lib/auth/authErrors';
+import { openWhatsAppChat } from '@/lib/helpers';
+import { markIntentionalSignOut } from '@/lib/auth/signOutIntent';
 import { type PartnerApprovalFields } from '@/lib/partnerApproval';
 import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
@@ -58,6 +54,7 @@ export default function PartnerRejectedScreen() {
   }, [router]);
 
   const signOut = useCallback(async () => {
+    markIntentionalSignOut();
     await clearPushTokenForCurrentUser();
     await supabase.auth.signOut();
     setAuthRole(null);
@@ -67,14 +64,17 @@ export default function PartnerRejectedScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
+      ]}>
       <View style={styles.hero}>
         <View style={styles.iconCircle}>
           <Text style={styles.iconEmoji}>✗</Text>
         </View>
         <Text style={styles.title}>Application not approved</Text>
         <Text style={styles.subtitle}>
-          Unfortunately we can&apos;t approve your LastBag partner account right now.
+          Unfortunately your application was not approved at this time.
         </Text>
         {reason ? (
           <View style={styles.reasonCard}>
@@ -84,12 +84,17 @@ export default function PartnerRejectedScreen() {
         ) : null}
       </View>
 
-      <Text style={styles.helpText}>
-        If you think this was a mistake, call us and we&apos;ll be happy to discuss.
-      </Text>
+      <Text style={styles.helpText}>Contact us if you think this is a mistake.</Text>
 
-      <Pressable style={styles.callButton} onPress={() => void Linking.openURL('tel:0405290710')}>
-        <Text style={styles.callButtonText}>Call us: 0405 290 710</Text>
+      <Pressable
+        style={styles.callButton}
+        onPress={() =>
+          void openWhatsAppChat({
+            phone: PARTNER_SUPPORT_WHATSAPP,
+            message: 'Hi! I have a question about my LastBag partner application decision.',
+          })
+        }>
+        <Text style={styles.callButtonText}>Contact us →</Text>
       </Pressable>
 
       <Pressable onPress={() => void signOut()} style={styles.signOutButton}>

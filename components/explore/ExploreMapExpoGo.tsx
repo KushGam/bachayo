@@ -241,7 +241,13 @@ export default function ExploreMapExpoGo() {
 
       <ExploreBottomSheet
         expandForSelection={Boolean(selectedBag)}
-        titleRow={<ExploreSheetTitle count={filteredBags.length} locale={locale} />}
+        titleRow={
+          <ExploreSheetTitle
+            count={filteredBags.length}
+            locale={locale}
+            onResetFilters={handleResetFilters}
+          />
+        }
         selectedCard={
           selectedBag ? <ExploreSelectedBagCard bag={selectedBag} locale={locale} /> : null
         }>
@@ -251,7 +257,7 @@ export default function ExploreMapExpoGo() {
           {loading && bags.length === 0 ? (
             <ListSkeleton count={3} />
           ) : !loading && !errorText && filteredBags.length === 0 ? (
-            <ExploreSheetEmpty onResetFilters={handleResetFilters} />
+            <ExploreSheetEmpty locale={locale} />
           ) : (
             <FlashList
               data={filteredBags}

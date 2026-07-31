@@ -11,9 +11,9 @@ import { mintSessionForPhone } from '@/lib/phone-session';
 const ERROR_COPY: Record<string, string> = {
   INVALID_OTP: 'Wrong code. Please try again.',
   OTP_EXPIRED: 'Code expired. Request a new one.',
-  MAX_ATTEMPTS_EXCEEDED: 'Too many failed attempts. Request a new code.',
+  MAX_ATTEMPTS_EXCEEDED: 'Too many wrong attempts. Please request a new code.',
   OTP_NOT_FOUND: 'Invalid verification. Please restart.',
-  NETWORK_ERROR: 'OTP service unreachable. Try again later.',
+  NETWORK_ERROR: 'No internet connection. Please check your connection and try again.',
 };
 
 export async function POST(request: NextRequest) {
@@ -50,7 +50,10 @@ export async function POST(request: NextRequest) {
     const result = await verifyOtp(otp_id, code);
 
     if (result.verified === false) {
-      return NextResponse.json({ error: 'Invalid OTP code' }, { status: 400 });
+      return NextResponse.json(
+        { error: ERROR_COPY.INVALID_OTP, code: 'INVALID_OTP' },
+        { status: 400 },
+      );
     }
   } catch (error) {
     console.error('[NepalOTP] verify failed:', error);
@@ -58,12 +61,16 @@ export async function POST(request: NextRequest) {
     if (error instanceof NepalOtpError) {
       if (error.code === 'MISSING_API_KEY' || error.code === 'NETWORK_ERROR') {
         return NextResponse.json(
-          { error: ERROR_COPY[error.code] || 'Service temporarily unavailable.' },
+          {
+            error: ERROR_COPY[error.code] || 'Service temporarily unavailable.',
+            code: error.code,
+          },
           { status: 503 },
         );
       }
-      const message = (error.code && ERROR_COPY[error.code]) || error.message;
-      return NextResponse.json({ error: message }, { status: 400 });
+      const code = error.code || 'INVALID_OTP';
+      const message = ERROR_COPY[code] || error.message;
+      return NextResponse.json({ error: message, code }, { status: 400 });
     }
 
     return NextResponse.json({ error: 'Verification failed' }, { status: 400 });

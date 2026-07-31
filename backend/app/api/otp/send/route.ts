@@ -40,8 +40,20 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof NepalOtpError) {
       if (error.code === 'RATE_LIMIT_EXCEEDED') {
+        const retryMatch = /(\d+)\s*(second|minute|hour)/i.exec(error.message);
+        let retry_after = 45 * 60;
+        if (retryMatch) {
+          const amount = Number(retryMatch[1]);
+          const unit = retryMatch[2].toLowerCase();
+          retry_after =
+            unit.startsWith('hour') ? amount * 3600 : unit.startsWith('minute') ? amount * 60 : amount;
+        }
         return NextResponse.json(
-          { error: 'Too many attempts. Please wait before trying again.' },
+          {
+            error: 'Too many attempts. Please wait before requesting a new code.',
+            code: 'RATE_LIMIT_EXCEEDED',
+            retry_after,
+          },
           { status: 429 },
         );
       }

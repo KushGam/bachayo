@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { PARTNER_SUPPORT_WHATSAPP } from '@/lib/auth/authErrors';
+import { openWhatsAppChat } from '@/lib/helpers';
+import { markIntentionalSignOut } from '@/lib/auth/signOutIntent';
 import { getPartnerApprovalStatus, type PartnerApprovalFields } from '@/lib/partnerApproval';
 import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
@@ -79,6 +81,7 @@ export default function PartnerPendingScreen() {
   }, [router]);
 
   const signOut = useCallback(async () => {
+    markIntentionalSignOut();
     await clearPushTokenForCurrentUser();
     await supabase.auth.signOut();
     setAuthRole(null);
@@ -91,12 +94,13 @@ export default function PartnerPendingScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
       <View style={styles.hero}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconEmoji}>⏰</Text>
+          <Text style={styles.iconEmoji}>🕐</Text>
         </View>
-        <Text style={styles.title}>Application received! 🎉</Text>
+        <Text style={styles.title}>Application under review 🕐</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll review your restaurant and get back to you within 24 hours.
+          We&apos;re reviewing your restaurant application. You&apos;ll get an email when approved.
         </Text>
+        <Text style={styles.eta}>Usually takes 24–48 hours</Text>
       </View>
 
       <View style={styles.card}>
@@ -111,12 +115,16 @@ export default function PartnerPendingScreen() {
         ))}
       </View>
 
-      <View style={styles.contactSection}>
-        <Text style={styles.contactLabel}>Questions? Call us:</Text>
-        <Pressable onPress={() => void Linking.openURL('tel:0405290710')}>
-          <Text style={styles.contactPhone}>0405 290 710</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        style={styles.whatsappButton}
+        onPress={() =>
+          void openWhatsAppChat({
+            phone: PARTNER_SUPPORT_WHATSAPP,
+            message: 'Hi! I have a question about my LastBag partner application.',
+          })
+        }>
+        <Text style={styles.whatsappButtonText}>Questions? WhatsApp us →</Text>
+      </Pressable>
 
       <Pressable
         style={styles.checkButton}
@@ -173,6 +181,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginHorizontal: 32,
   },
+  eta: {
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: Palette.primary,
+    textAlign: 'center',
+  },
   card: {
     backgroundColor: Palette.white,
     borderRadius: 20,
@@ -209,22 +224,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     paddingTop: 6,
   },
-  contactSection: {
+  whatsappButton: {
     marginTop: 24,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.pill,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  contactLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  contactPhone: {
-    fontSize: 17,
+  whatsappButtonText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: Palette.primary,
-    marginTop: 4,
+    color: Palette.white,
   },
   checkButton: {
-    marginTop: 32,
+    marginTop: 16,
     borderWidth: 1.5,
     borderColor: Palette.primary,
     borderRadius: Radius.pill,

@@ -133,6 +133,16 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   }
 
   if ('cancelled' in result && result.cancelled) {
+    // iOS sometimes dismisses the auth sheet after the deep link already signed us in.
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) {
+      const hasProfile = await hasUserProfile(data.session.user.id);
+      return {
+        status: 'success',
+        userId: data.session.user.id,
+        hasProfile,
+      };
+    }
     return { status: 'cancelled' };
   }
 

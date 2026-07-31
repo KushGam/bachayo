@@ -93,14 +93,12 @@ const CATEGORY_EMOJI: Record<string, string> = {
   default: '🛍',
 };
 
-const MAP_CATEGORY_CHIPS: { id: HomeCategoryFilter; label: string; emoji: string }[] = [
-  { id: 'all', label: 'All', emoji: '🛍' },
-  { id: 'restaurant', label: 'Nepali', emoji: '🍛' },
-  { id: 'cafe', label: 'Café', emoji: '☕' },
-  { id: 'bakery', label: 'Bakery', emoji: '🥐' },
-  { id: 'mart', label: 'Mart', emoji: '🛒' },
-  { id: 'hotel', label: 'Hotel', emoji: '🏨' },
-];
+const MAP_CATEGORY_CHIPS: { id: HomeCategoryFilter; label: string; emoji: string }[] =
+  HOME_CATEGORY_FILTERS.map((filter) => ({
+    id: filter.key,
+    label: filter.label,
+    emoji: filter.icon ?? '🛍',
+  }));
 
 function getCategoryEmoji(category: string | null | undefined) {
   if (!category) return CATEGORY_EMOJI.default;
@@ -514,7 +512,13 @@ export default function ExploreMapNative() {
 
       <ExploreBottomSheet
         expandForSelection={Boolean(selectedBag)}
-        titleRow={<ExploreSheetTitle count={filteredBags.length} locale={locale} />}
+        titleRow={
+          <ExploreSheetTitle
+            count={filteredBags.length}
+            locale={locale}
+            onResetFilters={handleResetFilters}
+          />
+        }
         selectedCard={
           selectedBag ? <ExploreSelectedBagCard bag={selectedBag} locale={locale} /> : null
         }>
@@ -524,7 +528,7 @@ export default function ExploreMapNative() {
           {loading && bags.length === 0 ? (
             <ListSkeleton count={3} />
           ) : !loading && !errorText && filteredBags.length === 0 ? (
-            <ExploreSheetEmpty onResetFilters={handleResetFilters} />
+            <ExploreSheetEmpty locale={locale} />
           ) : (
             <FlashList
               data={filteredBags}

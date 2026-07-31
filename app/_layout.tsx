@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { useEffect } from 'react';
-import { View } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Alert, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -14,7 +14,11 @@ import { useNotificationObserver, usePushTokenRegistration } from '@/hooks/useNo
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
+import { markIntentionalSignOut, wasIntentionalSignOut } from '@/lib/auth/signOutIntent';
+import { clearPushTokenForCurrentUser } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 import Colors, { Palette } from '@/constants/Colors';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useLocationStore } from '@/store/useLocationStore';
 
 export {
@@ -57,12 +61,65 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme];
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const router = useRouter();
+  const segments = useSegments();
+  const setAuthRole = useAuthStore((s) => s.setAuthRole);
+  const hadSessionRef = useRef(false);
 
   usePushTokenRegistration();
   useNotificationObserver();
   useUnreadNotifications();
   useUnreadMessages();
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') return;
+
+      if (session?.user) {
+        hadSessionRef.current = true;
+        return;
+      }
+
+      if (event !== 'SIGNED_OUT') return;
+
+      const intentional = wasIntentionalSignOut();
+      const root = String(segments[0] ?? '');
+      const onPublicAuth =
+        root === '(auth)' ||
+        root === '(landing)' ||
+        root === 'index' ||
+        root === 'loading' ||
+        root === 'legal' ||
+        root === 'auth' ||
+        root === '';
+
+      if (intentional || onPublicAuth || !hadSessionRef.current) {
+        hadSessionRef.current = false;
+        return;
+      }
+
+      hadSessionRef.current = false;
+      setAuthRole(null);
+      Alert.alert('Session expired', 'Please log in again.', [
+        {
+          text: 'Log in →',
+          onPress: () => {
+            markIntentionalSignOut();
+            void clearPushTokenForCurrentUser().finally(() => {
+              void supabase.auth.signOut().finally(() => {
+                router.replace('/(auth)/welcome');
+              });
+            });
+          },
+        },
+      ]);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router, segments, setAuthRole]);
 
   const theme = {
     dark: colorScheme === 'dark',

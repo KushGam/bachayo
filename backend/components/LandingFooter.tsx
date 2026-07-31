@@ -49,8 +49,8 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="/#why">
                 Why LastBag
               </a>
-              <a className="block transition hover:text-white" href="/#download">
-                Download the app
+              <a className="block transition hover:text-white" href="/#waitlist">
+                App coming soon
               </a>
               <a className="block transition hover:text-white" href="/#faq">
                 FAQ

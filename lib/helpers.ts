@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import { Alert, Linking, Platform } from 'react-native';
 
 import type { BagServiceType } from '@/types/database';
@@ -273,7 +274,12 @@ export function openWhatsAppShare(message: string) {
   void openWhatsAppChat({ message });
 }
 
-/** Opens WhatsApp with a prefilled message. Falls back to wa.me, then shows an alert. */
+/**
+ * Opens WhatsApp with a prefilled message.
+ * Do not gate on Linking.canOpenURL — on iOS/Expo Go it returns false for
+ * whatsapp:// unless LSApplicationQueriesSchemes is set (dev/production builds).
+ * openURL still works when WhatsApp is installed.
+ */
 export async function openWhatsAppChat({
   phone,
   message,
@@ -283,46 +289,43 @@ export async function openWhatsAppChat({
 }) {
   const encoded = encodeURIComponent(message);
   const digits = (phone ?? '').replace(/\D/g, '');
-  const nativeUrl = digits
-    ? `whatsapp://send?phone=${digits}&text=${encoded}`
-    : `whatsapp://send?text=${encoded}`;
-  const webUrl = digits
-    ? `https://wa.me/${digits}?text=${encoded}`
-    : `https://wa.me/?text=${encoded}`;
+  const displayPhone = digits ? `+${digits}` : 'support';
 
-  try {
-    const canNative = await Linking.canOpenURL(nativeUrl);
-    if (canNative) {
-      await Linking.openURL(nativeUrl);
+  const candidates = [
+    digits
+      ? `whatsapp://send?phone=${digits}&text=${encoded}`
+      : `whatsapp://send?text=${encoded}`,
+    digits
+      ? `https://api.whatsapp.com/send?phone=${digits}&text=${encoded}`
+      : `https://api.whatsapp.com/send?text=${encoded}`,
+    digits
+      ? `https://wa.me/${digits}?text=${encoded}`
+      : `https://wa.me/?text=${encoded}`,
+  ];
+
+  for (const url of candidates) {
+    try {
+      await Linking.openURL(url);
       return true;
+    } catch {
+      // try next candidate
     }
-  } catch {
-    // try web fallback
   }
 
-  try {
-    await Linking.openURL(webUrl);
-    return true;
-  } catch {
-    Alert.alert(
-      'WhatsApp unavailable',
-      'Open WhatsApp on your phone and message 9716318840, or try again on a real device.',
-    );
-    return false;
+  if (digits) {
+    await Clipboard.setStringAsync(digits);
   }
+
+  Alert.alert(
+    'Couldn’t open WhatsApp',
+    digits
+      ? `WhatsApp didn’t open from this build. Number copied: ${displayPhone}`
+      : 'WhatsApp didn’t open from this build. Please message us manually.',
+  );
+  return false;
 }
 
 export async function openExternalUrl(url: string, fallbackMessage?: string) {
-  try {
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      await Linking.openURL(url);
-      return true;
-    }
-  } catch {
-    // fall through
-  }
-
   try {
     await Linking.openURL(url);
     return true;

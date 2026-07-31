@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
+import { AuthAccountExistsBanner } from '@/components/auth/AuthAccountExistsBanner';
 import { AuthDivider } from '@/components/auth/AuthDivider';
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthFormCard } from '@/components/auth/AuthFormCard';
@@ -24,6 +25,12 @@ import {
   navigateAfterGoogleSignIn,
   phoneProfileExists,
 } from '@/lib/auth';
+import {
+  friendlyAuthError,
+  isEmailAlreadyRegisteredError,
+  isNetworkError,
+} from '@/lib/auth/authErrors';
+import { markIntentionalSignOut } from '@/lib/auth/signOutIntent';
 import { hapticStepAdvance } from '@/lib/haptics';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
@@ -59,9 +66,9 @@ export default function CustomerBasicsScreen() {
   const {
     sendOTP,
     loading: phoneLoading,
-    error: phoneAuthError,
   } = usePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [emailExists, setEmailExists] = useState(false);
   const [checking, setChecking] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -97,6 +104,7 @@ export default function CustomerBasicsScreen() {
     }
 
     setSubmitError(null);
+    setEmailExists(false);
     setChecking(true);
 
     try {
@@ -104,11 +112,16 @@ export default function CustomerBasicsScreen() {
         try {
           const exists = await emailProfileExists(values.email);
           if (exists) {
-            setSubmitError('This email is already registered. Try logging in instead.');
+            setEmailExists(true);
             setChecking(false);
             return;
           }
-        } catch {
+        } catch (err) {
+          if (isEmailAlreadyRegisteredError(err)) {
+            setEmailExists(true);
+            setChecking(false);
+            return;
+          }
           // RPC may not be deployed yet — allow signup to continue.
         }
       } else {
@@ -140,7 +153,10 @@ export default function CustomerBasicsScreen() {
 
         const result = await sendOTP(values.phone);
         if (!result.success) {
-          setSubmitError(result.error || phoneAuthError || 'Could not send verification code.');
+          setSubmitError(
+            result.error ||
+              friendlyAuthError(result.error, 'Could not send verification code.'),
+          );
           setChecking(false);
           return;
         }
@@ -153,8 +169,19 @@ export default function CustomerBasicsScreen() {
 
       await hapticStepAdvance();
       router.push('/(auth)/signup-customer/location');
-    } catch {
-      setSubmitError('Something went wrong. Please try again.');
+    } catch (err) {
+      if (isEmailAlreadyRegisteredError(err)) {
+        setEmailExists(true);
+      } else {
+        setSubmitError(
+          friendlyAuthError(
+            err,
+            isNetworkError(err)
+              ? 'No internet connection. Please check your connection and try again.'
+              : 'Something went wrong. Please try again.',
+          ),
+        );
+      }
     } finally {
       setChecking(false);
     }
@@ -255,7 +282,10 @@ export default function CustomerBasicsScreen() {
                   <FormField
                     label="Email"
                     value={value ?? ''}
-                    onChangeText={onChange}
+                    onChangeText={(text) => {
+                      setEmailExists(false);
+                      onChange(text);
+                    }}
                     onBlur={onBlur}
                     placeholder="you@email.com"
                     keyboardType="email-address"
@@ -279,6 +309,10 @@ export default function CustomerBasicsScreen() {
                 )}
               />
             )}
+
+            {emailExists && authMethod === 'email' ? (
+              <AuthAccountExistsBanner onGoToLogin={() => router.push('/(auth)/login')} />
+            ) : null}
 
             {authMethod === 'email' ? (
               <Controller
@@ -381,6 +415,7 @@ export default function CustomerBasicsScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
+          markIntentionalSignOut();
           await clearPushTokenForCurrentUser();
           await supabase.auth.signOut();
           Alert.alert('Sign-in cancelled', 'You must accept the terms to use LastBag.');

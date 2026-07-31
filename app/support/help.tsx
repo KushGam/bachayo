@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -39,6 +38,7 @@ import {
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useUserRole } from '@/hooks/useUserRole';
 import { hapticButtonPress } from '@/lib/haptics';
+import { openExternalUrl, openWhatsAppChat } from '@/lib/helpers';
 import { submitSupportContact } from '@/lib/support';
 import { supabase } from '@/lib/supabase';
 
@@ -115,7 +115,10 @@ export default function HelpScreen() {
         iconColor: Palette.primary,
         onPress: () => {
           void hapticButtonPress();
-          void Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+          void openExternalUrl(
+            `mailto:${SUPPORT_EMAIL}`,
+            'Email is not available on this device. Try a real phone, or write to support@lastbag.app.',
+          );
         },
       },
       {
@@ -125,7 +128,10 @@ export default function HelpScreen() {
         iconColor: '#25D366',
         onPress: () => {
           void hapticButtonPress();
-          void Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}`);
+          void openWhatsAppChat({
+            phone: SUPPORT_WHATSAPP,
+            message: 'Hi LastBag support!',
+          });
         },
       },
       isPartner
@@ -245,8 +251,18 @@ export default function HelpScreen() {
               onMessageChange={setMessage}
               onEmailChange={setEmail}
               onSubmit={() => void handleSubmit()}
-              onEmailPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
-              onWhatsAppPress={() => void Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}`)}
+              onEmailPress={() =>
+                void openExternalUrl(
+                  `mailto:${SUPPORT_EMAIL}`,
+                  'Email is not available on this device. Try a real phone, or write to support@lastbag.app.',
+                )
+              }
+              onWhatsAppPress={() =>
+                void openWhatsAppChat({
+                  phone: SUPPORT_WHATSAPP,
+                  message: 'Hi LastBag support!',
+                })
+              }
               supportEmail={SUPPORT_EMAIL}
             />
           </ScrollView>

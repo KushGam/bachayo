@@ -129,5 +129,5 @@ export type SupportSubject = (typeof SUPPORT_SUBJECTS)[number];
 
 export const SUPPORT_EMAIL = 'support@lastbag.app';
 
-/** Replace with your WhatsApp Business number (country code, no +). */
-export const SUPPORT_WHATSAPP = '9779800000000';
+/** WhatsApp Business number (country code, no +). */
+export const SUPPORT_WHATSAPP = '9779716318840';
