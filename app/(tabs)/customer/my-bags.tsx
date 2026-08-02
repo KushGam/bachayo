@@ -99,7 +99,7 @@ export default function MyBagsScreen() {
   }, []);
 
   const openReviewPrompt = useCallback(async (order: CustomerOrderWithDetails, opts?: { force?: boolean }) => {
-    console.log('[Review] openReviewPrompt called', {
+    if (__DEV__) console.log('[Review] openReviewPrompt called', {
       orderId: order.id,
       status: order.status,
       hasReview: Boolean(order.review),
@@ -107,29 +107,29 @@ export default function MyBagsScreen() {
     });
 
     if (order.review) {
-      console.log('[Review] blocked because: order already has a review');
+      if (__DEV__) console.log('[Review] blocked because: order already has a review');
       return;
     }
 
     if (normalizeOrderStatus(order.status) !== 'picked_up') {
-      console.log('[Review] blocked because: status is not picked_up', order.status);
+      if (__DEV__) console.log('[Review] blocked because: status is not picked_up', order.status);
       return;
     }
 
     if (!opts?.force) {
       if (reviewPromptedRef.current.has(order.id)) {
-        console.log('[Review] blocked because: already prompted this session');
+        if (__DEV__) console.log('[Review] blocked because: already prompted this session');
         return;
       }
 
       const shown = await wasReviewPromptShown(order.id);
       if (shown) {
-        console.log('[Review] blocked because: AsyncStorage says already shown');
+        if (__DEV__) console.log('[Review] blocked because: AsyncStorage says already shown');
         return;
       }
     }
 
-    console.log('[Review] showing PostPickupReview for', order.id);
+    if (__DEV__) console.log('[Review] showing PostPickupReview for', order.id);
     reviewPromptedRef.current.add(order.id);
     setTab('past');
     setReviewOrder(order);
@@ -140,11 +140,11 @@ export default function MyBagsScreen() {
 
   const scheduleReviewPrompt = useCallback(
     (orderId: string) => {
-      console.log('[Review] scheduling review prompt for order:', orderId);
+      if (__DEV__) console.log('[Review] scheduling review prompt for order:', orderId);
       setTimeout(() => {
         const order = ordersCacheRef.current?.find((row) => row.id === orderId);
         if (!order) {
-          console.log('[Review] blocked because: order not found in cache after delay', orderId);
+          if (__DEV__) console.log('[Review] blocked because: order not found in cache after delay', orderId);
           void refreshOrdersRef.current().then(() => {
             const refreshed = ordersCacheRef.current?.find((row) => row.id === orderId);
             if (!refreshed) return;
@@ -174,7 +174,7 @@ export default function MyBagsScreen() {
       });
 
       if (!needsReview) return;
-      console.log('[Review] Found pending review on mount:', needsReview.id);
+      if (__DEV__) console.log('[Review] Found pending review on mount:', needsReview.id);
       setTimeout(() => {
         void openReviewPrompt(needsReview, { force: true });
       }, 1000);
@@ -291,7 +291,7 @@ export default function MyBagsScreen() {
                 const nextStatus = normalizeOrderStatus(String(updatedOrder.status ?? ''));
                 const wasPickedUp = normalizeOrderStatus(String(prevStatus ?? '')) === 'picked_up';
                 if (nextStatus === 'picked_up' && !wasPickedUp) {
-                  console.log(
+                  if (__DEV__) console.log(
                     '[Review] Order picked up, scheduling review:',
                     updatedOrder.id,
                   );

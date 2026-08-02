@@ -12,6 +12,7 @@ import {
 
 import { PageHeader, StatCard } from '@/components/admin/StatCard';
 import { CategoryBadge } from '@/components/admin/StatusBadge';
+import { fetchCityCoverage } from '@/lib/admin/cities';
 import { CATEGORY_LABELS } from '@/lib/admin/constants';
 import {
   cityLabel,
@@ -86,7 +87,7 @@ export default async function AdminOverviewPage() {
     supabase.from('partners').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer').gte('created_at', weekAgo),
     supabase.from('rescue_bags').select('*', { count: 'exact', head: true }).eq('available_date', today),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', todayStart).eq('status', 'confirmed'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', todayStart),
     supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', todayStart).eq('status', 'confirmed'),
     supabase
       .from('partners')
@@ -243,44 +244,13 @@ export default async function AdminOverviewPage() {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 20);
 
-  const { data: partnerCityRows } = await supabase
-    .from('partners')
-    .select('id, city_id');
-
-  const cityPartnerMap = new Map<string, string[]>();
-  for (const row of partnerCityRows ?? []) {
-    const cityId = (row as { city_id?: string | null }).city_id || 'unknown';
-    const list = cityPartnerMap.get(cityId) ?? [];
-    list.push(row.id);
-    cityPartnerMap.set(cityId, list);
-  }
-
-  const cityRows = (
-    await Promise.all(
-      [...cityPartnerMap.entries()].map(async ([cityId, ids]) => {
-        const { count: bags } = await supabase
-          .from('rescue_bags')
-          .select('*', { count: 'exact', head: true })
-          .eq('available_date', today)
-          .in('partner_id', ids);
-
-        const { count: orders } = await supabase
-          .from('orders')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', `${today}T00:00:00`)
-          .in('partner_id', ids);
-
-        return {
-          city: { id: cityId, name: cityLabel(cityId) },
-          partners: ids.length,
-          bags: bags ?? 0,
-          orders: orders ?? 0,
-        };
-      }),
-    )
-  )
-    .sort((a, b) => b.partners - a.partners)
-    .slice(0, 10);
+  const cityCoverage = await fetchCityCoverage(supabase);
+  const cityRows = cityCoverage.slice(0, 10).map((row) => ({
+    city: { id: row.id, name: row.name },
+    partners: row.partners,
+    bags: row.bagsToday,
+    orders: row.ordersToday,
+  }));
 
   const totals = cityRows.reduce(
     (acc, row) => ({
@@ -300,7 +270,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <>
-      <PageHeader title="Overview" subtitle={dateLabel} showLive />
+      <PageHeader title="Overview" subtitle={dateLabel} />
 
       {newSupport > 0 ? (
         <Link
@@ -436,16 +406,13 @@ export default async function AdminOverviewPage() {
           <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400">
             Today&apos;s activity
           </h2>
-          <div className="flex items-center gap-1.5">
-            <span className="admin-live-dot h-2 w-2 rounded-full bg-[#10B981]" />
-            <span className="text-xs font-medium text-green-500">Live</span>
-          </div>
+          <span className="text-xs font-medium text-[#9CA3AF]">Updates every minute</span>
         </div>
 
         {allEvents.length === 0 ? (
           <div className="rounded-2xl border border-[#F0EDE8] bg-white py-12 text-center text-gray-400">
-            <p className="text-base">🌙 No activity yet today</p>
-            <p className="mt-1 text-sm">Reservations and signups will appear here in real time</p>
+            <p className="text-base font-medium text-[#6B7280]">No activity yet today</p>
+            <p className="mt-1 text-sm">Reservations and signups will appear here</p>
           </div>
         ) : (
           <div className="space-y-2">

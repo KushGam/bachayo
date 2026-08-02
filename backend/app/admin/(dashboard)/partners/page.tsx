@@ -8,6 +8,8 @@ import { CATEGORY_LABELS } from '@/lib/admin/constants';
 import { todayIso } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
+export const revalidate = 60;
+
 const PAGE_SIZE = 25;
 
 async function loadPartners(searchParams: Record<string, string | undefined>) {
@@ -17,9 +19,12 @@ async function loadPartners(searchParams: Record<string, string | undefined>) {
   const to = from + PAGE_SIZE - 1;
   const today = todayIso();
 
+  const partnerColumns =
+    'id, name, category, city_id, area_id, phone, created_at, subscription_tier, subscription_status, trial_ends_at, approval_status, user_id, latitude, longitude, location_verified';
+
   let query = supabase
     .from('partners')
-    .select('*', { count: 'exact' })
+    .select(partnerColumns, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -38,24 +43,26 @@ async function loadPartners(searchParams: Record<string, string | undefined>) {
   const partnerIds = (data ?? []).map((p) => p.id);
   const userIds = [...new Set((data ?? []).map((p) => p.user_id))];
 
+  // Cap last-bag history: one recent row per partner is enough for the table.
   const [{ data: profiles }, { data: bagsToday }, { data: lastBags }] = await Promise.all([
     userIds.length
       ? supabase.from('profiles').select('id, full_name, phone').in('id', userIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null; phone: string | null }[] }),
     partnerIds.length
       ? supabase
           .from('rescue_bags')
           .select('partner_id')
           .eq('available_date', today)
           .in('partner_id', partnerIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as { partner_id: string }[] }),
     partnerIds.length
       ? supabase
           .from('rescue_bags')
           .select('partner_id, created_at')
           .in('partner_id', partnerIds)
           .order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] }),
+          .limit(Math.max(partnerIds.length * 3, 50))
+      : Promise.resolve({ data: [] as { partner_id: string; created_at: string }[] }),
   ]);
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -105,16 +112,21 @@ export default async function AdminPartnersPage({
 }) {
   const params = await searchParams;
   const supabase = createSupabaseAdmin();
-  const { count: pendingCount } = await supabase
-    .from('partners')
-    .select('*', { count: 'exact', head: true })
-    .eq('approval_status', 'pending');
-  const { count: suspendedCount } = await supabase
-    .from('partners')
-    .select('*', { count: 'exact', head: true })
-    .eq('approval_status', 'suspended');
 
-  const [{ rows, page, totalPages }, cities] = await Promise.all([
+  const [
+    { count: pendingCount },
+    { count: suspendedCount },
+    { rows, page, totalPages },
+    cities,
+  ] = await Promise.all([
+    supabase
+      .from('partners')
+      .select('*', { count: 'exact', head: true })
+      .eq('approval_status', 'pending'),
+    supabase
+      .from('partners')
+      .select('*', { count: 'exact', head: true })
+      .eq('approval_status', 'suspended'),
     loadPartners(params),
     fetchActiveCityOptions(supabase),
   ]);
@@ -122,10 +134,10 @@ export default async function AdminPartnersPage({
   return (
     <>
       <PageHeader title="Partners" subtitle="Manage restaurant owners and subscriptions" />
-      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-gray-200" />}>
+      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-[#E8E4DE]" />}>
         <PartnerStatusTabs pendingCount={pendingCount ?? 0} suspendedCount={suspendedCount ?? 0} />
       </Suspense>
-      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-gray-200" />}>
+      <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-[#E8E4DE]" />}>
         <PartnersFilters cities={cities} />
       </Suspense>
       <PartnersTable partners={rows} />

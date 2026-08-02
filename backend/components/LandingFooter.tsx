@@ -109,7 +109,7 @@ export function LandingFooter() {
               <a className="block transition hover:text-white" href="tel:+9779716318840">
                 9716318840
               </a>
-              <p className="pt-2 text-white/35">Available worldwide</p>
+              <p className="pt-2 text-white/35">Available in Nepal</p>
             </div>
           </div>
         </div>

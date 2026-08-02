@@ -6,6 +6,8 @@ import { fetchActiveCityOptions } from '@/lib/admin/cities';
 import { cityLabel, formatRelativeDays, weekAgoIso, todayIso } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
+export const revalidate = 60;
+
 export default async function AdminCustomersPage({
   searchParams,
 }: {
@@ -18,7 +20,7 @@ export default async function AdminCustomersPage({
 
   let query = supabase
     .from('profiles')
-    .select('*')
+    .select('id, full_name, phone, city_id, created_at')
     .eq('role', 'customer')
     .order('created_at', { ascending: false })
     .limit(100);
@@ -41,13 +43,26 @@ export default async function AdminCustomersPage({
   ]);
 
   const customerIds = (customers ?? []).map((c) => c.id);
+  // Limit stats window so we don't dump every historical order for 100 customers.
+  const statsSince = new Date();
+  statsSince.setDate(statsSince.getDate() - 90);
   const { data: orderStats } = customerIds.length
-    ? await supabase.from('orders').select('customer_id, created_at').in('customer_id', customerIds)
+    ? await supabase
+        .from('orders')
+        .select('customer_id, created_at')
+        .in('customer_id', customerIds)
+        .gte('created_at', statsSince.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(2000)
     : { data: [] };
 
   const ordersByCustomer = new Map<string, { count: number; last: string }>();
   for (const o of orderStats ?? []) {
-    const prev = ordersByCustomer.get(o.customer_id) ?? { count: 0, last: o.created_at };
+    const prev = ordersByCustomer.get(o.customer_id);
+    if (!prev) {
+      ordersByCustomer.set(o.customer_id, { count: 1, last: o.created_at });
+      continue;
+    }
     ordersByCustomer.set(o.customer_id, {
       count: prev.count + 1,
       last: new Date(o.created_at) > new Date(prev.last) ? o.created_at : prev.last,
@@ -93,7 +108,7 @@ export default async function AdminCustomersPage({
               <th className="px-4 py-3 text-left">Phone</th>
               <th className="px-4 py-3 text-left">City</th>
               <th className="px-4 py-3 text-left">Joined</th>
-              <th className="px-4 py-3 text-right">Orders</th>
+              <th className="px-4 py-3 text-right">Orders (90d)</th>
               <th className="px-4 py-3 text-left">Last order</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -111,7 +126,9 @@ export default async function AdminCustomersPage({
                   <td className="px-4 py-3">{c.phone ?? '—'}</td>
                   <td className="px-4 py-3">{cityLabel(c.city_id)}</td>
                   <td className="px-4 py-3">{formatRelativeDays(c.created_at)}</td>
-                  <td className="px-4 py-3 text-right">{stats?.count ?? 0}</td>
+                  <td className="px-4 py-3 text-right" title="Orders in last 90 days">
+                    {stats?.count ?? 0}
+                  </td>
                   <td className="px-4 py-3">{stats?.last ? formatRelativeDays(stats.last) : '—'}</td>
                   <td className="px-4 py-3 text-right">
                     <CustomerActions profileId={c.id} />

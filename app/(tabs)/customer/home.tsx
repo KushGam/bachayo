@@ -39,6 +39,7 @@ import {
   filterVisibleNearbyBags,
   resolveNearbyOrigin,
 } from '@/lib/nearbyBags';
+import { sortBagsByFeaturedTier } from '@/lib/featuredPlacement';
 import {
   formatRsPaisa,
   getTodayIsoDateLocal,
@@ -476,13 +477,15 @@ export default function HomeScreen() {
     const effectiveDistance =
       browseAllBags || !coords ? null : maxDistanceKm;
 
-    return byCategory.filter((bag) => {
+    const nearby = byCategory.filter((bag) => {
       // Hide only when nothing left to book. Own reservation still appears via Today's pickup;
       // if slots remain after a partial cancel, show the bag again in nearby.
       const left = Math.max(0, bag.quantity_available - bag.quantity_reserved);
       if (bag.status === 'sold_out' || left <= 0) return false;
       return bagPassesNearbyDistanceFilter(bag, effectiveDistance);
     });
+
+    return sortBagsByFeaturedTier(nearby);
   }, [bags, browseAllBags, coords, maxDistanceKm, selectedCategory]);
 
   const closingSoon = useMemo(

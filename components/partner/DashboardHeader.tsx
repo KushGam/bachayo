@@ -13,6 +13,7 @@ type DashboardHeaderProps = {
   categoryIcon: string;
   dateLabel: string;
   paddingTop: number;
+  featured?: boolean;
   onNotifications: () => void;
   onMessages: () => void;
 };
@@ -29,6 +30,7 @@ export function DashboardHeader({
   categoryIcon,
   dateLabel,
   paddingTop,
+  featured = false,
   onNotifications,
   onMessages,
 }: DashboardHeaderProps) {
@@ -57,6 +59,12 @@ export function DashboardHeader({
       <View style={styles.copy}>
         <Text style={styles.businessName}>{displayName}</Text>
         <Text style={styles.subline}>{subline}</Text>
+        {featured ? (
+          <View style={styles.featuredBadge}>
+            <Text style={styles.featuredStar}>⭐</Text>
+            <Text style={styles.featuredText}>Featured listing active</Text>
+          </View>
+        ) : null}
       </View>
     </LinearGradient>
   );
@@ -118,5 +126,24 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: 'rgba(255,255,255,0.78)',
     fontWeight: '500',
+  },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  featuredStar: {
+    fontSize: 12,
+  },
+  featuredText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
   },
 });

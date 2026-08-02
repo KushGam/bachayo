@@ -427,6 +427,15 @@ function CurrentPlanCard({
       <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
         <Text style={styles.statusBadgeText}>{statusLabel}</Text>
       </View>
+
+      {tier === 'large' && !expired ? (
+        <View style={styles.activeBenefits}>
+          <Text style={styles.activeBenefitsTitle}>Your active benefits:</Text>
+          <Text style={styles.activeBenefitItem}>✅ Unlimited bag listings</Text>
+          <Text style={styles.activeBenefitItem}>✅ Featured placement — ACTIVE</Text>
+          <Text style={styles.activeBenefitItem}>✅ Dedicated support</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -635,6 +644,24 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  activeBenefits: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    gap: 6,
+  },
+  activeBenefitsTitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  activeBenefitItem: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '600',
   },
   sectionLabel: {
     marginHorizontal: 16,

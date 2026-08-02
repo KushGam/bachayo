@@ -11,21 +11,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { title, body, type } = (await request.json()) as {
+  const { title, body, type, target, targetValue } = (await request.json()) as {
     title?: string;
     body?: string;
     type?: string;
+    target?: string;
+    targetValue?: string;
   };
 
   if (!title?.trim() || !body?.trim()) {
     return NextResponse.json({ error: 'title and body are required' }, { status: 400 });
   }
 
+  const resolvedTarget = target || 'all';
+  if (
+    (resolvedTarget === 'city' || resolvedTarget === 'user') &&
+    !targetValue?.trim()
+  ) {
+    return NextResponse.json(
+      { error: 'targetValue is required for city and user targets' },
+      { status: 400 },
+    );
+  }
+
   const supabase = createSupabaseAdmin();
-  const { data: profiles, error } = await supabase
+  let query = supabase
     .from('profiles')
-    .select('id, push_token')
+    .select('id, push_token, role, city_id')
     .not('push_token', 'is', null);
+
+  if (resolvedTarget === 'partners') {
+    query = query.eq('role', 'partner');
+  } else if (resolvedTarget === 'customers') {
+    query = query.eq('role', 'customer');
+  } else if (resolvedTarget === 'city') {
+    query = query.eq('city_id', targetValue!.trim());
+  } else if (resolvedTarget === 'user') {
+    query = query.eq('id', targetValue!.trim());
+  }
+
+  const { data: profiles, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

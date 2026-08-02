@@ -73,8 +73,8 @@ export function PageHeader({
             </div>
             {showLive ? (
               <div className="ml-4 flex items-center gap-1.5">
-                <span className="admin-live-dot h-2 w-2 rounded-full bg-[#10B981]" />
-                <span className="text-xs font-medium text-[#10B981]">Live</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-[#9CA3AF]" />
+                <span className="text-xs font-medium text-[#9CA3AF]">Updated recently</span>
               </div>
             ) : null}
           </div>

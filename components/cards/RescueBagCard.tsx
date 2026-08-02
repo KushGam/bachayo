@@ -14,6 +14,7 @@ import {
   isTooFarToReserve,
 } from '@/lib/distance';
 import { getCategoryPillLabel } from '@/constants/partnerCategories';
+import { isFeaturedPartner } from '@/lib/featuredPlacement';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { HomeBag } from '@/store/useBagsStore';
 
@@ -44,15 +45,25 @@ export const RescueBagCard = memo(function RescueBagCard({
   const tooFar = isTooFarToReserve(bag.distance_km);
   const distanceColor =
     bag.distance_km != null ? getDistanceColor(bag.distance_km) : Palette.primary;
+  const featured = isFeaturedPartner(bag.partner);
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        tooFar && styles.cardTooFar,
-        pressed && styles.pressed,
-      ]}>
+    <View>
+      {featured ? (
+        <View style={styles.featuredRow}>
+          <View style={styles.featuredBadge}>
+            <Text style={styles.featuredStar}>⭐</Text>
+            <Text style={styles.featuredText}>FEATURED</Text>
+          </View>
+        </View>
+      ) : null}
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.card,
+          tooFar && styles.cardTooFar,
+          pressed && styles.pressed,
+        ]}>
       <View style={styles.imageCol}>
         <AppImage
           source={{ uri: getRescueBagImageUrl(bag, 'card') }}
@@ -150,12 +161,37 @@ export const RescueBagCard = memo(function RescueBagCard({
             </Text>
           </View>
         </View>
-      </View>
-    </Pressable>
+        </View>
+      </Pressable>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  featuredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  featuredBadge: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  featuredStar: {
+    fontSize: 10,
+  },
+  featuredText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'white',
+    letterSpacing: 0.5,
+  },
   card: {
     flexDirection: 'row',
     ...CardChrome,

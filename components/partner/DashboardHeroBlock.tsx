@@ -12,6 +12,7 @@ type DashboardHeroBlockProps = {
   categoryIcon: string;
   dateLabel: string;
   paddingTop: number;
+  featured?: boolean;
   stats: DashboardStat[];
   loading: boolean;
   onNotifications: () => void;
@@ -24,6 +25,7 @@ export function DashboardHeroBlock({
   categoryIcon,
   dateLabel,
   paddingTop,
+  featured = false,
   stats,
   loading,
   onNotifications,
@@ -37,6 +39,7 @@ export function DashboardHeroBlock({
         categoryIcon={categoryIcon}
         dateLabel={dateLabel}
         paddingTop={paddingTop}
+        featured={featured}
         onNotifications={onNotifications}
         onMessages={onMessages}
       />

@@ -295,7 +295,7 @@ export async function markOrderPickedUp(
   }
 
   if (result.data) {
-    console.log('Order marked as picked up:', orderId, confirmedBy);
+    if (__DEV__) console.log('Order marked as picked up:', orderId, confirmedBy);
     return { ...result, didUpdate: true };
   }
 

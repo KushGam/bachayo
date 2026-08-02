@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { TIER_PRICES_NPR } from '@/lib/admin/constants';
 import { requireAdminSession } from '@/lib/admin-auth';
@@ -315,6 +315,7 @@ export async function updateSupportMessageStatus(
   revalidatePath('/admin/support');
   revalidatePath(`/admin/support/${messageId}`);
   revalidatePath('/admin');
+  revalidateTag('admin-support', { expire: 0 });
 }
 
 export async function markAdminOrderPickedUp(orderId: string) {

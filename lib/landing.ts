@@ -85,7 +85,7 @@ async function routeWithoutSession() {
 }
 
 export async function resolveInitialRoute(): Promise<string> {
-  console.log('[boot] resolveInitialRoute start');
+  if (__DEV__) console.log('[boot] resolveInitialRoute start');
 
   let userId: string | undefined;
 
@@ -102,7 +102,7 @@ export async function resolveInitialRoute(): Promise<string> {
     }
 
     userId = data.session?.user?.id;
-    console.log('[boot] session user:', userId ? 'yes' : 'no');
+    if (__DEV__) console.log('[boot] session user:', userId ? 'yes' : 'no');
 
     if (!userId) {
       return routeWithoutSession();
@@ -114,7 +114,7 @@ export async function resolveInitialRoute(): Promise<string> {
 
   const role = await resolveRoleWithFallback(userId);
   useAuthStore.getState().setAuthRole(role);
-  console.log('[boot] resolved role:', role ?? 'none (deferred)');
+  if (__DEV__) console.log('[boot] resolved role:', role ?? 'none (deferred)');
 
   try {
     const { data: profileRow } = await supabase
@@ -126,7 +126,7 @@ export async function resolveInitialRoute(): Promise<string> {
     if (profileRow) {
       const accepted = await hasAcceptedTerms(userId);
       if (!accepted) {
-        console.log('[boot] terms not accepted — routing to accept-terms');
+        if (__DEV__) console.log('[boot] terms not accepted — routing to accept-terms');
         return '/(auth)/accept-terms';
       }
 
@@ -139,7 +139,7 @@ export async function resolveInitialRoute(): Promise<string> {
         const completed = (onboardingRow as { onboarding_completed?: boolean | null } | null)
           ?.onboarding_completed;
         if (completed === false) {
-          console.log('[boot] customer onboarding incomplete');
+          if (__DEV__) console.log('[boot] customer onboarding incomplete');
           return '/(onboarding)/customer';
         }
       }

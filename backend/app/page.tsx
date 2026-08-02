@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
+import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
 import { PlanModal } from '@/components/PlanModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -665,6 +666,7 @@ export default function HomeLanding() {
             </FadeIn>
 
             <FadeIn delay={120}>
+              <LaunchOfferBanner ctaTargetId="waitlist" className="mb-8" />
               <div className="relative">
                 <div
                   className="pointer-events-none absolute -inset-6 rounded-[32px] opacity-60 blur-2xl"

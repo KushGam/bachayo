@@ -154,7 +154,7 @@ export default function PartnerDetailScreen() {
           .select('id, status')
           .eq('customer_id', userId)
           .eq('partner_id', id)
-          .in('status', ['picked_up', 'confirmed']),
+          .in('status', ['picked_up']),
         supabase
           .from('reviews')
           .select('order_id')

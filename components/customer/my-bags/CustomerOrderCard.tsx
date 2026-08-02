@@ -287,7 +287,7 @@ export function CustomerOrderCard({
           {needsReview ? (
             <Pressable
               onPress={() => {
-                console.log('[Review] Past tab Rate CTA pressed', order.id);
+                if (__DEV__) console.log('[Review] Past tab Rate CTA pressed', order.id);
                 onReview();
               }}
               style={({ pressed }) => [styles.rateExperienceBtn, pressed && styles.pressed]}>

@@ -117,15 +117,12 @@ export default async function PlanPage({ params }: PlanPageProps) {
           <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-white/40">
             What&apos;s included
           </h2>
-          {plan.features.map((f) => (
+          {plan.features
+            .filter((f) => f.included)
+            .map((f) => (
             <div key={f.label} className="flex items-center gap-3">
-              <span className={f.included ? 'text-lg text-[#D85A30]' : 'text-lg text-white/20'}>
-                {f.included ? '✓' : '×'}
-              </span>
-              <span
-                className={f.included ? 'text-sm text-white' : 'text-sm text-white/30 line-through'}>
-                {f.label}
-              </span>
+              <span className="text-lg text-[#D85A30]">✓</span>
+              <span className="text-sm text-white">{f.label}</span>
             </div>
           ))}
         </div>
@@ -135,7 +132,7 @@ export default async function PlanPage({ params }: PlanPageProps) {
         </ContactTrialCta>
 
         <p className="mt-4 text-center text-sm text-white/30">
-          Questions? WhatsApp us: 9762623241
+          Questions? WhatsApp us: 9716318840
         </p>
 
         <div className="mt-10 flex flex-wrap justify-center gap-3">

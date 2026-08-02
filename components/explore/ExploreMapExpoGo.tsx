@@ -8,6 +8,7 @@ import type { MapRegion } from '@/types/map';
 import { RetryState } from '@/components/ui/RetryState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { enrichBagsWithLiveStock, isBagBookable } from '@/lib/bagStock';
+import { sortBagsFeaturedThenDistance } from '@/lib/featuredPlacement';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import {
   attachNearbyBagDistances,
@@ -88,7 +89,7 @@ export default function ExploreMapExpoGo() {
 
   const filteredBags = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    return bags.filter((bag) => {
+    const filtered = bags.filter((bag) => {
       if (!isBagBookable(bag)) return false;
       const title = locale === 'np' && bag.title_np ? bag.title_np : bag.title;
       const categoryPass =
@@ -100,6 +101,7 @@ export default function ExploreMapExpoGo() {
           : bag.partner.name.toLowerCase().includes(search) || title.toLowerCase().includes(search);
       return categoryPass && distancePass && searchPass;
     });
+    return sortBagsFeaturedThenDistance(filtered);
   }, [bags, selectedCategory, maxDistanceKm, searchTerm, locale]);
 
   const fetchBags = useCallback(async () => {

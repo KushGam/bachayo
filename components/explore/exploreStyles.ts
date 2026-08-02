@@ -51,6 +51,17 @@ export const exploreStyles = StyleSheet.create({
   markerPinSelected: {
     backgroundColor: '#1A1A1A',
   },
+  markerPinFeatured: {
+    backgroundColor: '#F59E0B',
+    borderWidth: 2.5,
+    borderColor: 'white',
+    shadowColor: '#F59E0B',
+  },
+  markerPinFeaturedSelected: {
+    backgroundColor: '#D97706',
+    borderWidth: 2.5,
+    borderColor: 'white',
+  },
   markerEmoji: {
     fontSize: 12,
   },
@@ -74,6 +85,9 @@ export const exploreStyles = StyleSheet.create({
   },
   markerPointerSelected: {
     borderTopColor: '#1A1A1A',
+  },
+  markerPointerFeatured: {
+    borderTopColor: '#F59E0B',
   },
   markerBadge: {
     backgroundColor: '#FEF3C7',

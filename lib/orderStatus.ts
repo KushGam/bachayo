@@ -43,8 +43,8 @@ export const NEW_RESERVATION_DB_STATUS = 'paid' as const;
 
 export const NEW_RESERVATION_APP_STATUS: OrderStatus = 'confirmed';
 
-/** TEMPORARY — remove 'confirmed' before App Store launch (review flow testing). */
-export const REVIEW_ELIGIBLE_STATUSES: OrderStatus[] = ['picked_up', 'confirmed'];
+/** Only completed pickups may be reviewed. */
+export const REVIEW_ELIGIBLE_STATUSES: OrderStatus[] = ['picked_up'];
 
 export function isReviewEligibleOrderStatus(status: string) {
   return REVIEW_ELIGIBLE_STATUSES.includes(normalizeOrderStatus(status));

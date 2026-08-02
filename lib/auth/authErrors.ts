@@ -177,4 +177,4 @@ export function classifyOtpError(error: unknown): OtpFailureKind {
 }
 
 /** Partner support WhatsApp (country code, no +). */
-export const PARTNER_SUPPORT_WHATSAPP = '9779762623241';
+export const PARTNER_SUPPORT_WHATSAPP = '9779716318840';

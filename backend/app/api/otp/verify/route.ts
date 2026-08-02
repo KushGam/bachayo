@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   NepalOtpError,
   isValidNepalMobile,
+  normalizeNepalPhone,
   toE164NepalPhone,
   verifyOtp,
 } from '@/lib/nepalotp';
+import { unbindOtpSession } from '@/lib/otp-binding';
 import { mintSessionForPhone } from '@/lib/phone-session';
 
 const ERROR_COPY: Record<string, string> = {
@@ -46,14 +48,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const bound = unbindOtpSession(otp_id);
+  if (!bound) {
+    return NextResponse.json(
+      { error: 'Verification expired. Please request a new code.', code: 'OTP_EXPIRED' },
+      { status: 400 },
+    );
+  }
+
+  const requestPhoneLocal = normalizeNepalPhone(phone);
+  if (bound.phoneLocal !== requestPhoneLocal) {
+    return NextResponse.json(
+      { error: 'Phone number does not match this verification.', code: 'INVALID_OTP' },
+      { status: 400 },
+    );
+  }
+
   try {
-    const result = await verifyOtp(otp_id, code);
+    const result = await verifyOtp(bound.otpId, code);
 
     if (result.verified === false) {
       return NextResponse.json(
         { error: ERROR_COPY.INVALID_OTP, code: 'INVALID_OTP' },
         { status: 400 },
       );
+    }
+
+    // If the provider returns a phone, it must match the bound session.
+    if (result.phone) {
+      const verifiedLocal = normalizeNepalPhone(result.phone);
+      if (verifiedLocal !== bound.phoneLocal) {
+        return NextResponse.json(
+          { error: 'Phone number does not match this verification.', code: 'INVALID_OTP' },
+          { status: 400 },
+        );
+      }
     }
   } catch (error) {
     console.error('[NepalOTP] verify failed:', error);
@@ -68,9 +97,9 @@ export async function POST(request: NextRequest) {
           { status: 503 },
         );
       }
-      const code = error.code || 'INVALID_OTP';
-      const message = ERROR_COPY[code] || error.message;
-      return NextResponse.json({ error: message, code }, { status: 400 });
+      const errCode = error.code || 'INVALID_OTP';
+      const message = ERROR_COPY[errCode] || error.message;
+      return NextResponse.json({ error: message, code: errCode }, { status: 400 });
     }
 
     return NextResponse.json({ error: 'Verification failed' }, { status: 400 });
@@ -83,8 +112,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Always mint for the phone that was bound at send time — never trust body alone.
     const { session, isNewUser, profile } = await mintSessionForPhone(
-      toE164NepalPhone(phone),
+      toE164NepalPhone(bound.phoneLocal),
     );
 
     return NextResponse.json({

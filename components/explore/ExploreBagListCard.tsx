@@ -6,6 +6,7 @@ import { Palette } from '@/constants/Colors';
 import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { formatDistance, getDistanceColor, isTooFarToReserve } from '@/lib/distance';
 import { formatBagPickupLabel } from '@/lib/helpers';
+import { isFeaturedPartner } from '@/lib/featuredPlacement';
 import { getRescueBagImageUrl } from '@/lib/images';
 import type { HomeBag } from '@/store/useBagsStore';
 
@@ -35,6 +36,7 @@ export function ExploreBagListCard({
     bag.original_price > 0
       ? Math.round(((bag.original_price - bag.rescue_price) / bag.original_price) * 100)
       : 0;
+  const featured = isFeaturedPartner(bag.partner);
 
   return (
     <Pressable
@@ -59,6 +61,12 @@ export function ExploreBagListCard({
       </View>
 
       <View style={styles.copy}>
+        {featured ? (
+          <View style={styles.featuredBadge}>
+            <Text style={styles.featuredStar}>⭐</Text>
+            <Text style={styles.featuredText}>FEATURED</Text>
+          </View>
+        ) : null}
         <Pressable onPress={onPartnerPress} hitSlop={6}>
           <Text numberOfLines={1} style={styles.partner}>
             {bag.partner.name}
@@ -147,6 +155,26 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
     minWidth: 0,
+  },
+  featuredBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F59E0B',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 2,
+  },
+  featuredStar: {
+    fontSize: 9,
+  },
+  featuredText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: 'white',
+    letterSpacing: 0.5,
   },
   partner: {
     ...Type.bodyMedium,

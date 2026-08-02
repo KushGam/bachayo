@@ -5,7 +5,7 @@ export const config = {
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   /** Marketing / admin Next.js site — support contact API lives here. */
   apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://lastbag.app',
-  esewaMerchantCode: process.env.EXPO_PUBLIC_ESEWA_MERCHANT_CODE ?? 'EPAYTEST',
+  esewaMerchantCode: process.env.EXPO_PUBLIC_ESEWA_MERCHANT_CODE ?? '',
   khaltiPublicKey: process.env.EXPO_PUBLIC_KHALTI_PUBLIC_KEY ?? '',
   /** Google Cloud → Credentials → OAuth 2.0 Web client ID */
   googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '',

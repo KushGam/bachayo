@@ -10,7 +10,7 @@ export default function Index() {
   const [href, setHref] = useState<Href | null>(null);
 
   useEffect(() => {
-    console.log('[boot] index mounted');
+    if (__DEV__) console.log('[boot] index mounted');
 
     let cancelled = false;
 
@@ -25,7 +25,7 @@ export default function Index() {
       try {
         const route = await resolveInitialRoute();
         if (!cancelled) {
-          console.log('[boot] index redirect ->', route);
+          if (__DEV__) console.log('[boot] index redirect ->', route);
           setHref(route as Href);
         }
       } catch (error) {

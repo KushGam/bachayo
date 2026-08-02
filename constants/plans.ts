@@ -9,7 +9,7 @@ export const PLANS = [
     popular: false,
     color: '#6B7280',
     maxListingsPerDay: 5,
-    features: ['Up to 5 bag listings / day', 'QR pickup', 'Email support'],
+    features: ['Up to 5 bag listings / day', 'QR pickup', 'Email support', 'Sales analytics'],
   },
   {
     id: 'medium',
@@ -35,7 +35,6 @@ export const PLANS = [
     maxListingsPerDay: null, // unlimited
     features: [
       'Unlimited bag listings',
-      'Multi-branch',
       'Featured placement',
       'Dedicated support',
     ],

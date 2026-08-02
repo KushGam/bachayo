@@ -39,9 +39,10 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
     supabase.from('profiles').select('full_name, phone, created_at').eq('id', partner.user_id).maybeSingle(),
     supabase
       .from('subscription_payments')
-      .select('*')
+      .select('id, amount, status, payment_method, period_start, period_end, created_at, notes')
       .eq('partner_id', id)
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(50),
     supabase
       .from('rescue_bags')
       .select('id, title, rescue_price, pickup_start, pickup_end, status')
@@ -65,7 +66,8 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
       .from('orders')
       .select('total_price')
       .eq('partner_id', id)
-      .in('status', ['confirmed', 'picked_up']),
+      .in('status', ['confirmed', 'picked_up'])
+      .limit(5000),
     supabase.auth.admin.getUserById(partner.user_id),
   ]);
 

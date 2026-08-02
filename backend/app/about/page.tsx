@@ -143,10 +143,10 @@ export default function AboutPage() {
       <section className="bg-[var(--surface)] py-24">
         <div className="mx-auto max-w-[900px] px-6 text-center">
           <h2 className="font-display text-3xl font-bold text-[var(--ink)]">
-            Available wherever you are
+            Available across Nepal
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-[var(--text-secondary)]">
-            LastBag is built for kitchens and customers worldwide. Open the app, find bags near
+            LastBag is built for kitchens and customers across Nepal. Open the app, find bags near
             you, and rescue food — no city waitlist required.
           </p>
         </div>

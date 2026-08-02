@@ -59,7 +59,7 @@ function ensureNativeConfigured(mod: GoogleNativeModule) {
 }
 
 async function exchangeIdToken(idToken: string): Promise<GoogleSignInNativeResult> {
-  console.log('[Google] Exchanging ID token with Supabase');
+  if (__DEV__) console.log('[Google] Exchanging ID token with Supabase');
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token: idToken,
@@ -131,7 +131,7 @@ async function getSessionUser() {
 /** Browser / ASWebAuthenticationSession fallback when native SDK is not linked. */
 async function signInWithBrowserOAuth(): Promise<GoogleSignInNativeResult> {
   const redirectUri = getOAuthRedirectUri();
-  console.log('[Google] Browser OAuth fallback, redirectUri:', redirectUri);
+  if (__DEV__) console.log('[Google] Browser OAuth fallback, redirectUri:', redirectUri);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -212,7 +212,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
 
   try {
     if (native) {
-      console.log('[Google] Using native Google Sign-In');
+      if (__DEV__) console.log('[Google] Using native Google Sign-In');
       return await signInWithNativeGoogle(native);
     }
 

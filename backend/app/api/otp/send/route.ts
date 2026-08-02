@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   NepalOtpError,
   isValidNepalMobile,
+  normalizeNepalPhone,
   sendOtp,
   toE164NepalPhone,
 } from '@/lib/nepalotp';
+import { bindOtpSession } from '@/lib/otp-binding';
 
 export async function POST(request: NextRequest) {
   let phone: unknown;
@@ -29,11 +31,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await sendOtp(phone);
+    const phoneLocal = normalizeNepalPhone(phone);
+    const otp_id = bindOtpSession(result.otp_id, phoneLocal);
 
     return NextResponse.json({
       success: true,
       phone: toE164NepalPhone(phone),
-      otp_id: result.otp_id,
+      otp_id,
     });
   } catch (error) {
     console.error('[NepalOTP] send failed:', error);

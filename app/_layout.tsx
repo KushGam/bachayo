@@ -32,7 +32,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  console.log('[boot] layout mounted');
+  if (__DEV__) console.log('[boot] layout mounted');
 
   useEffect(() => {
     try {

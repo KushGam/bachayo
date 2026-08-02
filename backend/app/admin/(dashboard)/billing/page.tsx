@@ -8,6 +8,8 @@ import { TIER_PRICES_NPR } from '@/lib/admin/constants';
 import { cityLabel, formatDate, formatDateTime, formatNpr, startOfMonthIso, trialDaysLeft } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
+export const revalidate = 60;
+
 export default async function AdminBillingPage({
   searchParams,
 }: {
@@ -16,48 +18,7 @@ export default async function AdminBillingPage({
   const params = await searchParams;
   const supabase = createSupabaseAdmin();
   const monthStart = params.month ? `${params.month}-01` : startOfMonthIso();
-
-  const { data: activePartners } = await supabase
-    .from('partners')
-    .select('subscription_tier')
-    .eq('subscription_status', 'active');
-
-  const mrr = (activePartners ?? []).reduce((sum, p) => {
-    const tier = (p.subscription_tier ?? 'small') as keyof typeof TIER_PRICES_NPR;
-    return sum + (TIER_PRICES_NPR[tier] ?? 0);
-  }, 0);
-
-  const { data: monthPayments } = await supabase
-    .from('subscription_payments')
-    .select('amount')
-    .eq('status', 'paid')
-    .gte('period_start', monthStart);
-
-  const collected = (monthPayments ?? []).reduce((sum, p) => sum + p.amount, 0);
-
-  const { data: pastDuePartners } = await supabase
-    .from('partners')
-    .select('subscription_tier')
-    .eq('subscription_status', 'past_due');
-
-  const outstanding = (pastDuePartners ?? []).reduce((sum, p) => {
-    const tier = (p.subscription_tier ?? 'small') as keyof typeof TIER_PRICES_NPR;
-    return sum + (TIER_PRICES_NPR[tier] ?? 0);
-  }, 0);
-
   const monthStartDate = new Date(monthStart);
-  const { count: conversions } = await supabase
-    .from('subscription_payments')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'paid')
-    .gte('created_at', monthStartDate.toISOString());
-
-  const { data: trialEnding } = await supabase
-    .from('partners')
-    .select('id, name, city_id, phone, subscription_tier, trial_ends_at, subscription_status')
-    .eq('subscription_status', 'trial')
-    .order('trial_ends_at', { ascending: true })
-    .limit(50);
 
   let paymentsQuery = supabase
     .from('subscription_payments')
@@ -68,12 +29,48 @@ export default async function AdminBillingPage({
   if (params.status) paymentsQuery = paymentsQuery.eq('status', params.status);
   if (params.month) paymentsQuery = paymentsQuery.gte('period_start', monthStart);
 
-  const { data: payments } = await paymentsQuery;
+  const [
+    { data: activePartners },
+    { data: monthPayments },
+    { data: pastDuePartners },
+    { count: conversions },
+    { data: trialEnding },
+    { data: payments },
+    { data: allPartners },
+  ] = await Promise.all([
+    supabase.from('partners').select('subscription_tier').eq('subscription_status', 'active'),
+    supabase
+      .from('subscription_payments')
+      .select('amount')
+      .eq('status', 'paid')
+      .gte('period_start', monthStart),
+    supabase.from('partners').select('subscription_tier').eq('subscription_status', 'past_due'),
+    supabase
+      .from('subscription_payments')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'paid')
+      .gte('created_at', monthStartDate.toISOString()),
+    supabase
+      .from('partners')
+      .select('id, name, city_id, phone, subscription_tier, trial_ends_at, subscription_status')
+      .eq('subscription_status', 'trial')
+      .order('trial_ends_at', { ascending: true })
+      .limit(50),
+    paymentsQuery,
+    supabase.from('partners').select('id, name, subscription_tier').order('name'),
+  ]);
 
-  const { data: allPartners } = await supabase
-    .from('partners')
-    .select('id, name, subscription_tier')
-    .order('name');
+  const mrr = (activePartners ?? []).reduce((sum, p) => {
+    const tier = (p.subscription_tier ?? 'small') as keyof typeof TIER_PRICES_NPR;
+    return sum + (TIER_PRICES_NPR[tier] ?? 0);
+  }, 0);
+
+  const collected = (monthPayments ?? []).reduce((sum, p) => sum + p.amount, 0);
+
+  const outstanding = (pastDuePartners ?? []).reduce((sum, p) => {
+    const tier = (p.subscription_tier ?? 'small') as keyof typeof TIER_PRICES_NPR;
+    return sum + (TIER_PRICES_NPR[tier] ?? 0);
+  }, 0);
 
   return (
     <>

@@ -21,6 +21,7 @@ import {
   type HomeCategoryFilter,
 } from '@/constants/partnerCategories';
 import { enrichBagsWithLiveStock, isBagBookable } from '@/lib/bagStock';
+import { isFeaturedPartner, sortBagsFeaturedThenDistance } from '@/lib/featuredPlacement';
 import { getTodayIsoDateLocal } from '@/lib/helpers';
 import {
   attachNearbyBagDistances,
@@ -160,7 +161,7 @@ export default function ExploreMapNative() {
 
   const filteredBags = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    return bags.filter((bag) => {
+    const filtered = bags.filter((bag) => {
       if (!isBagBookable(bag)) return false;
       const title = locale === 'np' && bag.title_np ? bag.title_np : bag.title;
       const categoryPass =
@@ -172,6 +173,7 @@ export default function ExploreMapNative() {
           : bag.partner.name.toLowerCase().includes(search) || title.toLowerCase().includes(search);
       return categoryPass && distancePass && searchPass;
     });
+    return sortBagsFeaturedThenDistance(filtered);
   }, [bags, selectedCategory, maxDistanceKm, searchTerm, locale]);
 
   const fetchBags = useCallback(async () => {
@@ -399,11 +401,12 @@ export default function ExploreMapNative() {
             const selected = selectedBagId === bag.id;
             const bagsLeft = getBagsLeft(bag);
             const rating = bag.partner.rating ?? 0;
+            const featured = isFeaturedPartner(bag.partner);
 
             return (
               <Marker
                 // Remount on selection so selected styles update with tracksViewChanges={false}
-                key={`${bag.id}-${selected ? 'sel' : 'idle'}`}
+                key={`${bag.id}-${selected ? 'sel' : 'idle'}-${featured ? 'feat' : 'std'}`}
                 coordinate={{
                   latitude: bag.partner.latitude,
                   longitude: bag.partner.longitude,
@@ -411,16 +414,29 @@ export default function ExploreMapNative() {
                 onPress={() => onSelectMarker(bag)}
                 tracksViewChanges={false}>
                 <View style={styles.markerWrap}>
-                  <View style={[styles.markerPin, selected && styles.markerPinSelected]}>
+                  <View
+                    style={[
+                      styles.markerPin,
+                      featured && styles.markerPinFeatured,
+                      selected && !featured && styles.markerPinSelected,
+                      selected && featured && styles.markerPinFeaturedSelected,
+                    ]}>
                     <Text style={styles.markerEmoji}>
                       {getCategoryEmoji(bag.partner.category)}
                     </Text>
                     <Text style={styles.markerPrice}>
-                      {markerPriceLabel(bag.rescue_price)}
+                      {featured
+                        ? `⭐ ${markerPriceLabel(bag.rescue_price)}`
+                        : markerPriceLabel(bag.rescue_price)}
                     </Text>
                   </View>
                   <View
-                    style={[styles.markerPointer, selected && styles.markerPointerSelected]}
+                    style={[
+                      styles.markerPointer,
+                      featured && styles.markerPointerFeatured,
+                      selected && !featured && styles.markerPointerSelected,
+                      selected && featured && styles.markerPointerFeatured,
+                    ]}
                   />
                   {bagsLeft > 0 && bagsLeft <= 3 ? (
                     <View style={styles.markerBadge}>

@@ -18,10 +18,7 @@ function normalizeEmail(email: string) {
 }
 
 function requireSecret() {
-  const secret =
-    process.env.INTERNAL_SECRET ||
-    process.env.EXPO_PUBLIC_INTERNAL_SECRET ||
-    process.env.ADMIN_SECRET;
+  const secret = process.env.INTERNAL_SECRET || process.env.ADMIN_SECRET;
   if (!secret) {
     throw new Error('Missing INTERNAL_SECRET for password reset tokens');
   }

@@ -194,7 +194,7 @@ export default function PartnerDashboardScreen() {
                 if (!updated?.id) return;
 
                 if (isPickupFetchBlocked(lastPickupTime.current)) {
-                  console.log('[realtime] blocked stale update');
+                  if (__DEV__) console.log('[realtime] blocked stale update');
                   return;
                 }
 
@@ -541,6 +541,9 @@ export default function PartnerDashboardScreen() {
           categoryIcon={categoryMeta?.icon ?? ''}
           dateLabel={locale === 'np' ? dates.np : dates.en}
           paddingTop={insets.top + Spacing.md}
+          featured={
+            (partner as Partner & PartnerSubscriptionFields).subscription_tier === 'large'
+          }
           stats={statCards}
           loading={loading}
           onNotifications={() => {

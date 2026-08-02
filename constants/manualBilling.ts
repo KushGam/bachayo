@@ -19,7 +19,7 @@ export const PLAN_FEATURES: Record<
 > = {
   small: {
     title: 'Small Plan',
-    features: ['Up to 5 bag listings / day', 'QR pickup', 'Email support'],
+    features: ['Up to 5 bag listings / day', 'QR pickup', 'Email support', 'Sales analytics'],
   },
   medium: {
     title: 'Medium Plan',
@@ -30,7 +30,6 @@ export const PLAN_FEATURES: Record<
     title: 'Large Plan',
     features: [
       'Unlimited bag listings',
-      'Multi-branch',
       'Featured placement',
       'Dedicated support',
     ],

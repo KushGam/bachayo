@@ -4,6 +4,7 @@ import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
 import { PlanModal } from '@/components/PlanModal';
 
 export default function ForRestaurantsPage() {
@@ -36,7 +37,7 @@ export default function ForRestaurantsPage() {
     {
       id: 'cities',
       q: 'Is LastBag available in my city?',
-      a: 'Yes. LastBag is open to partners worldwide. Sign up and start listing — customers near you will see your bags immediately.',
+      a: 'Yes. LastBag is open to partners across Nepal. Sign up and start listing — customers near you will see your bags immediately.',
     },
     {
       id: 'subscription',
@@ -185,6 +186,7 @@ export default function ForRestaurantsPage() {
           }}
         />
         <div className="relative mx-auto max-w-6xl px-6">
+          <LaunchOfferBanner ctaTargetId="pricing" className="mb-14" />
           <div className="mx-auto max-w-2xl text-center">
             <p className="section-label">Pricing</p>
             <h2 className="mt-3 font-display text-3xl font-bold text-white md:text-4xl">
