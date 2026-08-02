@@ -27,12 +27,18 @@ normal Vercel deploy).
 The database webhooks and scheduled jobs still point at the old Edge Function
 URLs. Repoint them in the Supabase dashboard:
 
-- **Database → Webhooks**: change the URL to
-  `https://<site>/api/webhooks/order-created` and
-  `https://<site>/api/webhooks/bag-stock`, keeping the
-  `x-supabase-webhook-secret` header.
-- **Cron jobs**: the schedules now live in `backend/vercel.json`, so any
-  `pg_cron` / dashboard schedules invoking Edge Functions can be removed.
+- **Database → Webhooks** (header `x-supabase-webhook-secret`):
+  - `orders` INSERT → `https://<site>/api/webhooks/order-created`
+  - `rescue_bags` UPDATE → `https://<site>/api/webhooks/bag-stock`
+  - `rescue_bags` INSERT → `https://<site>/api/webhooks/bag-created`
+  - `partners` INSERT → `https://<site>/api/webhooks/partner-signup`
+- **Cron jobs**: schedules live in `backend/vercel.json`:
+  - `/api/cron/check-subscriptions` — daily (subscription + review reminders)
+  - `/api/notify-expiring` — hourly (partner bag expiring in ≤1h)
+  - `/api/cron/pickup-reminders` — every 15 min
+  - `/api/cron/missed-orders` — every 15 min
+
+Any `pg_cron` / dashboard schedules invoking Edge Functions can be removed.
 
 `supabase/migrations/` is still the source of truth for the schema — only the
 functions directory is retired.

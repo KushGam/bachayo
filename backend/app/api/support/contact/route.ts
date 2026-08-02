@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { Resend } from 'resend';
 
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
@@ -56,20 +55,6 @@ async function sendSupportEmail(params: {
   const html = buildSupportEmailHtml(params);
   const mailSubject = `[LastBag Support] ${params.subject}`;
 
-  const resendApiKey = process.env.RESEND_API_KEY;
-  if (resendApiKey) {
-    const resend = new Resend(resendApiKey);
-    const { error } = await resend.emails.send({
-      from: 'LastBag Support <noreply@lastbag.app>',
-      to: 'support@lastbag.app',
-      replyTo: params.email,
-      subject: mailSubject,
-      html,
-    });
-    if (error) throw error;
-    return;
-  }
-
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
   if (gmailUser && gmailPass) {
@@ -89,7 +74,7 @@ async function sendSupportEmail(params: {
   }
 
   console.warn(
-    '[support/contact] No RESEND_API_KEY or GMAIL_* configured — skipped email (saved to admin)',
+    '[support/contact] GMAIL_USER or GMAIL_APP_PASSWORD not set — skipped email (saved to admin)',
   );
 }
 

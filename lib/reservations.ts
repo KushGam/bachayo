@@ -137,6 +137,7 @@ export async function notifyPartnerReservation(input: {
   partnerUserId: string;
   partnerId: string;
   bagId: string;
+  orderId: string;
   customerName: string;
   quantity: number;
   bagTitle: string;
@@ -152,10 +153,40 @@ export async function notifyPartnerReservation(input: {
     body: `${input.customerName} reserved ${qtyLabel}${input.bagTitle}. Pickup ${pickup} · Pay at counter`,
     type: 'reservation',
     data: {
+      order_id: input.orderId,
       bag_id: input.bagId,
       partner_id: input.partnerId,
+      orderId: input.orderId,
       bagId: input.bagId,
       type: 'partner_dashboard',
+    },
+  });
+}
+
+export async function notifyCustomerReservationConfirmed(input: {
+  customerId: string;
+  orderId: string;
+  bagId: string;
+  partnerId: string;
+  bagTitle: string;
+  partnerName: string;
+  pickupStart: string;
+  pickupEnd: string;
+}) {
+  const pickup = formatPickupWindow(input.pickupStart, input.pickupEnd);
+
+  await sendNotification({
+    userId: input.customerId,
+    title: 'Bag reserved! 🛍',
+    body: `Your ${input.bagTitle} at ${input.partnerName} is confirmed. Pick up ${pickup} today.`,
+    type: 'reservation',
+    data: {
+      order_id: input.orderId,
+      bag_id: input.bagId,
+      partner_id: input.partnerId,
+      orderId: input.orderId,
+      bagId: input.bagId,
+      type: 'reservation',
     },
   });
 }
@@ -290,12 +321,30 @@ export async function createReservation(
 
   useBagsStore.getState().incrementBagReserved(bag.id, input.quantity);
 
+  // Client-side notifies so reservation alerts work even if the DB webhook is
+  // misconfigured. The order-created webhook dedupes by order_id before sending.
+  try {
+    await notifyCustomerReservationConfirmed({
+      customerId: userId,
+      orderId: order.id,
+      bagId: bag.id,
+      partnerId: bag.partner_id,
+      bagTitle: bag.title,
+      partnerName: bag.partner.name ?? 'your partner',
+      pickupStart: bag.pickup_start,
+      pickupEnd: bag.pickup_end,
+    });
+  } catch (notifyError) {
+    console.warn('[reservations] customer notification failed:', notifyError);
+  }
+
   if (bag.partner.user_id) {
     try {
       await notifyPartnerReservation({
         partnerUserId: bag.partner.user_id,
         partnerId: bag.partner_id,
         bagId: bag.id,
+        orderId: order.id,
         customerName: input.customerName.trim(),
         quantity: input.quantity,
         bagTitle: bag.title,

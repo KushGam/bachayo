@@ -92,9 +92,8 @@ We use trusted providers who process data on our behalf to operate the app and w
 • Expo (Expo Application Services) — app builds, updates, and Expo Push Notification service for alerts
 • Supabase — authentication, database, file storage, and realtime features (project data hosted in the Singapore region where configured)
 • Vercel — hosting for our website and backend APIs
-• Google — Google Sign-In if you choose to sign in with Google
+• Google — Google Sign-In if you choose to sign in with Google; Gmail SMTP for transactional and support emails
 • Apple — if you use Sign in with Apple or iOS system services where applicable
-• Resend — transactional and support emails (for example Contact us notifications)
 • PostHog — product analytics to understand how features are used (configured via our analytics settings)
 • Apple App Store / Google Play — app distribution and, where relevant, store account identifiers for installs/updates
 

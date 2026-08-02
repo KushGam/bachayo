@@ -98,6 +98,35 @@ export async function deliverNotification(
 }
 
 /**
+ * Avoid double-push when the app and a DB webhook both try to notify the same
+ * order event within a short window.
+ */
+export async function hasRecentOrderNotification(input: {
+  userId: string;
+  type: string;
+  orderId: string;
+  withinMs?: number;
+}): Promise<boolean> {
+  const supabase = createSupabaseAdmin();
+  const since = new Date(Date.now() - (input.withinMs ?? 5 * 60 * 1000)).toISOString();
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('data')
+    .eq('user_id', input.userId)
+    .eq('type', input.type)
+    .gte('created_at', since)
+    .limit(25);
+
+  if (error || !data) return false;
+
+  return data.some((row) => {
+    const payload = row.data as { order_id?: string; orderId?: string } | null;
+    return payload?.order_id === input.orderId || payload?.orderId === input.orderId;
+  });
+}
+
+/**
  * Kept as a thin alias so existing call sites read the same. It used to POST to
  * /api/send-notification over the network, which cost a round trip and needed
  * INTERNAL_SECRET set just to talk to ourselves.

@@ -18,6 +18,10 @@ const PREF_KEY_BY_TYPE: Record<string, { customer: string | null; partner: strin
   reservation: { customer: null, partner: 'new_reservations' },
   bag_expiring: { customer: null, partner: 'bag_expiring' },
   subscription: { customer: null, partner: 'subscription_reminders' },
+  // No dedicated toggles — always deliver when mapped with null keys.
+  new_review: { customer: null, partner: null },
+  order_message: { customer: null, partner: null },
+  pickup_confirmed: { customer: null, partner: null },
 };
 
 export async function shouldSendNotification(

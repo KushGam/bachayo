@@ -96,13 +96,11 @@ export default function PrivacyPolicyPage() {
               <strong className="text-[var(--ink)]">Vercel</strong> — website and API hosting
             </li>
             <li>
-              <strong className="text-[var(--ink)]">Google</strong> — Google Sign-In (if used)
+              <strong className="text-[var(--ink)]">Google</strong> — Google Sign-In (if used);
+              Gmail SMTP for transactional and support email
             </li>
             <li>
               <strong className="text-[var(--ink)]">Apple</strong> — App Store / iOS system services
-            </li>
-            <li>
-              <strong className="text-[var(--ink)]">Resend</strong> — transactional and support email
             </li>
             <li>
               <strong className="text-[var(--ink)]">PostHog</strong> — product analytics

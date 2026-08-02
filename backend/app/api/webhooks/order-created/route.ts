@@ -5,7 +5,7 @@ import {
   partnerBagSoldOut,
   partnerNewReservation,
 } from '@/lib/notification-messages';
-import { sendNotificationPayload } from '@/lib/notifications';
+import { hasRecentOrderNotification, sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
 type WebhookPayload = {
@@ -58,32 +58,50 @@ export async function POST(request: NextRequest) {
     }
 
     const customerName = String(order.customer_name ?? 'A customer');
-    const results: Record<string, { success?: boolean; error?: string }> = {};
+    const results: Record<string, { success?: boolean; error?: string; skipped?: boolean }> = {};
 
     if (partner?.user_id) {
-      const partnerPayload = partnerNewReservation({
+      const alreadyPartner = await hasRecentOrderNotification({
+        userId: partner.user_id,
+        type: 'reservation',
+        orderId,
+      });
+      if (alreadyPartner) {
+        results.partner = { success: true, skipped: true };
+      } else {
+        const partnerPayload = partnerNewReservation({
+          orderId,
+          bagId,
+          partnerId,
+          customerName,
+          quantity,
+          bagTitle: bag.title,
+          pickupStart: bag.pickup_start,
+          pickupEnd: bag.pickup_end,
+        });
+        results.partner = await sendNotificationPayload(partner.user_id, partnerPayload);
+      }
+    }
+
+    const alreadyCustomer = await hasRecentOrderNotification({
+      userId: customerId,
+      type: 'reservation',
+      orderId,
+    });
+    if (alreadyCustomer) {
+      results.customer = { success: true, skipped: true };
+    } else {
+      const customerPayload = customerReservationConfirmed({
         orderId,
         bagId,
         partnerId,
-        customerName,
-        quantity,
         bagTitle: bag.title,
+        partnerName: partner?.name ?? 'your partner',
         pickupStart: bag.pickup_start,
         pickupEnd: bag.pickup_end,
       });
-      results.partner = await sendNotificationPayload(partner.user_id, partnerPayload);
+      results.customer = await sendNotificationPayload(customerId, customerPayload);
     }
-
-    const customerPayload = customerReservationConfirmed({
-      orderId,
-      bagId,
-      partnerId,
-      bagTitle: bag.title,
-      partnerName: partner?.name ?? 'your partner',
-      pickupStart: bag.pickup_start,
-      pickupEnd: bag.pickup_end,
-    });
-    results.customer = await sendNotificationPayload(customerId, customerPayload);
 
     if (
       partner?.user_id &&

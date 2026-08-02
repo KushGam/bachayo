@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
@@ -50,12 +50,17 @@ export async function POST(request: NextRequest) {
     const createdAt = String(partner.created_at ?? new Date().toISOString());
 
     const adminEmail = process.env.ADMIN_NOTIFY_EMAIL ?? 'hello@lastbag.app';
-    const resendApiKey = process.env.RESEND_API_KEY;
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-    if (resendApiKey) {
-      const resend = new Resend(resendApiKey);
-      await resend.emails.send({
-        from: 'LastBag <noreply@lastbag.app>',
+    if (gmailUser && gmailPass) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: gmailUser, pass: gmailPass },
+      });
+
+      await transporter.sendMail({
+        from: `"LastBag" <${gmailUser}>`,
         to: adminEmail,
         subject: `New restaurant signup — ${name}`,
         html: `
@@ -68,6 +73,11 @@ export async function POST(request: NextRequest) {
           <p><a href="${getAdminBaseUrl()}/admin/partners?approval=pending">Review in admin panel</a></p>
         `,
       });
+    } else {
+      console.warn(
+        '[partner-signup] GMAIL_USER or GMAIL_APP_PASSWORD not set — skipping admin email for',
+        partnerId,
+      );
     }
 
     const adminUserId = process.env.ADMIN_USER_ID;
@@ -76,8 +86,13 @@ export async function POST(request: NextRequest) {
         title: 'New restaurant signup',
         body: `${name} signed up and needs approval.`,
         type: 'system',
-        data: { partner_id: partnerId },
+        data: { partner_id: partnerId, type: 'system' },
       });
+    } else {
+      console.warn(
+        '[partner-signup] ADMIN_USER_ID not set — skipping admin push for',
+        partnerId,
+      );
     }
 
     return NextResponse.json({ ok: true, partnerId });

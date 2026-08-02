@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { isCustomerNearPartner } from '@/lib/geo';
 import { customerBagAlmostGone } from '@/lib/notification-messages';
 import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
@@ -57,22 +58,23 @@ export async function POST(request: NextRequest) {
 
     const { data: partner } = await supabase
       .from('partners')
-      .select('name, city_id, area_id')
+      .select('name, city_id, area_id, latitude, longitude')
       .eq('id', partnerId)
       .single();
 
-    if (!partner?.city_id || !partner.area_id) {
+    if (!partner?.city_id) {
       return NextResponse.json({ skipped: true, reason: 'missing_location' });
     }
 
     const { data: customers } = await supabase
       .from('profiles')
-      .select('id, notification_prefs')
+      .select(
+        'id, notification_prefs, area_id, last_latitude, last_longitude, home_latitude, home_longitude',
+      )
       .eq('role', 'customer')
       .eq('city_id', partner.city_id)
-      .eq('area_id', partner.area_id)
       .not('push_token', 'is', null)
-      .limit(50);
+      .limit(200);
 
     const notificationPayload = customerBagAlmostGone({
       bagId,
@@ -81,11 +83,25 @@ export async function POST(request: NextRequest) {
     });
 
     let sent = 0;
+    let skippedDistance = 0;
     const errors: string[] = [];
 
     for (const customer of customers ?? []) {
       const prefs = customer.notification_prefs as { new_bags?: boolean } | null;
       if (prefs?.new_bags === false) continue;
+
+      const nearby = isCustomerNearPartner({
+        partner: {
+          latitude: partner.latitude,
+          longitude: partner.longitude,
+          area_id: partner.area_id,
+        },
+        customer,
+      });
+      if (!nearby) {
+        skippedDistance += 1;
+        continue;
+      }
 
       try {
         const result = await sendNotificationPayload(customer.id, notificationPayload);
@@ -96,7 +112,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, bagId, sent, errors });
+    return NextResponse.json({ ok: true, bagId, sent, skippedDistance, errors });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     const status =

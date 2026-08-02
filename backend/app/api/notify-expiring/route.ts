@@ -5,6 +5,14 @@ import { partnerBagExpiring } from '@/lib/notification-messages';
 import { sendNotificationPayload } from '@/lib/notifications';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 
+/**
+ * Partner "bag expiring soon" alerts — 1 hour before pickup_end for today's
+ * active bags with remaining stock.
+ *
+ * Subscription 7-day / expired alerts live in `/api/cron/check-subscriptions`,
+ * not here. This route must run hourly (see vercel.json) so each bag lands in
+ * the 0–60 minute window exactly once.
+ */
 export async function GET(request: NextRequest) {
   try {
     verifyCronRequest(request);
