@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CategoryPicker } from '@/components/auth/CategoryPicker';
 import { PartnerEditHeader } from '@/components/partner/PartnerEditHeader';
+import { PartnerOnlinePresenceFields } from '@/components/partner/PartnerOnlinePresenceFields';
 import { TimePickerSheet } from '@/components/partner/TimePickerSheet';
 import { KeyboardAwareScrollView } from '@/components/ui/KeyboardAwareScrollView';
 import { Palette } from '@/constants/Colors';
@@ -25,6 +26,12 @@ import { formatNepalPhone } from '@/lib/auth';
 import { hapticSuccess } from '@/lib/haptics';
 import { decodePartnerMeta, getPartnerBio, mergePartnerMeta } from '@/lib/partnerMeta';
 import type { PartnerProfileRow } from '@/lib/partnerProfile';
+import {
+  normalizeFacebook,
+  normalizeInstagram,
+  normalizeWebsite,
+  normalizeWhatsapp,
+} from '@/lib/partnerSocial';
 import { supabase } from '@/lib/supabase';
 import { formatTimeFromDate } from '@/lib/validation/partner';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -59,6 +66,10 @@ export default function EditBusinessScreen() {
   const [category, setCategory] = useState<PartnerCategoryOption | null>('restaurant');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
+  const [website, setWebsite] = useState('');
+  const [facebook, setFacebook] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [opensAt, setOpensAt] = useState(defaultTime(9, 0));
   const [closesAt, setClosesAt] = useState(defaultTime(22, 0));
   const [showOpensPicker, setShowOpensPicker] = useState(false);
@@ -83,6 +94,10 @@ export default function EditBusinessScreen() {
       setCategory((row.category ?? 'restaurant') as PartnerCategoryOption);
       setBio(getPartnerBio(row.description));
       setPhone(row.phone?.replace(/^\+977/, '') ?? '');
+      setWebsite(row.website ?? '');
+      setFacebook(row.facebook ?? '');
+      setInstagram(row.instagram ?? '');
+      setWhatsapp((row.whatsapp ?? '').replace(/^\+977/, '').replace(/\D/g, '').slice(0, 10));
       setOpensAt(timeFromString(meta.opening_start));
       setClosesAt(timeFromString(meta.opening_end));
     }
@@ -113,6 +128,13 @@ export default function EditBusinessScreen() {
       opening_end: formatTimeFromDate(closesAt),
     });
 
+    const socialUpdate = {
+      website: normalizeWebsite(website),
+      facebook: normalizeFacebook(facebook),
+      instagram: normalizeInstagram(instagram),
+      whatsapp: normalizeWhatsapp(whatsapp),
+    };
+
     const { error } = await supabase
       .from('partners')
       .update({
@@ -121,6 +143,7 @@ export default function EditBusinessScreen() {
         category: toDbPartnerCategory(category ?? 'restaurant'),
         phone: phone.trim() ? formatNepalPhone(phone.trim()) : null,
         description,
+        ...socialUpdate,
       })
       .eq('id', partner.id);
 
@@ -137,6 +160,7 @@ export default function EditBusinessScreen() {
       category: toDbPartnerCategory(category ?? 'restaurant'),
       phone: phone.trim() ? formatNepalPhone(phone.trim()) : null,
       description,
+      ...socialUpdate,
     };
 
     setPartner((current) => (current ? { ...current, ...updatedPartner } : current));
@@ -242,6 +266,17 @@ export default function EditBusinessScreen() {
               <Text style={styles.timeValue}>{formatDateTimeDisplay(closesAt)}</Text>
             </Pressable>
           </View>
+
+          <PartnerOnlinePresenceFields
+            compact
+            values={{ website, facebook, instagram, whatsapp }}
+            onChange={(patch) => {
+              if (patch.website !== undefined) setWebsite(patch.website);
+              if (patch.facebook !== undefined) setFacebook(patch.facebook);
+              if (patch.instagram !== undefined) setInstagram(patch.instagram);
+              if (patch.whatsapp !== undefined) setWhatsapp(patch.whatsapp);
+            }}
+          />
         </View>
       </KeyboardAwareScrollView>
 

@@ -93,12 +93,12 @@ export async function fetchUserRole(userId: string) {
 export async function hasUserProfile(userId: string) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, phone')
+    .select('id')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) throw error;
-  return Boolean(data?.phone);
+  return Boolean(data);
 }
 
 export async function phoneProfileExists(phoneDigits: string) {
@@ -376,13 +376,13 @@ export async function navigateAfterPasswordSignIn(
 
 export async function upsertProfile(
   userId: string,
-  phoneDigits: string,
+  phoneDigits: string | null,
   role: UserRole,
   fullName?: string | null,
 ) {
   return supabase.from('profiles').upsert({
     id: userId,
-    phone: formatNepalPhone(phoneDigits),
+    phone: phoneDigits ? formatNepalPhone(phoneDigits) : null,
     role,
     full_name: fullName?.trim() || null,
   });

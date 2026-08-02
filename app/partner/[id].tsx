@@ -22,6 +22,7 @@ import { PartnerDetailPayments } from '@/components/partner-detail/PartnerDetail
 import { PartnerDetailReviewsSection } from '@/components/partner-detail/PartnerDetailReviewsSection';
 import { PartnerDetailSkeleton } from '@/components/partner-detail/PartnerDetailSkeleton';
 import { PartnerDetailStickyBar } from '@/components/partner-detail/PartnerDetailStickyBar';
+import { PartnerSocialLinksSection } from '@/components/partner/PartnerSocialLinksSection';
 import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
@@ -291,6 +292,8 @@ export default function PartnerDetailScreen() {
           onOpenMaps={openMaps}
           onCall={handleCall}
         />
+
+        <PartnerSocialLinksSection partner={partner} />
 
         <PartnerDetailAbout text={bio} />
 

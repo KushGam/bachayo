@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 
-import { FormField } from '@/components/auth/FormField';
 import { SignupFieldGroup } from '@/components/auth/SignupFieldGroup';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { LocationPicker } from '@/components/ui/LocationPicker';
@@ -27,7 +26,6 @@ export default function PartnerLocationScreen() {
   const router = useRouter();
   const { partner, setPartner } = useSignupStore();
   const [address, setAddress] = useState(partner.address);
-  const [website, setWebsite] = useState(partner.website);
   const [cityId, setCityId] = useState(partner.cityId);
   const [areaId, setAreaId] = useState<string | null>(partner.areaId);
   const [coords, setCoords] = useState({
@@ -42,7 +40,6 @@ export default function PartnerLocationScreen() {
   const [fieldErrors, setFieldErrors] = useState<{
     area?: string;
     address?: string;
-    website?: string;
     latitude?: string;
   }>({});
 
@@ -95,7 +92,6 @@ export default function PartnerLocationScreen() {
       latitude: coords.latitude,
       longitude: coords.longitude,
       locationVerified: locationCaptured,
-      website,
     });
 
     if (!parsed.success) {
@@ -103,7 +99,6 @@ export default function PartnerLocationScreen() {
       setFieldErrors({
         area: issues.areaId?.[0] ?? issues.cityId?.[0],
         address: issues.address?.[0],
-        website: issues.website?.[0],
         latitude: issues.latitude?.[0],
       });
       return;
@@ -117,7 +112,6 @@ export default function PartnerLocationScreen() {
       latitude: parsed.data.latitude,
       longitude: parsed.data.longitude,
       locationVerified: Boolean(parsed.data.locationVerified),
-      website: parsed.data.website.trim(),
     });
     await hapticStepAdvance();
     router.push('/(auth)/signup-partner/hours-photo');
@@ -261,19 +255,6 @@ export default function PartnerLocationScreen() {
           </Pressable>
         ) : null}
       </View>
-
-      <FormField
-        label="Website (optional)"
-        value={website}
-        onChangeText={(value) => {
-          setWebsite(value);
-          setFieldErrors((prev) => ({ ...prev, website: undefined }));
-        }}
-        placeholder="yourrestaurant.com"
-        autoCapitalize="none"
-        keyboardType="url"
-        error={fieldErrors.website}
-      />
 
       <View style={styles.nepalNote}>
         <Text style={styles.nepalNoteText}>

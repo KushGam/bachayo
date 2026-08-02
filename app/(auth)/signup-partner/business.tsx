@@ -9,6 +9,7 @@ import { FormField } from '@/components/auth/FormField';
 import { PhoneInput } from '@/components/auth/PhoneInput';
 import { SignupFieldGroup } from '@/components/auth/SignupFieldGroup';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
+import { PartnerOnlinePresenceFields } from '@/components/partner/PartnerOnlinePresenceFields';
 import { SubscriptionTierPicker } from '@/components/partner/SubscriptionTierPicker';
 import type { PartnerCategoryOption } from '@/constants/partnerCategories';
 import type { SubscriptionTier } from '@/constants/subscriptions';
@@ -20,6 +21,10 @@ import { useSignupStore } from '@/store/useSignupStore';
 
 const TOTAL_STEPS = 5;
 
+function localPhoneDigits(value: string) {
+  return value.replace(/\D/g, '').replace(/^977/, '').replace(/^0/, '').slice(0, 10);
+}
+
 export default function PartnerBusinessScreen() {
   const router = useRouter();
   const { partner, partnerAuthMethod, phoneOtpVerified, setPartner } = useSignupStore();
@@ -29,6 +34,11 @@ export default function PartnerBusinessScreen() {
       router.replace('/(auth)/signup-partner/basics');
     }
   }, [partnerAuthMethod, phoneOtpVerified, router]);
+
+  const defaultWhatsapp =
+    partner.whatsapp ||
+    localPhoneDigits(partner.businessPhone) ||
+    localPhoneDigits(partner.phone);
 
   const {
     control,
@@ -46,6 +56,10 @@ export default function PartnerBusinessScreen() {
       businessPhone: partner.businessPhone || partner.phone,
       subscriptionTier: partner.subscriptionTier ?? undefined,
       avgDailyMeals: partner.avgDailyMeals ?? undefined,
+      website: partner.website,
+      facebook: partner.facebook,
+      instagram: partner.instagram,
+      whatsapp: defaultWhatsapp,
     },
   });
 
@@ -57,6 +71,10 @@ export default function PartnerBusinessScreen() {
       businessPhone: values.businessPhone,
       subscriptionTier: values.subscriptionTier,
       avgDailyMeals: values.avgDailyMeals,
+      website: values.website?.trim() ?? '',
+      facebook: values.facebook?.trim() ?? '',
+      instagram: values.instagram?.trim() ?? '',
+      whatsapp: values.whatsapp?.trim() ?? '',
     });
     await hapticStepAdvance();
     router.push('/(auth)/signup-partner/location');
@@ -151,6 +169,29 @@ export default function PartnerBusinessScreen() {
           )}
         />
       </SignupFieldGroup>
+
+      <PartnerOnlinePresenceFields
+        values={{
+          website: watch('website') ?? '',
+          facebook: watch('facebook') ?? '',
+          instagram: watch('instagram') ?? '',
+          whatsapp: watch('whatsapp') ?? '',
+        }}
+        onChange={(patch) => {
+          if (patch.website !== undefined) {
+            setValue('website', patch.website, { shouldValidate: true });
+          }
+          if (patch.facebook !== undefined) {
+            setValue('facebook', patch.facebook, { shouldValidate: true });
+          }
+          if (patch.instagram !== undefined) {
+            setValue('instagram', patch.instagram, { shouldValidate: true });
+          }
+          if (patch.whatsapp !== undefined) {
+            setValue('whatsapp', patch.whatsapp, { shouldValidate: true });
+          }
+        }}
+      />
     </SignupStepShell>
   );
 }

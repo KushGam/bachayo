@@ -175,6 +175,10 @@ export const partnerBusinessSchema = z.object({
     message: 'Select your average daily meal volume',
   }),
   avgDailyMeals: z.number().int().min(1).max(1000),
+  website: websiteField,
+  facebook: z.string().max(200).optional(),
+  instagram: z.string().max(100).optional(),
+  whatsapp: z.string().max(15).optional(),
 });
 
 export const partnerLocationSchema = z.object({
@@ -184,7 +188,6 @@ export const partnerLocationSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
   locationVerified: z.boolean().optional(),
-  website: websiteField,
 });
 
 export type CustomerBasicsValues = z.infer<typeof customerBasicsSchema>;

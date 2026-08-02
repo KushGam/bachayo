@@ -113,6 +113,9 @@ export type Database = {
           city_id: string | null;
           area_id: string | null;
           website: string | null;
+          facebook: string | null;
+          instagram: string | null;
+          whatsapp: string | null;
           location_verified: boolean | null;
           approval_status: PartnerApprovalStatus | null;
           subscription_tier: SubscriptionTier | null;
@@ -145,6 +148,9 @@ export type Database = {
           city_id?: string | null;
           area_id?: string | null;
           website?: string | null;
+          facebook?: string | null;
+          instagram?: string | null;
+          whatsapp?: string | null;
           location_verified?: boolean | null;
           approval_status?: PartnerApprovalStatus | null;
           subscription_tier?: SubscriptionTier | null;
@@ -177,6 +183,9 @@ export type Database = {
           city_id?: string | null;
           area_id?: string | null;
           website?: string | null;
+          facebook?: string | null;
+          instagram?: string | null;
+          whatsapp?: string | null;
           location_verified?: boolean | null;
           approval_status?: PartnerApprovalStatus | null;
           subscription_tier?: SubscriptionTier | null;

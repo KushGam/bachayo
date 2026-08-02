@@ -57,9 +57,9 @@ const styles = StyleSheet.create({
     borderRadius: 17,
   },
   btnDark: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   dotDark: {
     position: 'absolute',

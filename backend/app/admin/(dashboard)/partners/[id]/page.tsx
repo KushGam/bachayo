@@ -174,6 +174,76 @@ export default async function PartnerDetailPage({ params }: { params: Promise<{ 
             </a>
           </section>
 
+          {(partner.website || partner.facebook || partner.instagram || partner.whatsapp) ? (
+            <section className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 text-sm font-medium uppercase text-gray-500">Social Media</h2>
+              <dl className="space-y-3 text-sm">
+                {partner.website ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-500">Website</dt>
+                    <dd>
+                      <a
+                        href={
+                          partner.website.startsWith('http')
+                            ? partner.website
+                            : `https://${partner.website}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#D85A30] hover:underline">
+                        {partner.website.replace(/^https?:\/\//i, '')}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+                {partner.facebook ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-500">Facebook</dt>
+                    <dd>
+                      <a
+                        href={`https://facebook.com/${String(partner.facebook)
+                          .replace(/^https?:\/\/(www\.)?facebook\.com\//i, '')
+                          .replace(/^@/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#D85A30] hover:underline">
+                        {partner.facebook}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+                {partner.instagram ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-500">Instagram</dt>
+                    <dd>
+                      <a
+                        href={`https://instagram.com/${String(partner.instagram).replace(/^@/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#D85A30] hover:underline">
+                        {partner.instagram}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+                {partner.whatsapp ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-gray-500">WhatsApp</dt>
+                    <dd>
+                      <a
+                        href={`https://wa.me/977${String(partner.whatsapp).replace(/\D/g, '').replace(/^977/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#D85A30] hover:underline">
+                        +977 {String(partner.whatsapp).replace(/\D/g, '').replace(/^977/, '')}
+                      </a>
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+          ) : null}
+
           <section className="rounded-xl border border-gray-200 bg-white p-6">
             <h2 className="mb-4 text-sm font-medium uppercase text-gray-500">Owner</h2>
             <dl className="space-y-2 text-sm">

@@ -39,6 +39,9 @@ export type PartnerSignupData = {
   longitude: number;
   locationVerified: boolean;
   website: string;
+  facebook: string;
+  instagram: string;
+  whatsapp: string;
   openingStart: string;
   openingEnd: string;
   coverUri: string | null;
@@ -74,6 +77,9 @@ const defaultPartner: PartnerSignupData = {
   longitude: DEFAULT_AREA.longitude,
   locationVerified: false,
   website: '',
+  facebook: '',
+  instagram: '',
+  whatsapp: '',
   openingStart: '10:00',
   openingEnd: '21:00',
   coverUri: null,

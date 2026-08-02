@@ -7,6 +7,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
 import { AuthButton } from '@/components/auth/AuthButton';
+import { OtpInput } from '@/components/auth/OtpInput';
 import { PhoneInput } from '@/components/auth/PhoneInput';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
 import { Screen } from '@/components/Screen';
@@ -14,7 +15,8 @@ import { Palette } from '@/constants/Colors';
 import { Border, Radius, Spacing, Type } from '@/constants/theme';
 import { t } from '@/constants/i18n';
 import { useSafeBack } from '@/hooks/useSafeBack';
-import { phoneProfileExists, upsertProfile } from '@/lib/auth';
+import { formatNepalPhone, phoneProfileExists, upsertProfile } from '@/lib/auth';
+import { confirmPhoneOtpOnly, requestPhoneOtpDetailed } from '@/lib/auth/otpClient';
 import { getTabsRouteForRole } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
@@ -27,16 +29,25 @@ const completeProfileSchema = z.object({
 });
 
 type CompleteProfileValues = z.infer<typeof completeProfileSchema>;
+type Step = 'phone' | 'otp';
+
+const RESEND_SECONDS = 60;
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
   const { locale, pendingRole, setPendingRole, setAuthRole } = useAuthStore();
   const [userId, setUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [phoneTaken, setPhoneTaken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [step, setStep] = useState<Step>('phone');
+  const [pendingPhone, setPendingPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
@@ -56,6 +67,7 @@ export default function CompleteProfileScreen() {
         return;
       }
       setUserId(user.id);
+      setUserEmail(user.email ?? null);
       const name =
         (user.user_metadata?.full_name as string | undefined) ??
         (user.user_metadata?.name as string | undefined) ??
@@ -64,9 +76,40 @@ export default function CompleteProfileScreen() {
     });
   }, [router]);
 
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [secondsLeft]);
+
   const role: UserRole = pendingRole === 'partner' ? 'partner' : 'customer';
 
-  const onSubmit = async ({ phone }: CompleteProfileValues) => {
+  const finishOnboarding = async (phoneDigits: string | null) => {
+    if (!userId) return;
+
+    const { error } = await upsertProfile(userId, phoneDigits, role, displayName);
+    if (error) {
+      setSubmitError(error.message || t(locale, 'authError'));
+      return;
+    }
+
+    const { error: termsError } = await recordTermsAcceptance(userId);
+    if (termsError) {
+      setSubmitError(termsError.message || 'Could not save terms acceptance.');
+      return;
+    }
+
+    setAuthRole(role);
+
+    if (role === 'partner') {
+      router.replace('/(auth)/signup-partner/basics');
+      return;
+    }
+
+    router.replace(getTabsRouteForRole('customer'));
+  };
+
+  const sendCode = async (phone: string) => {
     if (!userId) return;
 
     if (!termsAccepted) {
@@ -83,36 +126,88 @@ export default function CompleteProfileScreen() {
 
     try {
       const exists = await phoneProfileExists(phone);
-
       if (exists) {
         setPhoneTaken(true);
-        setLoading(false);
         return;
       }
 
-      const { error } = await upsertProfile(userId, phone, role, displayName);
-
-      if (error) {
-        setSubmitError(error.message || t(locale, 'authError'));
-        setLoading(false);
+      const result = await requestPhoneOtpDetailed(formatNepalPhone(phone));
+      if (!result.success) {
+        setSubmitError(result.error);
         return;
       }
 
-      const { error: termsError } = await recordTermsAcceptance(userId);
-      if (termsError) {
-        setSubmitError(termsError.message || 'Could not save terms acceptance.');
-        setLoading(false);
+      setPendingPhone(phone);
+      setOtpId(result.otp_id);
+      setOtp('');
+      setSecondsLeft(RESEND_SECONDS);
+      setStep('otp');
+    } catch {
+      setSubmitError(t(locale, 'authError'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSendOtp = handleSubmit(async ({ phone }) => {
+    await sendCode(phone);
+  });
+
+  const onVerifyOtp = async (code: string) => {
+    if (!userId || !otpId || code.length < 6) return;
+
+    setSubmitError(null);
+    setLoading(true);
+
+    try {
+      const result = await confirmPhoneOtpOnly(
+        formatNepalPhone(pendingPhone),
+        code,
+        otpId,
+      );
+      if (!result.success) {
+        setSubmitError(result.error || 'Invalid code. Please try again.');
         return;
       }
 
-      setAuthRole(role);
+      await finishOnboarding(pendingPhone);
+    } catch {
+      setSubmitError(t(locale, 'authError'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (role === 'partner') {
-        router.replace('/(auth)/signup-partner/basics');
-        return;
-      }
+  const onResend = async () => {
+    if (secondsLeft > 0 || !pendingPhone) return;
+    setLoading(true);
+    setSubmitError(null);
+    const result = await requestPhoneOtpDetailed(formatNepalPhone(pendingPhone));
+    setLoading(false);
+    if (!result.success) {
+      setSubmitError(result.error);
+      return;
+    }
+    setOtpId(result.otp_id);
+    setOtp('');
+    setSecondsLeft(RESEND_SECONDS);
+  };
 
-      router.replace(getTabsRouteForRole('customer'));
+  const onSkip = async () => {
+    if (!userId) return;
+
+    if (!termsAccepted) {
+      Alert.alert(
+        'Please accept terms',
+        'You must agree to our Terms of Service and Privacy Policy to continue.',
+      );
+      return;
+    }
+
+    setSubmitError(null);
+    setLoading(true);
+    try {
+      await finishOnboarding(null);
     } catch {
       setSubmitError(t(locale, 'authError'));
     } finally {
@@ -123,74 +218,145 @@ export default function CompleteProfileScreen() {
   return (
     <Screen scrollable contentContainerStyle={styles.container}>
       <StatusBar style="dark" />
-      <Pressable onPress={goBack} style={styles.back}>
+      <Pressable
+        onPress={() => {
+          if (step === 'otp') {
+            setStep('phone');
+            setOtp('');
+            setSubmitError(null);
+            return;
+          }
+          goBack();
+        }}
+        style={styles.back}>
         <Text style={styles.backText}>←</Text>
       </Pressable>
 
       <View style={styles.header}>
-        <Text style={styles.title}>Almost there</Text>
+        <Text style={styles.title}>{step === 'otp' ? 'Verify your phone' : 'Almost there'}</Text>
         <Text style={styles.subtitle}>
-          {displayName ? `Hi ${displayName.split(' ')[0]}! ` : ''}
-          Add your phone number for Nepal payments and pickup updates.
+          {step === 'otp'
+            ? `Enter the 6-digit code sent to +977 ${pendingPhone}`
+            : `${displayName ? `Hi ${displayName.split(' ')[0]}! ` : ''}Add a Nepal phone number for pickup updates. We’ll text you a code to confirm it.`}
         </Text>
+        {userEmail && step === 'phone' ? (
+          <Text style={styles.emailHint}>Signed in as {userEmail}</Text>
+        ) : null}
       </View>
 
-      <View style={styles.roleRow}>
-        <Pressable
-          onPress={() => setPendingRole('customer')}
-          style={[styles.roleChip, role === 'customer' && styles.roleChipActive]}>
-          <Text style={[styles.roleChipText, role === 'customer' && styles.roleChipTextActive]}>
-            I want rescue food
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setPendingRole('partner')}
-          style={[styles.roleChip, role === 'partner' && styles.roleChipActive]}>
-          <Text style={[styles.roleChipText, role === 'partner' && styles.roleChipTextActive]}>
-            I run a restaurant
-          </Text>
-        </Pressable>
-      </View>
+      {step === 'phone' ? (
+        <>
+          <View style={styles.roleRow}>
+            <Pressable
+              onPress={() => setPendingRole('customer')}
+              style={[styles.roleChip, role === 'customer' && styles.roleChipActive]}>
+              <Text style={[styles.roleChipText, role === 'customer' && styles.roleChipTextActive]}>
+                I want rescue food
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setPendingRole('partner')}
+              style={[styles.roleChip, role === 'partner' && styles.roleChipActive]}>
+              <Text style={[styles.roleChipText, role === 'partner' && styles.roleChipTextActive]}>
+                I run a restaurant
+              </Text>
+            </Pressable>
+          </View>
 
-      <Controller
-        control={control}
-        name="phone"
-        render={({ field: { value, onChange } }) => (
-          <PhoneInput
-            value={value}
-            onChange={onChange}
-            placeholder={t(locale, 'phonePlaceholder')}
-            error={errors.phone?.message ? t(locale, 'invalidPhone') : undefined}
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { value, onChange } }) => (
+              <PhoneInput
+                value={value}
+                onChange={onChange}
+                placeholder={t(locale, 'phonePlaceholder')}
+                error={errors.phone?.message ? t(locale, 'invalidPhone') : undefined}
+              />
+            )}
           />
-        )}
-      />
 
-      {phoneTaken ? (
-        <View style={styles.inlineError}>
-          <Text style={styles.errorText}>This number is already registered</Text>
+          {phoneTaken ? (
+            <View style={styles.inlineError}>
+              <Text style={styles.errorText}>This number is already registered</Text>
+              <AuthButton
+                label="Log in instead"
+                variant="secondary"
+                onPress={() => router.replace('/(auth)/login')}
+                style={styles.altAction}
+              />
+            </View>
+          ) : null}
+
+          {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+
+          <TermsCheckbox
+            accepted={termsAccepted}
+            onToggle={() => setTermsAccepted((v) => !v)}
+          />
+
           <AuthButton
-            label="Log in instead"
-            variant="secondary"
-            onPress={() => router.replace('/(auth)/login')}
-            style={styles.altAction}
+            label="Send verification code"
+            onPress={() => void onSendOtp()}
+            loading={loading}
+            disabled={!termsAccepted}
+            style={styles.submit}
           />
-        </View>
-      ) : null}
 
-      {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+          <Pressable
+            onPress={() => void onSkip()}
+            disabled={loading}
+            style={styles.skipBtn}
+            hitSlop={8}>
+            <Text style={styles.skipText}>Skip for now</Text>
+          </Pressable>
+          <Text style={styles.skipHint}>
+            You can add and verify a phone later in Profile. Needed for some pickup alerts.
+          </Text>
+        </>
+      ) : (
+        <>
+          <OtpInput
+            value={otp}
+            onChange={(value) => {
+              setOtp(value);
+              if (value.length >= 6) {
+                void onVerifyOtp(value);
+              }
+            }}
+            error={submitError ?? undefined}
+          />
 
-      <TermsCheckbox
-        accepted={termsAccepted}
-        onToggle={() => setTermsAccepted((v) => !v)}
-      />
+          <AuthButton
+            label="Verify & continue"
+            onPress={() => void onVerifyOtp(otp)}
+            loading={loading}
+            disabled={otp.length < 6}
+            style={styles.submit}
+          />
 
-      <AuthButton
-        label="Complete account"
-        onPress={handleSubmit(onSubmit)}
-        loading={loading}
-        disabled={!termsAccepted}
-        style={styles.submit}
-      />
+          <Pressable
+            onPress={() => void onResend()}
+            disabled={secondsLeft > 0 || loading}
+            style={styles.skipBtn}
+            hitSlop={8}>
+            <Text style={[styles.skipText, secondsLeft > 0 && styles.skipDisabled]}>
+              {secondsLeft > 0 ? `Resend code in ${secondsLeft}s` : 'Resend code'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setStep('phone');
+              setOtp('');
+              setSubmitError(null);
+            }}
+            style={styles.skipBtn}
+            hitSlop={8}>
+            <Text style={styles.changePhone}>Change number</Text>
+          </Pressable>
+        </>
+      )}
     </Screen>
   );
 }
@@ -219,6 +385,11 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Type.body,
     color: Palette.textSecondary,
+  },
+  emailHint: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    marginTop: 2,
   },
   roleRow: {
     flexDirection: 'row',
@@ -267,5 +438,29 @@ const styles = StyleSheet.create({
   },
   altAction: {
     marginTop: 0,
+  },
+  skipBtn: {
+    marginTop: Spacing.lg,
+    alignItems: 'center',
+  },
+  skipText: {
+    ...Type.bodyMedium,
+    color: Palette.primary,
+    fontWeight: '600',
+  },
+  skipDisabled: {
+    color: Palette.textTertiary,
+  },
+  skipHint: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  changePhone: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    fontWeight: '600',
   },
 });

@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppImage } from '@/components/ui/AppImage';
 import { BagLocationMap } from '@/components/bag/BagLocationMap';
+import { PartnerSocialIconsRow } from '@/components/partner/PartnerSocialIconsRow';
 import { Button } from '@/components/ui/Button';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { BagCardSkeleton } from '@/components/ui/Skeleton';
@@ -269,6 +270,8 @@ export default function RescueBagDetailScreen() {
             <AppSymbol ios="mappin.and.ellipse" android="place" size={18} color={Palette.primary} />
             <Text style={styles.infoRowText}>{bag.partner.address || 'Address not set'}</Text>
           </View>
+
+          <PartnerSocialIconsRow partner={bag.partner} />
 
           <BagLocationMap
             latitude={bag.partner.latitude}

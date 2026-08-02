@@ -1,6 +1,12 @@
 import { formatNepalPhone } from '@/lib/auth';
 import { getAreaById, getCityById } from '@/lib/locations';
 import { encodePartnerMeta } from '@/lib/partnerMeta';
+import {
+  normalizeFacebook,
+  normalizeInstagram,
+  normalizeWebsite,
+  normalizeWhatsapp,
+} from '@/lib/partnerSocial';
 import { supabase } from '@/lib/supabase';
 import { termsAcceptanceFields } from '@/lib/terms';
 import { toDbPartnerCategory, type PartnerCategoryOption } from '@/constants/partnerCategories';
@@ -53,6 +59,9 @@ export async function createPartnerAccount(
   });
 
   const website = normalizeWebsite(data.website);
+  const facebook = normalizeFacebook(data.facebook);
+  const instagram = normalizeInstagram(data.instagram);
+  const whatsapp = normalizeWhatsapp(data.whatsapp);
 
   const { error: profileError } = await supabase.from('profiles').upsert({
     id: userId,
@@ -85,6 +94,9 @@ export async function createPartnerAccount(
     longitude: data.longitude,
     cover_image_url: coverUrl,
     website,
+    facebook,
+    instagram,
+    whatsapp,
     description: meta,
     location_verified: Boolean(data.locationVerified),
     subscription_tier: data.subscriptionTier ?? 'small',
@@ -98,10 +110,4 @@ export async function createPartnerAccount(
   } as never);
 
   return { error: partnerError };
-}
-
-function normalizeWebsite(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
 }
