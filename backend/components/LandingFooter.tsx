@@ -92,6 +92,9 @@ export function LandingFooter() {
               <Link className="block transition hover:text-white" href="/legal/terms">
                 Terms
               </Link>
+              <Link className="block transition hover:text-white" href="/delete-account">
+                Delete account
+              </Link>
             </div>
           </div>
 
