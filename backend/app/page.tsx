@@ -1,7 +1,8 @@
+import Link from 'next/link';
+
 import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
-import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
 import { LiveImpactStats } from '@/components/LiveImpactStats';
 import { PlanModal } from '@/components/PlanModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
@@ -146,7 +147,7 @@ export default function HomeLanding() {
                 className="mt-5 font-display font-extrabold leading-[0.94] text-white"
                 style={{ fontSize: 'clamp(2.65rem, 6.5vw, 4.5rem)' }}>
                 Great food.
-                <span className="mt-1 block text-[var(--primary-bright)]">Half the price.</span>
+                <span className="mt-1 block text-[var(--primary-bright)]">Better price.</span>
               </h1>
               <p className="mx-auto mt-7 max-w-md text-lg leading-relaxed text-white/55 lg:mx-0">
                 Rescue surplus bags from kitchens near you. Free to reserve. Pay only when you pick
@@ -596,61 +597,85 @@ export default function HomeLanding() {
       </section>
 
       {/* For restaurants */}
-      <section id="for-restaurants" className="relative overflow-hidden bg-[var(--ink)] py-24 md:py-32">
+      <section id="for-restaurants" className="grain relative overflow-hidden bg-[var(--ink)] py-24 md:py-32">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 50% 40% at 85% 10%, rgba(216,90,48,0.18), transparent 55%)',
+              'radial-gradient(ellipse 55% 45% at 88% 8%, rgba(216,90,48,0.22), transparent 58%), radial-gradient(ellipse 40% 35% at 10% 90%, rgba(216,90,48,0.08), transparent 50%)',
           }}
         />
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, rgba(216,90,48,0.45), transparent)',
+          }}
+        />
+
         <div className="relative mx-auto max-w-[1120px] px-6">
-          <FadeIn>
-            <LaunchOfferBanner />
-          </FadeIn>
+          <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 xl:gap-20">
+            <FadeIn>
+              <p className="section-label">For partners</p>
+              <h2
+                className="mt-5 font-display font-bold tracking-tight text-white"
+                style={{ fontSize: 'clamp(2.1rem, 4.2vw, 3.15rem)', lineHeight: 1.08 }}>
+                Turn tonight&apos;s surplus into tonight&apos;s revenue.
+              </h2>
+              <p className="mt-6 max-w-md text-lg leading-relaxed text-white/55">
+                List daily leftovers in minutes. Reach hungry neighbors. Keep 100% of every sale.
+              </p>
 
-          <div className="grid items-start gap-16 lg:grid-cols-2 lg:gap-20">
-          <FadeIn>
-            <p className="section-label">For partners</p>
-            <h2
-              className="mt-5 font-display font-bold tracking-tight text-white"
-              style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
-              Turn tonight&apos;s surplus into tonight&apos;s revenue.
-            </h2>
-            <p className="mt-6 text-lg leading-relaxed text-white/55">
-              List daily leftovers in minutes. Reach hungry neighbors. Keep 100% of every sale.
-            </p>
+              <div className="mt-10 space-y-5">
+                {[
+                  {
+                    t: 'Live in minutes',
+                    d: 'Name the bag, set price and pickup window — customers see it immediately.',
+                  },
+                  {
+                    t: 'Keep every rupee',
+                    d: 'Zero commission. One flat monthly fee sized to your kitchen.',
+                  },
+                  {
+                    t: '30 days free',
+                    d: 'No card required to start. Cancel anytime during trial.',
+                  },
+                ].map((b) => (
+                  <div key={b.t} className="border-l-2 border-[var(--primary)] pl-5">
+                    <p className="font-display text-[17px] font-semibold text-white">{b.t}</p>
+                    <p className="mt-1 max-w-sm text-sm leading-relaxed text-white/45">{b.d}</p>
+                  </div>
+                ))}
+              </div>
 
-            <div className="mt-10 space-y-6">
-              {[
-                {
-                  t: 'Live in minutes',
-                  d: 'Name the bag, set price and pickup window — customers see it immediately.',
-                },
-                {
-                  t: 'Keep every rupee',
-                  d: 'Zero commission. One flat monthly fee sized to your kitchen.',
-                },
-                {
-                  t: '30 days free',
-                  d: 'No card required to start. Cancel anytime during trial.',
-                },
-              ].map((b) => (
-                <div key={b.t} className="border-l-2 border-[var(--primary)] pl-5">
-                  <p className="font-display text-lg font-semibold text-white">{b.t}</p>
-                  <p className="mt-1 text-sm text-white/45">{b.d}</p>
-                </div>
-              ))}
-            </div>
+              <div className="mt-11 flex flex-wrap items-center gap-4">
+                <ContactTrialCta className="btn-primary text-[15px]">
+                  Start free trial
+                </ContactTrialCta>
+                <Link
+                  href="/for-restaurants#pricing"
+                  className="text-sm font-semibold text-white/55 transition hover:text-white">
+                  Compare all plans →
+                </Link>
+              </div>
 
-            <ContactTrialCta className="btn-primary mt-10 text-[15px]">
-              Start free trial
-            </ContactTrialCta>
-          </FadeIn>
+              <p className="mt-6 text-xs font-medium tracking-wide text-[#7CB89A]">
+                Launch offer — first month free, second month half price
+              </p>
+            </FadeIn>
 
-          <FadeIn delay={120}>
-            <PlanModal />
-          </FadeIn>
+            <FadeIn delay={120}>
+              <div className="relative">
+                <div
+                  className="pointer-events-none absolute -inset-6 rounded-[32px] opacity-60 blur-2xl"
+                  style={{
+                    background:
+                      'radial-gradient(circle at 50% 30%, rgba(216,90,48,0.2), transparent 70%)',
+                  }}
+                />
+                <PlanModal layout="stack" />
+              </div>
+            </FadeIn>
           </div>
         </div>
       </section>

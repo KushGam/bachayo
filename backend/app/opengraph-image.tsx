@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'LastBag — Great food. Half the price.';
+export const alt = 'LastBag — Great food. Better price.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -66,7 +66,7 @@ export default function OpengraphImage() {
               color: '#FFFFFF',
             }}>
             <div style={{ display: 'flex' }}>Great food.</div>
-            <div style={{ display: 'flex', color: '#E8622F' }}>Half the price.</div>
+            <div style={{ display: 'flex', color: '#E8622F' }}>Better price.</div>
           </div>
           <div
             style={{

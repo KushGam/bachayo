@@ -71,7 +71,7 @@ export function LandingNavbar() {
   if (!shouldShow) return null;
 
   const linkClass = (active: boolean) =>
-    `text-[13px] font-medium tracking-wide transition ${
+    `relative text-[13px] font-medium tracking-wide transition ${
       active
         ? onHero
           ? 'text-white'
@@ -79,6 +79,10 @@ export function LandingNavbar() {
         : onHero
           ? 'text-white/55 hover:text-white'
           : 'text-[var(--text-secondary)] hover:text-[var(--ink)]'
+    } ${
+      active
+        ? 'after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[var(--primary)]'
+        : ''
     }`;
 
   const navItems = [
@@ -115,14 +119,18 @@ export function LandingNavbar() {
           </Link>
 
           <nav className="hidden items-center gap-9 md:flex">
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                className={linkClass(isHome && activeSection === item.section)}
-                href={item.href}>
-                {item.label}
-              </a>
-            ))}
+            {navItems.map((item) => {
+              const active =
+                item.section === 'for-restaurants'
+                  ? pathname.startsWith('/for-restaurants') ||
+                    (isHome && activeSection === 'for-restaurants')
+                  : isHome && activeSection === item.section;
+              return (
+                <a key={item.label} className={linkClass(active)} href={item.href}>
+                  {item.label}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-3">

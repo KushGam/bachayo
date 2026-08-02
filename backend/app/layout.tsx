@@ -23,7 +23,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: 'LastBag — Great food. Half the price.',
+    default: 'LastBag — Great food. Better price.',
     template: '%s · LastBag',
   },
   description:
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     shortcut: '/favicon.svg',
   },
   openGraph: {
-    title: 'LastBag — Great food. Half the price.',
+    title: 'LastBag — Great food. Better price.',
     description: 'Rescue surplus food near you. Free to reserve. Pay only at pickup.',
     url: 'https://lastbag.app',
     siteName: 'LastBag',
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LastBag — Great food. Half the price.',
+    title: 'LastBag — Great food. Better price.',
     description: 'Rescue surplus bags near you in Nepal. Free to reserve.',
   },
 };

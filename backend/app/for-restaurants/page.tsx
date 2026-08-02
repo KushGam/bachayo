@@ -4,7 +4,6 @@ import { ContactTrialCta } from '@/components/ContactTrialCta';
 import { FadeIn } from '@/components/FadeIn';
 import { FaqAccordion } from '@/components/FaqAccordion';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
-import { LaunchOfferBanner } from '@/components/LaunchOfferBanner';
 import { PlanModal } from '@/components/PlanModal';
 
 export default function ForRestaurantsPage() {
@@ -48,47 +47,54 @@ export default function ForRestaurantsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
-      {/* Hero */}
-      <section className="grain relative overflow-hidden pb-24 pt-32 md:pb-28 md:pt-36">
+      {/* Hero — one composition */}
+      <section className="grain relative overflow-hidden pb-28 pt-32 md:pb-36 md:pt-40">
         <div className="absolute inset-0 bg-[var(--ink)]" />
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 55% 50% at 75% 15%, rgba(216,90,48,0.3), transparent 58%)',
+              'radial-gradient(ellipse 60% 55% at 70% 0%, rgba(216,90,48,0.28), transparent 60%), radial-gradient(ellipse 45% 40% at 10% 100%, rgba(216,90,48,0.1), transparent 55%)',
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
+          style={{
+            background: 'linear-gradient(to top, var(--bg), transparent)',
           }}
         />
 
-        <div className="relative mx-auto max-w-3xl px-6 text-center">
+        <div className="relative mx-auto max-w-4xl px-6 text-center">
           <FadeIn delay={0}>
             <p className="font-display text-[13px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
               For restaurants & cafés
             </p>
             <h1
-              className="mt-5 font-display font-extrabold leading-[1.05] tracking-tight text-white"
-              style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)' }}>
+              className="mt-6 font-display font-extrabold tracking-tight text-white"
+              style={{ fontSize: 'clamp(2.6rem, 6.5vw, 4.25rem)', lineHeight: 1.02 }}>
               Turn tonight&apos;s surplus
-              <span className="mt-2 block text-white/70">into revenue.</span>
+              <span className="mt-1 block text-white/65">into tonight&apos;s revenue.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-white/55">
+            <p className="mx-auto mt-7 max-w-xl text-lg leading-relaxed text-white/55">
               List rescue bags in minutes. Reach nearby customers. Keep 100% of every sale — flat
               monthly pricing, zero commission.
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-              <ContactTrialCta className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3.5 text-base font-semibold text-[var(--primary)] transition hover:bg-[#fff7f3]">
+            <div className="mt-11 flex flex-wrap items-center justify-center gap-3">
+              <ContactTrialCta className="btn-primary text-base">
                 Start free 30-day trial
               </ContactTrialCta>
-              <Link
-                href="#how-it-works"
-                className="btn-ghost-light text-base">
-                See how it works
+              <Link href="#pricing" className="btn-ghost-light text-base">
+                View pricing
               </Link>
             </div>
+            <p className="mt-6 text-sm font-medium text-[#7CB89A]">
+              Launch offer — first month free · second month half price
+            </p>
           </FadeIn>
         </div>
       </section>
 
-      {/* How it works — editorial numbered rows */}
+      {/* How it works */}
       <section id="how-it-works" className="bg-[var(--surface)] py-24 md:py-28">
         <div className="mx-auto max-w-4xl px-6">
           <div className="text-center">
@@ -169,33 +175,29 @@ export default function ForRestaurantsPage() {
         </div>
       </section>
 
-      {/* Coverage */}
-      <section className="bg-[var(--bg)] py-24">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <p className="section-label">Coverage</p>
-          <h2 className="mt-3 font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
-            Open for partners worldwide
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-[var(--text-secondary)]">
-            Sign up from anywhere. Customers near your kitchen see your bags automatically — no
-            city lock-in.
-          </p>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="bg-[var(--surface)] py-24 md:py-28">
-        <div className="mx-auto max-w-6xl px-6">
-          <h2 className="text-center font-display text-3xl font-bold text-[var(--ink)] md:text-4xl">
-            Pricing that scales with you
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center leading-relaxed text-[var(--text-secondary)]">
-            Start with a 30-day free trial. After that, pick the tier that fits your business size.
-          </p>
+      {/* Pricing — dedicated section, room to breathe */}
+      <section id="pricing" className="relative overflow-hidden bg-[var(--ink)] py-24 md:py-28">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 40% at 50% 0%, rgba(216,90,48,0.16), transparent 55%)',
+          }}
+        />
+        <div className="relative mx-auto max-w-6xl px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="section-label">Pricing</p>
+            <h2 className="mt-3 font-display text-3xl font-bold text-white md:text-4xl">
+              Pricing that scales with you
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl leading-relaxed text-white/50">
+              Start with a 30-day free trial. After that, pick the tier that fits your kitchen —
+              still zero commission on every sale.
+            </p>
+          </div>
 
           <div className="mt-14">
-            <LaunchOfferBanner />
-            <PlanModal />
+            <PlanModal layout="grid" />
           </div>
         </div>
       </section>
@@ -213,20 +215,27 @@ export default function ForRestaurantsPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-[var(--ink)] py-24">
-        <div className="mx-auto max-w-3xl px-6 text-center">
+      <section className="grain relative overflow-hidden bg-[var(--ink)] py-24">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 50% at 50% 100%, rgba(216,90,48,0.2), transparent 60%)',
+          }}
+        />
+        <div className="relative mx-auto max-w-3xl px-6 text-center">
           <h2 className="font-display text-3xl font-bold text-white md:text-4xl">
             Ready to rescue surplus?
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-white/65">
+          <p className="mx-auto mt-4 max-w-xl text-white/55">
             Join LastBag and turn end-of-day food into reserved bags customers pick up the same
             evening.
           </p>
           <div className="mx-auto mt-10 max-w-sm space-y-4">
-            <ContactTrialCta className="inline-flex w-full items-center justify-center rounded-full bg-[var(--primary)] px-10 py-4 text-lg font-semibold text-white transition hover:bg-[var(--primary-dark)]">
+            <ContactTrialCta className="btn-primary w-full text-lg">
               Start your free trial
             </ContactTrialCta>
-            <p className="text-sm text-white/50">Already have an account?</p>
+            <p className="text-sm text-white/40">Already have an account?</p>
             <GoogleSignInButton />
           </div>
         </div>

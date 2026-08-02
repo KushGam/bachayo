@@ -1,9 +1,4 @@
 {
-  // Vercel Pro crons (uncomment when upgraded):
-  // { "path": "/api/cron/pickup-reminders",
-  //   "schedule": "*/15 * * * *" },
-  // { "path": "/api/cron/missed-orders",
-  //   "schedule": "*/15 * * * *" },
   "crons": [
     {
       "path": "/api/cron/check-subscriptions",
