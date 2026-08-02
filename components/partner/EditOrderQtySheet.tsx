@@ -23,7 +23,7 @@ export type EditOrderQtyTarget = {
 type EditOrderQtySheetProps = {
   visible: boolean;
   order: EditOrderQtyTarget | null;
-  /** Upper bound (stock + max per customer). Defaults to current qty if omitted. */
+  /** Upper bound for the stepper (partners can exceed max-per-customer). */
   maxQty?: number;
   submitting?: boolean;
   onClose: () => void;
@@ -105,6 +105,7 @@ export function EditOrderQtySheet({
           <View style={[styles.note, styles.noteIncrease]}>
             <Text style={styles.noteIncreaseText}>
               ✓ Increasing from {order.quantity} to {newQty}
+              {'\n'}Customer max does not apply — listing stock expands if needed.
             </Text>
           </View>
         ) : null}

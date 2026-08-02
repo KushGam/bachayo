@@ -127,7 +127,14 @@ export function PostPickupReview({
     };
   }, []);
 
-  if (!order) return null;
+  // Keep Modal mountable; never early-return null while parent wants it visible.
+  if (!order) {
+    return (
+      <Modal visible={false} transparent animationType="none" onRequestClose={onDismiss}>
+        <View />
+      </Modal>
+    );
+  }
 
   const category = getCategoryById(order.partner.category);
   const bagTitle = order.bag?.title ?? 'Rescue bag';

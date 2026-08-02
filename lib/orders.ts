@@ -712,7 +712,8 @@ export async function reduceReservationQuantity(
 /**
  * Partner adjusts quantity on an active reservation.
  * Stock is resynced via migration 049 trigger (+ explicit sync fallback).
- * Do not call a separate increment RPC — that would double-count reserved stock.
+ * Not limited by max_per_customer — partners may exceed the customer self-serve cap.
+ * If the new qty needs more listing capacity, quantity_available is raised to fit.
  */
 export async function updatePartnerOrderQuantity(orderId: string, newQuantity: number) {
   const { data: orderRow, error: fetchError } = await supabase
@@ -765,24 +766,35 @@ export async function updatePartnerOrderQuantity(orderId: string, newQuantity: n
     };
   }
 
-  const bag = order.bag;
-  const remaining =
-    Math.max(0, bag.quantity_available - bag.quantity_reserved) + order.quantity;
-  const maxPerCustomer = Math.max(1, bag.max_per_customer ?? 3);
-  const maxAllowed = Math.max(1, Math.min(maxPerCustomer, remaining));
+  // Live bag row — avoid stale nested order.bag stock.
+  const { data: liveBagRow } = await supabase
+    .from('rescue_bags')
+    .select('id, quantity_available, quantity_reserved, status, max_per_customer')
+    .eq('id', order.bag_id)
+    .maybeSingle();
 
-  if (newQuantity > maxAllowed) {
-    return {
-      error: new Error(
-        newQuantity > remaining
-          ? `Only ${remaining} bag${remaining === 1 ? '' : 's'} available for this listing`
-          : `Max ${maxPerCustomer} per customer on this listing`,
-      ),
-      bagId: order.bag_id,
-      bagStock: null,
-      order: null,
-      maxAllowed,
-    };
+  const bag = (liveBagRow ?? order.bag) as PartnerOrderWithCustomer['bag'];
+  const otherReserved = Math.max(0, (bag.quantity_reserved ?? 0) - order.quantity);
+  const neededAvailable = otherReserved + newQuantity;
+
+  // Expand listing capacity when partner gives the customer more bags than listed.
+  if (neededAvailable > (bag.quantity_available ?? 0)) {
+    const { error: expandError } = await supabase
+      .from('rescue_bags')
+      .update({
+        quantity_available: neededAvailable,
+        status: bag.status === 'sold_out' ? 'active' : bag.status,
+      } as never)
+      .eq('id', order.bag_id);
+
+    if (expandError) {
+      return {
+        error: expandError,
+        bagId: order.bag_id,
+        bagStock: null,
+        order: null,
+      };
+    }
   }
 
   const unitPrice =
@@ -859,20 +871,24 @@ export async function updatePartnerOrderQuantity(orderId: string, newQuantity: n
     bagId: order.bag_id,
     bagStock,
     order: updatedRow as unknown as PartnerOrderWithCustomer,
-    maxAllowed,
+    maxAllowed: neededAvailable,
   };
 }
 
+/** UI ceiling for partner edit — listing stock minus other customers' bags (not max_per_customer). */
 export function getPartnerEditableOrderMaxQty(input: {
   quantity: number;
   quantity_available: number;
   quantity_reserved: number;
   max_per_customer?: number | null;
 }) {
-  const remaining =
-    Math.max(0, input.quantity_available - input.quantity_reserved) + input.quantity;
-  const maxPerCustomer = Math.max(1, input.max_per_customer ?? 3);
-  return Math.max(1, Math.min(maxPerCustomer, remaining));
+  const quantity = Math.max(1, input.quantity || 1);
+  const available = Math.max(quantity, input.quantity_available || quantity);
+  const reserved = Math.max(0, input.quantity_reserved || 0);
+  const otherReserved = Math.max(0, reserved - quantity);
+  // Allow growing at least to full listing size; sheet can go a bit beyond and save expands listing.
+  const stockCap = Math.max(quantity, available - otherReserved);
+  return Math.max(stockCap, quantity + 10);
 }
 
 export async function submitReview(input: {

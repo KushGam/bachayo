@@ -34,6 +34,20 @@ export function useNotificationObserver() {
       }
     };
 
+    // Foreground: auto-open review when pickup / rate push arrives (no tap needed).
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as NotificationData;
+      const type = data?.type;
+      const orderId = data?.orderId ?? data?.order_id;
+      if (
+        typeof orderId === 'string' &&
+        orderId &&
+        (type === 'review_request' || type === 'review' || type === 'pickup_confirmed')
+      ) {
+        router.push(`/(tabs)/customer/my-bags?review=${orderId}`);
+      }
+    });
+
     const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -42,7 +56,10 @@ export function useNotificationObserver() {
       }
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      receivedSub.remove();
+    };
   }, [router]);
 }
 

@@ -231,7 +231,7 @@ export function getRouteFromNotificationData(data: NotificationData) {
     return `/bag/${bagId}` as const;
   }
   if (type === 'pickup_confirmed' && orderId) {
-    return '/(tabs)/customer/my-bags' as const;
+    return `/(tabs)/customer/my-bags?review=${orderId}` as const;
   }
   if (type === 'order_updated' && orderId) {
     return '/(tabs)/customer/my-bags' as const;

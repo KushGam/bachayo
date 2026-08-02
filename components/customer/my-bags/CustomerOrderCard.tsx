@@ -7,7 +7,6 @@ import {
   Lock,
   MapPin,
   MessageCircle,
-  Star,
   Store,
   X,
 } from 'lucide-react-native';
@@ -283,29 +282,29 @@ export function CustomerOrderCard({
               <Store size={14} color={Palette.textPrimary} strokeWidth={2.2} />
               <Text style={styles.actionPillText}>Restaurant</Text>
             </Pressable>
-
-            {needsReview ? (
-              <Pressable
-                onPress={onReview}
-                style={({ pressed }) => [
-                  styles.actionPill,
-                  styles.actionPillFlex,
-                  styles.reviewCtaOutline,
-                  pressed && styles.pressed,
-                ]}>
-                <Star size={14} color={Palette.primary} strokeWidth={2.2} />
-                <Text style={styles.reviewCtaText}>Rate your experience →</Text>
-              </Pressable>
-            ) : null}
           </View>
+
+          {needsReview ? (
+            <Pressable
+              onPress={() => {
+                console.log('[Review] Past tab Rate CTA pressed', order.id);
+                onReview();
+              }}
+              style={({ pressed }) => [styles.rateExperienceBtn, pressed && styles.pressed]}>
+              <Text style={styles.rateExperienceEmoji}>⭐</Text>
+              <Text style={styles.rateExperienceText}>Rate your experience</Text>
+              <Text style={styles.rateExperienceArrow}>→</Text>
+            </Pressable>
+          ) : null}
 
           {hasReview && order.review ? (
             <View style={styles.reviewBlock}>
               <View style={styles.reviewedPill}>
                 <Text style={styles.reviewedStars}>
-                  {'⭐'.repeat(Math.max(1, Math.min(5, order.review.rating)))}
+                  {'★'.repeat(Math.max(1, Math.min(5, order.review.rating)))}
+                  {'☆'.repeat(Math.max(0, 5 - Math.max(1, Math.min(5, order.review.rating))))}
                 </Text>
-                <Text style={styles.reviewedText}>Reviewed</Text>
+                <Text style={styles.reviewedText}>You reviewed this order</Text>
               </View>
               {order.review.comment ? (
                 <Text style={styles.reviewedComment} numberOfLines={2}>
@@ -558,6 +557,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Palette.primary,
   },
+  rateExperienceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FAECE7',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#F0997B',
+  },
+  rateExperienceEmoji: {
+    fontSize: 18,
+  },
+  rateExperienceText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D85A30',
+  },
+  rateExperienceArrow: {
+    fontSize: 14,
+    color: '#D85A30',
+  },
   actionPillText: {
     ...Type.caption,
     fontWeight: '700',
@@ -644,22 +667,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: Palette.successBg,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#C5D9CB',
+    paddingVertical: 8,
+    marginTop: 4,
   },
   reviewedStars: {
-    fontSize: 11,
-    letterSpacing: 1,
+    fontSize: 14,
   },
   reviewedText: {
-    ...Type.label,
-    fontWeight: '700',
-    color: Palette.success,
+    fontSize: 12,
+    color: '#6B7280',
   },
   reviewedComment: {
     ...Type.caption,

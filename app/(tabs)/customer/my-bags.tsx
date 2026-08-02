@@ -99,30 +99,88 @@ export default function MyBagsScreen() {
   }, []);
 
   const openReviewPrompt = useCallback(async (order: CustomerOrderWithDetails, opts?: { force?: boolean }) => {
-    if (order.review) return;
-    if (normalizeOrderStatus(order.status) !== 'picked_up') return;
-    if (!opts?.force) {
-      if (reviewPromptedRef.current.has(order.id)) return;
-      const shown = await wasReviewPromptShown(order.id);
-      if (shown) return;
+    console.log('[Review] openReviewPrompt called', {
+      orderId: order.id,
+      status: order.status,
+      hasReview: Boolean(order.review),
+      force: opts?.force,
+    });
+
+    if (order.review) {
+      console.log('[Review] blocked because: order already has a review');
+      return;
     }
+
+    if (normalizeOrderStatus(order.status) !== 'picked_up') {
+      console.log('[Review] blocked because: status is not picked_up', order.status);
+      return;
+    }
+
+    if (!opts?.force) {
+      if (reviewPromptedRef.current.has(order.id)) {
+        console.log('[Review] blocked because: already prompted this session');
+        return;
+      }
+
+      const shown = await wasReviewPromptShown(order.id);
+      if (shown) {
+        console.log('[Review] blocked because: AsyncStorage says already shown');
+        return;
+      }
+    }
+
+    console.log('[Review] showing PostPickupReview for', order.id);
     reviewPromptedRef.current.add(order.id);
     setTab('past');
     setReviewOrder(order);
     setShowReviewPrompt(true);
+    // Mark as shown after display so skip/dismiss does not rely only on session ref.
+    void markReviewPromptShown(order.id);
   }, []);
 
   const scheduleReviewPrompt = useCallback(
     (orderId: string) => {
+      console.log('[Review] scheduling review prompt for order:', orderId);
       setTimeout(() => {
         const order = ordersCacheRef.current?.find((row) => row.id === orderId);
-        if (!order) return;
-        void openReviewPrompt(order);
-      }, 1500);
+        if (!order) {
+          console.log('[Review] blocked because: order not found in cache after delay', orderId);
+          void refreshOrdersRef.current().then(() => {
+            const refreshed = ordersCacheRef.current?.find((row) => row.id === orderId);
+            if (!refreshed) return;
+            reviewPromptedRef.current.delete(orderId);
+            void openReviewPrompt({ ...refreshed, status: 'picked_up' }, { force: true });
+          });
+          return;
+        }
+        // Fresh pickup event — allow even if a stale session flag exists.
+        reviewPromptedRef.current.delete(orderId);
+        void openReviewPrompt({ ...order, status: 'picked_up' }, { force: true });
+      }, 1200);
     },
     [openReviewPrompt],
   );
   scheduleReviewPromptRef.current = scheduleReviewPrompt;
+
+  const checkForPendingReviews = useCallback(
+    (list: CustomerOrderWithDetails[]) => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const needsReview = list.find((o) => {
+        if (normalizeOrderStatus(o.status) !== 'picked_up') return false;
+        if (o.review) return false;
+        if (!o.picked_up_at) return false;
+        if (reviewPromptedRef.current.has(o.id)) return false;
+        return new Date(o.picked_up_at) > twoHoursAgo;
+      });
+
+      if (!needsReview) return;
+      console.log('[Review] Found pending review on mount:', needsReview.id);
+      setTimeout(() => {
+        void openReviewPrompt(needsReview, { force: true });
+      }, 1000);
+    },
+    [openReviewPrompt],
+  );
 
   const refreshOrders = useCallback(async () => {
     setFetchError(null);
@@ -162,13 +220,14 @@ export default function MyBagsScreen() {
         userId,
       );
       setUnreadByOrder(counts);
+      checkForPendingReviews(rows);
     } catch (err) {
       if (!ordersCacheRef.current) {
         setOrders([]);
       }
       setFetchError(err instanceof Error ? err.message : 'Failed to load orders');
     }
-  }, []);
+  }, [checkForPendingReviews]);
 
   refreshOrdersRef.current = refreshOrders;
 
@@ -211,6 +270,10 @@ export default function MyBagsScreen() {
                 const updatedOrder = (payload as { new?: Partial<CustomerOrderWithDetails> }).new;
                 if (!updatedOrder?.id) return;
 
+                const prevStatus = ordersCacheRef.current?.find(
+                  (row) => row.id === updatedOrder.id,
+                )?.status;
+
                 setOrders((prev) => {
                   const exists = prev.find((order) => order.id === updatedOrder.id);
                   if (!exists) {
@@ -225,12 +288,18 @@ export default function MyBagsScreen() {
                   return next;
                 });
 
-                if (normalizeOrderStatus(String(updatedOrder.status ?? '')) === 'picked_up') {
+                const nextStatus = normalizeOrderStatus(String(updatedOrder.status ?? ''));
+                const wasPickedUp = normalizeOrderStatus(String(prevStatus ?? '')) === 'picked_up';
+                if (nextStatus === 'picked_up' && !wasPickedUp) {
+                  console.log(
+                    '[Review] Order picked up, scheduling review:',
+                    updatedOrder.id,
+                  );
                   void hapticSuccess();
                   setTab('past');
                   setExpandedId(updatedOrder.id);
                   setShowPickupToast(true);
-                  scheduleReviewPromptRef.current(updatedOrder.id);
+                  scheduleReviewPromptRef.current?.(updatedOrder.id);
                 }
               },
             },
@@ -564,7 +633,7 @@ export default function MyBagsScreen() {
       />
 
       <PostPickupReview
-        visible={showReviewPrompt}
+        visible={showReviewPrompt && Boolean(reviewOrder)}
         order={reviewOrder}
         submitting={reviewSubmitting}
         onSubmit={handleSubmitReview}

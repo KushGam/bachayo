@@ -150,9 +150,8 @@ export function BagExpandedOrderRow({
     'takeaway') as 'takeaway' | 'dinein';
   const maxQty = getPartnerEditableOrderMaxQty({
     quantity,
-    quantity_available: bag?.quantity_available ?? quantity,
-    quantity_reserved: bag?.quantity_reserved ?? quantity,
-    max_per_customer: bag?.max_per_customer,
+    quantity_available: bag?.quantity_available ?? Math.max(quantity + 10, 10),
+    quantity_reserved: bag?.quantity_reserved ?? 0,
   });
 
   const statusLabel = isPickedUp
