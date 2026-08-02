@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -14,8 +14,7 @@ import { useNotificationObserver, usePushTokenRegistration } from '@/hooks/useNo
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
-import { markIntentionalSignOut, wasIntentionalSignOut } from '@/lib/auth/signOutIntent';
-import { clearPushTokenForCurrentUser } from '@/lib/notifications';
+import { wasIntentionalSignOut } from '@/lib/auth/signOutIntent';
 import { supabase } from '@/lib/supabase';
 import Colors, { Palette } from '@/constants/Colors';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -85,7 +84,12 @@ function RootLayoutNav() {
 
       if (event !== 'SIGNED_OUT') return;
 
-      const intentional = wasIntentionalSignOut();
+      // User tapped Sign out — never show "Session expired".
+      if (wasIntentionalSignOut()) {
+        hadSessionRef.current = false;
+        return;
+      }
+
       const root = String(segments[0] ?? '');
       const onPublicAuth =
         root === '(auth)' ||
@@ -96,26 +100,15 @@ function RootLayoutNav() {
         root === 'auth' ||
         root === '';
 
-      if (intentional || onPublicAuth || !hadSessionRef.current) {
+      if (onPublicAuth || !hadSessionRef.current) {
         hadSessionRef.current = false;
         return;
       }
 
       hadSessionRef.current = false;
       setAuthRole(null);
-      Alert.alert('Session expired', 'Please log in again.', [
-        {
-          text: 'Log in →',
-          onPress: () => {
-            markIntentionalSignOut();
-            void clearPushTokenForCurrentUser().finally(() => {
-              void supabase.auth.signOut().finally(() => {
-                router.replace('/(auth)/welcome');
-              });
-            });
-          },
-        },
-      ]);
+      // Soft redirect only — no scare alert after a normal logout race.
+      router.replace('/(auth)/welcome');
     });
 
     return () => subscription.unsubscribe();

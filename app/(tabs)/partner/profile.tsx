@@ -16,13 +16,12 @@ import {
   Mail,
   MapPin,
   Phone,
-  Share2,
   Store,
   User,
   Wallet,
 } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -32,7 +31,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -61,22 +59,20 @@ import {
   formatOpeningHours,
   formatPartnerLocationLabel,
   PAYMENT_METHOD_OPTIONS,
+  statsFromPartnerRating,
   type OwnerProfileRow,
   type PartnerProfileRow,
   type PartnerProfileStats,
 } from '@/lib/partnerProfile';
 import { getStatusLabel } from '@/lib/subscriptions';
 import { resolvePartnerCoverUrl } from '@/lib/images';
-import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore, type Locale } from '@/store/useAuthStore';
 import { usePartnerStore } from '@/store/usePartnerStore';
 
 const COVER_HEIGHT = 200;
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-
-const SHARE_MESSAGE =
-  "I'm using LastBag to sell my surplus food and reduce waste! Join me — it's free to try for 30 days. Download at lastbag.app";
+const PROFILE_CACHE_MS = 20_000;
 
 function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
@@ -102,18 +98,22 @@ export default function PartnerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { locale, setLocale, reset } = useAuthStore();
+  const storedPartner = usePartnerStore((s) => s.partner);
   const setPartnerInStore = usePartnerStore((s) => s.setPartner);
   const patchPartnerInStore = usePartnerStore((s) => s.patchPartner);
   const clearPartner = usePartnerStore((s) => s.clearPartner);
 
-  const [partner, setPartner] = useState<PartnerProfileRow | null>(null);
+  const [partner, setPartner] = useState<PartnerProfileRow | null>(
+    () => (storedPartner as PartnerProfileRow | null) ?? null,
+  );
   const [owner, setOwner] = useState<OwnerProfileRow | null>(null);
-  const [stats, setStats] = useState<PartnerProfileStats>({
+  const [stats, setStats] = useState<PartnerProfileStats>(() => ({
     bagsSold: 0,
     totalRevenue: 0,
     foodRescuedKg: 0,
-  });
-  const [loading, setLoading] = useState(true);
+    ...statsFromPartnerRating(storedPartner),
+  }));
+  const [loading, setLoading] = useState(!storedPartner);
   const [refreshing, setRefreshing] = useState(false);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
@@ -122,44 +122,73 @@ export default function PartnerProfileScreen() {
   const [editNameValue, setEditNameValue] = useState('');
   const [editEmailValue, setEditEmailValue] = useState('');
   const [savingOwner, setSavingOwner] = useState(false);
+  const cacheRef = useRef<{ at: number; partnerId: string | null }>({
+    at: 0,
+    partnerId: storedPartner?.id ?? null,
+  });
+  const loadingRef = useRef(false);
 
-  const loadProfile = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData.session?.user?.id;
-    if (!userId) {
-      setLoading(false);
+  const loadProfile = useCallback(async (opts?: { force?: boolean }) => {
+    const force = opts?.force === true;
+    if (
+      !force &&
+      cacheRef.current.partnerId &&
+      Date.now() - cacheRef.current.at < PROFILE_CACHE_MS
+    ) {
       return;
     }
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
-    const [{ data: partnerData }, { data: profileData }] = await Promise.all([
-      supabase.from('partners').select('*').eq('user_id', userId).maybeSingle(),
-      supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
-    if (partnerData) {
-      const row = partnerData as PartnerProfileRow;
-      setPartner(row);
-      setPartnerInStore(row);
-      const partnerStats = await fetchPartnerProfileStats(partnerData.id);
-      setStats(partnerStats);
-      const meta = decodePartnerMeta(partnerData.description);
-      setSelectedPayments(meta.accepted_payments ?? ['Cash', 'eSewa', 'Khalti']);
+      const [{ data: partnerData }, { data: profileData }] = await Promise.all([
+        supabase.from('partners').select('*').eq('user_id', userId).maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', userId)
+          .maybeSingle(),
+      ]);
+
+      if (profileData) {
+        setOwner(profileData as OwnerProfileRow);
+      }
+
+      if (partnerData) {
+        const row = partnerData as PartnerProfileRow;
+        setPartner(row);
+        setPartnerInStore(row);
+        setStats((prev) => ({
+          ...prev,
+          ...statsFromPartnerRating(row),
+        }));
+        const meta = decodePartnerMeta(partnerData.description);
+        setSelectedPayments(meta.accepted_payments ?? ['Cash', 'eSewa', 'Khalti']);
+        setLoading(false);
+        cacheRef.current = { at: Date.now(), partnerId: row.id };
+
+        // Sales aggregates after paint — don't block the profile shell.
+        void fetchPartnerProfileStats(row.id, row)
+          .then((partnerStats) => setStats(partnerStats))
+          .catch(() => {
+            /* keep rating seed if sales fail */
+          });
+      } else {
+        setPartner(null);
+        setLoading(false);
+        cacheRef.current = { at: Date.now(), partnerId: null };
+      }
+    } finally {
+      loadingRef.current = false;
     }
-
-    if (profileData) {
-      setOwner(profileData as OwnerProfileRow);
-    }
-
-    setLoading(false);
   }, [setPartnerInStore]);
-
-  useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,7 +198,7 @@ export default function PartnerProfileScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadProfile();
+    await loadProfile({ force: true });
     setRefreshing(false);
   };
 
@@ -276,8 +305,8 @@ export default function PartnerProfileScreen() {
         onPress: () => {
           void hapticWarning();
           void (async () => {
-            await clearPushTokenForCurrentUser();
-            await supabase.auth.signOut();
+            const { performSignOut } = await import('@/lib/auth/performSignOut');
+            await performSignOut();
             clearPartner();
             reset();
             router.replace('/(auth)/welcome');
@@ -337,7 +366,8 @@ export default function PartnerProfileScreen() {
         <PartnerProfileStatsCard
           bagsSold={stats.bagsSold}
           revenueLabel={revenueLabel}
-          rating={partner?.rating ?? 0}
+          rating={stats.avgRating}
+          reviewCount={stats.reviewCount}
           foodRescuedKg={stats.foodRescuedKg}
           tierLabel={tierLabel}
           statusLabel={statusLabel}
@@ -456,7 +486,7 @@ export default function PartnerProfileScreen() {
             subtitle="Manage alerts and reminders"
             onPress={() => router.push('/notifications/preferences')}
           />
-          <View style={[styles.langRow, styles.rowBorder]}>
+          <View style={styles.langRow}>
             <View style={styles.langIconWrap}>
               <Globe size={16} color={Palette.primary} strokeWidth={2} />
             </View>
@@ -477,13 +507,6 @@ export default function PartnerProfileScreen() {
               })}
             </View>
           </View>
-          <ProfileMenuRow
-            icon={Share2}
-            label="Tell other restaurants"
-            subtitle="Invite via WhatsApp"
-            onPress={() => void Share.share({ message: SHARE_MESSAGE })}
-            isLast
-          />
         </SettingsCard>
 
         <SectionLabel>Support</SectionLabel>

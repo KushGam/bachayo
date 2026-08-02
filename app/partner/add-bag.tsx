@@ -30,7 +30,9 @@ import { BagPreviewCard } from '@/components/partner/BagPreviewCard';
 import { ConfettiBurst } from '@/components/partner/ConfettiBurst';
 import { Button } from '@/components/ui/Button';
 import { ListSkeleton } from '@/components/ui/Skeleton';
-import { canAddListing, coercePlanId, getMaxListings, type PlanId } from '@/constants/plans';
+import { canAddListing, coercePlanId, getMaxListings, isDailyListingLimitError, isSubscriptionInactiveListingError, type PlanId } from '@/constants/plans';
+import { isPartnerAllowedToListBags } from '@/lib/subscriptions';
+import type { SubscriptionStatus } from '@/constants/subscriptions';
 import {
   CATEGORY_BAG_CONFIG,
   MART_BAG_TYPES,
@@ -41,6 +43,13 @@ import { getCategoryById, getCategoryQuantityDefaults } from '@/constants/partne
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
 import { formatRsNpr, getTodayIsoDateLocal, parsePickupDateTimeLocal } from '@/lib/helpers';
+import {
+  formatPickupWindowRange,
+  getStoreHoursPickupError,
+  isPickupWithinStoreHours,
+  type StoreHours,
+} from '@/lib/pickupWindow';
+import { decodePartnerMeta } from '@/lib/partnerMeta';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
 import { resolveBagImageUrl } from '@/lib/images';
@@ -88,6 +97,92 @@ function pickupDurationLabel(start: string, end: string) {
   if (hours === 1) return '1 hour pickup window';
   if (Number.isInteger(hours)) return `${hours} hour pickup window`;
   return `${hours.toFixed(1)} hour pickup window`;
+}
+
+function pickupTimeError(
+  availableDate: string,
+  start: string,
+  end: string,
+  options?: {
+    requireFutureStart?: boolean;
+    storeHours?: StoreHours | null;
+  },
+): string | null {
+  const startAt = parsePickupDateTimeLocal(availableDate, start);
+  const endAt = parsePickupDateTimeLocal(availableDate, end);
+  const now = Date.now();
+
+  if (!(endAt.getTime() > startAt.getTime())) {
+    return 'Until must be after From';
+  }
+  if (endAt.getTime() <= now) {
+    return 'This pickup window has already ended. Choose a later Until time.';
+  }
+  if (options?.requireFutureStart !== false && startAt.getTime() < now) {
+    return 'From can’t be in the past. Choose a later start time.';
+  }
+
+  const storeError = getStoreHoursPickupError(start, end, options?.storeHours);
+  if (storeError) return storeError;
+
+  return null;
+}
+
+function isPresetStillBookable(
+  start: string,
+  end: string,
+  availableDate: string,
+  storeHours?: StoreHours | null,
+) {
+  const startAt = parsePickupDateTimeLocal(availableDate, start);
+  const endAt = parsePickupDateTimeLocal(availableDate, end);
+  const now = Date.now();
+  if (!(endAt.getTime() > now && startAt.getTime() >= now)) return false;
+  return isPickupWithinStoreHours(start, end, storeHours);
+}
+
+/** Keep picker time on today; bump past times up to now for new listings. */
+function sanitizePickupPickerDate(
+  date: Date,
+  options?: {
+    allowPast?: boolean;
+    earliest?: Date | null;
+    latest?: Date | null;
+  },
+) {
+  const next = new Date(date);
+  const today = new Date();
+  next.setFullYear(today.getFullYear(), today.getMonth(), today.getDate());
+  next.setSeconds(0, 0);
+
+  let earliest = options?.earliest ? new Date(options.earliest) : null;
+  if (!options?.allowPast) {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    earliest = earliest && earliest.getTime() > now.getTime() ? earliest : now;
+  }
+  if (earliest && next.getTime() < earliest.getTime()) {
+    return earliest;
+  }
+
+  if (options?.latest && next.getTime() > options.latest.getTime()) {
+    return new Date(options.latest);
+  }
+
+  return next;
+}
+
+function storeHoursAsDates(
+  availableDate: string,
+  storeHours: StoreHours | null,
+): { open: Date | null; close: Date | null } {
+  if (!storeHours?.opening_start || !storeHours?.opening_end) {
+    return { open: null, close: null };
+  }
+  return {
+    open: parsePickupDateTimeLocal(availableDate, storeHours.opening_start),
+    close: parsePickupDateTimeLocal(availableDate, storeHours.opening_end),
+  };
 }
 
 function presetDisplayLabel(preset: BagPreset) {
@@ -159,6 +254,7 @@ export default function AddBagScreen() {
   const [partnerName, setPartnerName] = useState('');
   const [partnerCover, setPartnerCover] = useState<string | null>(null);
   const [partnerCategory, setPartnerCategory] = useState<PartnerCategory>('restaurant');
+  const [storeHours, setStoreHours] = useState<StoreHours | null>(null);
   const [editingBagId, setEditingBagId] = useState<string | null>(null);
   const [loadingPartner, setLoadingPartner] = useState(true);
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -187,6 +283,7 @@ export default function AddBagScreen() {
   const [serviceType, setServiceType] = useState<'takeaway' | 'dinein' | 'both'>('both');
   const [dineInExtraCharge, setDineInExtraCharge] = useState('0');
   const [limitReached, setLimitReached] = useState(false);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<PlanId>('small');
   const [maxAllowed, setMaxAllowed] = useState<number | null>(5);
   const [checkingLimit, setCheckingLimit] = useState(true);
@@ -235,6 +332,13 @@ export default function AddBagScreen() {
     };
   }, [originalPrice, rescuePrice]);
 
+  const availableDate = getTodayIsoDateLocal();
+  const storeBounds = storeHoursAsDates(availableDate, storeHours);
+  const windowError = pickupTimeError(availableDate, pickupStart, pickupEnd, {
+    requireFutureStart: !editingBagId,
+    storeHours,
+  });
+
   const isFormReady =
     title.trim().length >= 2 &&
     Number(originalPrice) > 0 &&
@@ -244,7 +348,8 @@ export default function AddBagScreen() {
     maxPerCustomer >= 1 &&
     maxPerCustomer <= quantity &&
     pickupStart &&
-    pickupEnd;
+    pickupEnd &&
+    !windowError;
 
   useEffect(() => {
     void (async () => {
@@ -258,7 +363,7 @@ export default function AddBagScreen() {
 
       const { data } = await supabase
         .from('partners')
-        .select('id, name, cover_image_url, category, subscription_tier')
+        .select('id, name, cover_image_url, category, subscription_tier, subscription_status, is_active, description')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -266,6 +371,17 @@ export default function AddBagScreen() {
         setPartnerId(data.id);
         setPartnerName(data.name);
         setPartnerCover(data.cover_image_url);
+        const meta = decodePartnerMeta(
+          (data as { description?: string | null }).description,
+        );
+        if (meta.opening_start && meta.opening_end) {
+          setStoreHours({
+            opening_start: meta.opening_start,
+            opening_end: meta.opening_end,
+          });
+        } else {
+          setStoreHours(null);
+        }
         const cat = (data.category ?? 'restaurant') as PartnerCategory;
         setPartnerCategory(cat);
         const planId = coercePlanId(
@@ -273,12 +389,27 @@ export default function AddBagScreen() {
         );
         setCurrentPlan(planId);
         setMaxAllowed(getMaxListings(planId));
-        const qtyDefaults = getCategoryQuantityDefaults(cat);
+        setSubscriptionBlocked(
+          !isPartnerAllowedToListBags({
+            subscription_status: (data as { subscription_status?: SubscriptionStatus | null })
+              .subscription_status,
+            is_active: (data as { is_active?: boolean | null }).is_active,
+          }),
+        );        const qtyDefaults = getCategoryQuantityDefaults(cat);
         setValue('quantity_available', qtyDefaults.default);
         setValue('max_per_customer', Math.min(3, qtyDefaults.default));
         const cfg = CATEGORY_BAG_CONFIG[cat] ?? CATEGORY_BAG_CONFIG.restaurant;
         if (cfg.pickupPresets[0]) {
-          applyPickupPreset(cfg.pickupPresets[0].start, cfg.pickupPresets[0].end, cfg.pickupPresets[0].label);
+          const today = getTodayIsoDateLocal();
+          const hours =
+            meta.opening_start && meta.opening_end
+              ? { opening_start: meta.opening_start, opening_end: meta.opening_end }
+              : null;
+          const preset =
+            cfg.pickupPresets.find((p) =>
+              isPresetStillBookable(p.start, p.end, today, hours),
+            ) ?? cfg.pickupPresets[0];
+          applyPickupPreset(preset.start, preset.end, preset.label);
         }
       }
       setLoadingPartner(false);
@@ -325,6 +456,7 @@ export default function AddBagScreen() {
 
     if (editingBagId) {
       setLimitReached(false);
+      setSubscriptionBlocked(false);
       setCheckingLimit(false);
       return;
     }
@@ -432,22 +564,28 @@ export default function AddBagScreen() {
     return parts.filter(Boolean).join('\n');
   };
 
-  const onSubmit = async (values: AddBagFormValues) => {
+  const onSubmit = async (values: AddBagFormValues, options?: { allowDuplicate?: boolean }) => {
     if (!partnerId) {
       setSubmitError('Partner profile not found. Complete onboarding first.');
       return;
     }
 
     const availableDate = getTodayIsoDateLocal();
-    const pickupEndAt = parsePickupDateTimeLocal(availableDate, values.pickup_end);
-    if (Date.now() >= pickupEndAt.getTime()) {
-      setSubmitError(
-        `This pickup window closed at ${formatDateTimeDisplay(pickupEndAt)}. Choose a later pickup end time.`,
-      );
+    const timeError = pickupTimeError(availableDate, values.pickup_start, values.pickup_end, {
+      requireFutureStart: !editingBagId,
+      storeHours,
+    });
+    if (timeError) {
+      setSubmitError(timeError);
       return;
     }
 
     if (!editingBagId) {
+      if (subscriptionBlocked) {
+        setSubmitError('Your subscription is inactive. Renew to list bags again.');
+        return;
+      }
+
       const today = getTodayIsoDateLocal();
       const { count } = await supabase
         .from('rescue_bags')
@@ -458,6 +596,32 @@ export default function AddBagScreen() {
         setLimitReached(true);
         setMaxAllowed(getMaxListings(currentPlan));
         return;
+      }
+
+      if (!options?.allowDuplicate) {
+        const { data: similar } = await supabase
+          .from('rescue_bags')
+          .select('id')
+          .eq('partner_id', partnerId)
+          .eq('available_date', availableDate)
+          .eq('title', values.title.trim())
+          .in('status', ['active', 'sold_out'])
+          .limit(1);
+
+        if ((similar?.length ?? 0) > 0) {
+          Alert.alert(
+            'You already listed this today',
+            '“Max per customer” only limits how many one person can reserve from a single listing — it does not create extra cards on the home feed.\n\nList another copy anyway?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'List another',
+                onPress: () => void onSubmit(values, { allowDuplicate: true }),
+              },
+            ],
+          );
+          return;
+        }
       }
     }
 
@@ -512,7 +676,21 @@ export default function AddBagScreen() {
       });
       checkScale.value = withSpring(1, { damping: 12, stiffness: 140 });
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to list bag');
+      if (isSubscriptionInactiveListingError(e)) {
+        setSubscriptionBlocked(true);
+        setSubmitError('Your subscription is inactive. Renew to list bags again.');
+      } else if (isDailyListingLimitError(e)) {
+        const max = getMaxListings(currentPlan);
+        setLimitReached(true);
+        setMaxAllowed(max);
+        setSubmitError(
+          max == null
+            ? 'Daily listing limit reached for your plan.'
+            : `You've reached today's limit of ${max} listings on your plan.`,
+        );
+      } else {
+        setSubmitError(e instanceof Error ? e.message : 'Failed to list bag');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -604,8 +782,30 @@ export default function AddBagScreen() {
     );
   }
 
-  if (limitReached && !editingBagId) {
+  if ((subscriptionBlocked || limitReached) && !editingBagId) {
     const planLabel = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+    if (subscriptionBlocked) {
+      return (
+        <View style={[styles.screen, styles.limitScreen, { paddingTop: insets.top }]}>
+          <StatusBar style="dark" />
+          <Pressable onPress={() => router.back()} style={styles.limitBack} hitSlop={8}>
+            <ChevronLeft size={22} color="#1A1A1A" strokeWidth={2.4} />
+          </Pressable>
+          <Text style={styles.limitTitle}>Subscription inactive</Text>
+          <Text style={styles.limitBody}>
+            Renew or reactivate your plan to list rescue bags again.
+          </Text>
+          <Pressable
+            style={styles.limitUpgradeBtn}
+            onPress={() => router.push('/(tabs)/partner/subscription')}>
+            <Text style={styles.limitUpgradeText}>Manage subscription →</Text>
+          </Pressable>
+          <Pressable style={styles.limitTomorrowBtn} onPress={() => router.back()}>
+            <Text style={styles.limitTomorrowText}>Go back</Text>
+          </Pressable>
+        </View>
+      );
+    }
     return (
       <View style={[styles.screen, styles.limitScreen, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
@@ -615,12 +815,13 @@ export default function AddBagScreen() {
         <Text style={styles.limitEmoji}>🛍</Text>
         <Text style={styles.limitTitle}>Daily listing limit reached</Text>
         <Text style={styles.limitBody}>
-          You&apos;ve used all {maxAllowed} bag listings for today on the {planLabel} plan. Upgrade
-          your plan to list more bags.
+          You&apos;ve used all {maxAllowed ?? '∞'} bag listings for today on the {planLabel} plan.
+          Upgrade your plan to list more bags.
         </Text>
         <View style={styles.limitBadge}>
           <Text style={styles.limitBadgeText}>
-            Current plan: {planLabel} plan ({maxAllowed} listings/day)
+            Current plan: {planLabel} plan (
+            {maxAllowed == null ? 'unlimited' : `${maxAllowed} listings/day`})
           </Text>
         </View>
         <Pressable
@@ -841,6 +1042,9 @@ export default function AddBagScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Number of bags</Text>
+            <Text style={styles.fieldHint}>
+              Total stock for this one listing (customers see “{quantity} left”)
+            </Text>
             <Controller
               control={control}
               name="quantity_available"
@@ -883,7 +1087,10 @@ export default function AddBagScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Maximum bags per customer</Text>
+            <Text style={styles.fieldLabel}>Max per customer</Text>
+            <Text style={styles.fieldHint}>
+              How many one customer may reserve from this listing — does not create extra listings
+            </Text>
             <Controller
               control={control}
               name="max_per_customer"
@@ -914,7 +1121,7 @@ export default function AddBagScreen() {
                     </Pressable>
                   </View>
                   <Text style={styles.quantityMaxHint}>
-                    One customer can reserve up to {value} bag{value === 1 ? '' : 's'}
+                    One person can take up to {value} of the {quantity} bags
                   </Text>
                   {errors.max_per_customer?.message ? (
                     <Text style={styles.fieldError}>{errors.max_per_customer.message}</Text>
@@ -926,6 +1133,21 @@ export default function AddBagScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Pickup window</Text>
+            <Text style={styles.fieldHint}>
+              {storeHours
+                ? `Must be within store hours (${formatPickupWindowRange(
+                    storeHours.opening_start,
+                    storeHours.opening_end,
+                  )})`
+                : 'Set your store hours in profile so pickup stays within opening times'}
+            </Text>
+            {!storeHours ? (
+              <Pressable
+                onPress={() => router.push('/partner/edit-hours' as never)}
+                style={styles.hoursLink}>
+                <Text style={styles.hoursLinkText}>Set store hours →</Text>
+              </Pressable>
+            ) : null}
             {config.pickupPresets.length > 0 ? (
               <ScrollView
                 horizontal
@@ -934,15 +1156,32 @@ export default function AddBagScreen() {
                 contentContainerStyle={styles.pickupPresetRow}>
                 {config.pickupPresets.map((preset) => {
                   const active = selectedPickupPreset === preset.label;
+                  const bookable = isPresetStillBookable(
+                    preset.start,
+                    preset.end,
+                    availableDate,
+                    storeHours,
+                  );
                   return (
                     <Pressable
                       key={preset.label}
+                      disabled={!bookable}
                       onPress={() => {
+                        if (!bookable) return;
                         void hapticButtonPress();
                         applyPickupPreset(preset.start, preset.end, preset.label);
                       }}
-                      style={[styles.presetPill, active && styles.presetPillActive]}>
-                      <Text style={[styles.presetText, active && styles.presetTextActive]}>
+                      style={[
+                        styles.presetPill,
+                        active && styles.presetPillActive,
+                        !bookable && styles.presetPillDisabled,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.presetText,
+                          active && styles.presetTextActive,
+                          !bookable && styles.presetTextDisabled,
+                        ]}>
                         {pickupPresetDisplayLabel(preset.label)}
                       </Text>
                     </Pressable>
@@ -960,7 +1199,7 @@ export default function AddBagScreen() {
                     setShowBestBeforePicker,
                   })
                 }
-                style={styles.timeBox}>
+                style={[styles.timeBox, windowError ? styles.timeBoxError : null]}>
                 <Text style={styles.timeBoxLabel}>From</Text>
                 <View style={styles.timeBoxBottom}>
                   <Text style={styles.timeBoxValue}>{formatDateTimeDisplay(pickupStartDate)}</Text>
@@ -975,7 +1214,7 @@ export default function AddBagScreen() {
                     setShowBestBeforePicker,
                   })
                 }
-                style={styles.timeBox}>
+                style={[styles.timeBox, windowError ? styles.timeBoxError : null]}>
                 <Text style={styles.timeBoxLabel}>Until</Text>
                 <View style={styles.timeBoxBottom}>
                   <Text style={styles.timeBoxValue}>{formatDateTimeDisplay(pickupEndDate)}</Text>
@@ -983,6 +1222,8 @@ export default function AddBagScreen() {
                 </View>
               </Pressable>
             </View>
+
+            {windowError ? <Text style={styles.fieldError}>{windowError}</Text> : null}
 
             <View style={styles.durationPill}>
               <Text style={styles.durationPillText}>
@@ -1177,11 +1418,24 @@ export default function AddBagScreen() {
           value={pickupStartDate}
           mode="time"
           display="default"
+          minimumDate={
+            editingBagId
+              ? storeBounds.open ?? undefined
+              : storeBounds.open && storeBounds.open.getTime() > Date.now()
+                ? storeBounds.open
+                : new Date()
+          }
+          maximumDate={storeBounds.close ?? undefined}
           onChange={(event: DateTimePickerEvent, date?: Date) => {
             setShowStartPicker(false);
             if (event.type !== 'set' || !date) return;
-            setPickupStartDate(date);
-            setValue('pickup_start', formatTimeFromDate(date), { shouldValidate: true });
+            const next = sanitizePickupPickerDate(date, {
+              allowPast: Boolean(editingBagId),
+              earliest: storeBounds.open,
+              latest: storeBounds.close,
+            });
+            setPickupStartDate(next);
+            setValue('pickup_start', formatTimeFromDate(next), { shouldValidate: true });
             setSelectedPickupPreset(null);
           }}
         />
@@ -1192,11 +1446,20 @@ export default function AddBagScreen() {
           value={pickupEndDate}
           mode="time"
           display="default"
+          minimumDate={
+            pickupStartDate.getTime() > Date.now() ? pickupStartDate : new Date()
+          }
+          maximumDate={storeBounds.close ?? undefined}
           onChange={(event: DateTimePickerEvent, date?: Date) => {
             setShowEndPicker(false);
             if (event.type !== 'set' || !date) return;
-            setPickupEndDate(date);
-            setValue('pickup_end', formatTimeFromDate(date), { shouldValidate: true });
+            const next = sanitizePickupPickerDate(date, {
+              allowPast: false,
+              earliest: pickupStartDate,
+              latest: storeBounds.close,
+            });
+            setPickupEndDate(next);
+            setValue('pickup_end', formatTimeFromDate(next), { shouldValidate: true });
             setSelectedPickupPreset(null);
           }}
         />
@@ -1229,10 +1492,23 @@ export default function AddBagScreen() {
               textColor="#1A1A1A"
               locale="en-US"
               style={styles.pickerWheel}
+              minimumDate={
+                editingBagId
+                  ? storeBounds.open ?? undefined
+                  : storeBounds.open && storeBounds.open.getTime() > Date.now()
+                    ? storeBounds.open
+                    : new Date()
+              }
+              maximumDate={storeBounds.close ?? undefined}
               onChange={(_: DateTimePickerEvent, date?: Date) => {
                 if (!date) return;
-                setPickupStartDate(date);
-                setValue('pickup_start', formatTimeFromDate(date), { shouldValidate: true });
+                const next = sanitizePickupPickerDate(date, {
+                  allowPast: Boolean(editingBagId),
+                  earliest: storeBounds.open,
+                  latest: storeBounds.close,
+                });
+                setPickupStartDate(next);
+                setValue('pickup_start', formatTimeFromDate(next), { shouldValidate: true });
                 setSelectedPickupPreset(null);
               }}
             />
@@ -1250,10 +1526,19 @@ export default function AddBagScreen() {
               textColor="#1A1A1A"
               locale="en-US"
               style={styles.pickerWheel}
+              minimumDate={
+                pickupStartDate.getTime() > Date.now() ? pickupStartDate : new Date()
+              }
+              maximumDate={storeBounds.close ?? undefined}
               onChange={(_: DateTimePickerEvent, date?: Date) => {
                 if (!date) return;
-                setPickupEndDate(date);
-                setValue('pickup_end', formatTimeFromDate(date), { shouldValidate: true });
+                const next = sanitizePickupPickerDate(date, {
+                  allowPast: false,
+                  earliest: pickupStartDate,
+                  latest: storeBounds.close,
+                });
+                setPickupEndDate(next);
+                setValue('pickup_end', formatTimeFromDate(next), { shouldValidate: true });
                 setSelectedPickupPreset(null);
               }}
             />
@@ -1380,6 +1665,9 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.primary,
     borderColor: Palette.primary,
   },
+  presetPillDisabled: {
+    opacity: 0.4,
+  },
   presetText: {
     fontSize: 13,
     fontWeight: '500',
@@ -1387,6 +1675,9 @@ const styles = StyleSheet.create({
   },
   presetTextActive: {
     color: Palette.white,
+  },
+  presetTextDisabled: {
+    color: Palette.textTertiary,
   },
   formCard: {
     backgroundColor: Palette.white,
@@ -1408,6 +1699,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 6,
+  },
+  fieldHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  hoursLink: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    marginTop: -4,
+  },
+  hoursLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Palette.primary,
   },
   serviceHeader: {
     fontSize: 13,
@@ -1703,6 +2010,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     padding: 14,
+  },
+  timeBoxError: {
+    borderColor: Palette.dangerBorder,
+    backgroundColor: Palette.dangerSoft,
   },
   timeBoxLabel: {
     fontSize: 11,

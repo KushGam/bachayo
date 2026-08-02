@@ -49,7 +49,7 @@ export function formatCollapsedOrdersSummary(
 export function formatBagReservedProgressLabel(
   reserved: number,
   total: number,
-  _waitingCustomers: number,
+  waitingCustomers: number,
 ): { text: string; color: string } {
   if (reserved === 0) {
     return {
@@ -59,14 +59,20 @@ export function formatBagReservedProgressLabel(
   }
 
   const soldOut = total > 0 && reserved >= total;
-  const text = soldOut
-    ? `${reserved} of ${total} bags sold`
-    : `${reserved} of ${total} bags reserved`;
+  // quantity_reserved includes picked-up capacity; waitingCustomers is still awaiting.
+  const text =
+    waitingCustomers > 0
+      ? soldOut
+        ? `${reserved} of ${total} bags sold · ${waitingCustomers} waiting`
+        : `${reserved} of ${total} bags reserved · ${waitingCustomers} waiting`
+      : soldOut
+        ? `${reserved} of ${total} bags sold`
+        : `${reserved} of ${total} claimed · none waiting`;
 
   if (soldOut) {
     return { text, color: '#10B981' };
   }
-  if (total > 0 && reserved / total > 0.5) {
+  if (waitingCustomers > 0 && total > 0 && reserved / total > 0.5) {
     return { text, color: '#92400E' };
   }
   return { text, color: '#6B7280' };
@@ -113,7 +119,7 @@ export function BagExpandedOrderRow({
   onOpenChat,
   unreadMessages = 0,
 }: BagExpandedOrderRowProps) {
-  const customerName = getDisplayName(order.customer);
+  const customerName = getDisplayName(order.customer) || order.customer_name || 'Customer';
   const phone = getDisplayPhone(order.customer);
   const normalizedStatus = normalizeOrderStatus(order.status);
   const isPickedUp = normalizedStatus === 'picked_up';

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,6 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CancelReservationSheet } from '@/components/customer/CancelReservationSheet';
+import { ReviewPromptSheet } from '@/components/customer/ReviewPromptSheet';
 import { CustomerMyBagsEmpty } from '@/components/customer/my-bags/CustomerMyBagsEmpty';
 import {
   CustomerMyBagsHeader,
@@ -35,11 +36,14 @@ import {
 import { normalizeOrderStatus } from '@/lib/orderStatus';
 import { cancelReservation, fetchCustomerOrders, reduceReservationQuantity } from '@/lib/orders';
 import { hapticSuccess } from '@/lib/haptics';
+import { markReviewPromptShown, wasReviewPromptShown } from '@/lib/reviewPrompt';
+import { submitCustomerReview } from '@/lib/reviews';
 import { removeChannelByName, subscribePostgresChannel } from '@/lib/realtime';
 import { fetchUnreadCountsByOrder } from '@/lib/orderMessages';
 import { supabase } from '@/lib/supabase';
 import { useBagsStore } from '@/store/useBagsStore';
 import type { CustomerOrderWithDetails } from '@/types/app';
+import type { Review } from '@/types/database';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -59,6 +63,7 @@ function isPastOrderStatus(status: string) {
 
 export default function MyBagsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ review?: string }>();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<CustomerMyBagsTab>('active');
   const [orders, setOrders] = useState<CustomerOrderWithDetails[]>([]);
@@ -73,6 +78,10 @@ export default function MyBagsScreen() {
     message: 'The slot has been freed for other customers.',
   });
   const [showPickupToast, setShowPickupToast] = useState(false);
+  const [reviewOrder, setReviewOrder] = useState<CustomerOrderWithDetails | null>(null);
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [showReviewToast, setShowReviewToast] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [showPhoneToRestaurants, setShowPhoneToRestaurants] = useState(true);
@@ -81,11 +90,39 @@ export default function MyBagsScreen() {
   const refreshOrdersRef = useRef<() => Promise<void>>(async () => {});
   const isFirstLoad = useRef(true);
   const ordersCacheRef = useRef<CustomerOrderWithDetails[] | null>(null);
+  const reviewPromptedRef = useRef(new Set<string>());
+  const scheduleReviewPromptRef = useRef<(orderId: string) => void>(() => {});
 
   useEffect(() => {
     const timer = setInterval(() => tick((t) => t + 1), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  const openReviewPrompt = useCallback(async (order: CustomerOrderWithDetails, opts?: { force?: boolean }) => {
+    if (order.review) return;
+    if (normalizeOrderStatus(order.status) !== 'picked_up') return;
+    if (!opts?.force) {
+      if (reviewPromptedRef.current.has(order.id)) return;
+      const shown = await wasReviewPromptShown(order.id);
+      if (shown) return;
+    }
+    reviewPromptedRef.current.add(order.id);
+    setTab('past');
+    setReviewOrder(order);
+    setShowReviewPrompt(true);
+  }, []);
+
+  const scheduleReviewPrompt = useCallback(
+    (orderId: string) => {
+      setTimeout(() => {
+        const order = ordersCacheRef.current?.find((row) => row.id === orderId);
+        if (!order) return;
+        void openReviewPrompt(order);
+      }, 1000);
+    },
+    [openReviewPrompt],
+  );
+  scheduleReviewPromptRef.current = scheduleReviewPrompt;
 
   const refreshOrders = useCallback(async () => {
     setFetchError(null);
@@ -181,14 +218,19 @@ export default function MyBagsScreen() {
                     return prev;
                   }
 
-                  return prev.map((order) =>
+                  const next = prev.map((order) =>
                     order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order,
                   );
+                  ordersCacheRef.current = next;
+                  return next;
                 });
 
-                if (updatedOrder.status === 'picked_up') {
+                if (normalizeOrderStatus(String(updatedOrder.status ?? '')) === 'picked_up') {
                   void hapticSuccess();
+                  setTab('past');
+                  setExpandedId(updatedOrder.id);
                   setShowPickupToast(true);
+                  scheduleReviewPromptRef.current(updatedOrder.id);
                 }
               },
             },
@@ -245,6 +287,18 @@ export default function MyBagsScreen() {
   );
 
   const listData = tab === 'active' ? activeOrders : pastOrders;
+
+  // Deep link / notification tap: ?review=orderId
+  useEffect(() => {
+    const reviewId = typeof params.review === 'string' ? params.review : undefined;
+    if (!reviewId || loading) return;
+    const order = orders.find((row) => row.id === reviewId);
+    if (!order) return;
+    void (async () => {
+      await openReviewPrompt(order, { force: true });
+      router.setParams({ review: undefined });
+    })();
+  }, [params.review, orders, loading, openReviewPrompt, router]);
 
   const toggleExpand = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -325,6 +379,82 @@ export default function MyBagsScreen() {
     setShowCancelToast(true);
   };
 
+  const dismissReviewPrompt = useCallback(() => {
+    if (reviewOrder) {
+      void markReviewPromptShown(reviewOrder.id);
+    }
+    setShowReviewPrompt(false);
+    setReviewOrder(null);
+  }, [reviewOrder]);
+
+  const handleSubmitReview = useCallback(
+    async (rating: number, comment: string) => {
+      if (!reviewOrder || !customerId) return;
+
+      setReviewSubmitting(true);
+      const result = await submitCustomerReview({
+        orderId: reviewOrder.id,
+        customerId,
+        partnerId: reviewOrder.partner_id,
+        rating,
+        comment,
+      });
+      setReviewSubmitting(false);
+
+      if (result.error) {
+        const code =
+          typeof result.error === 'object' && result.error && 'code' in result.error
+            ? String((result.error as { code?: string }).code)
+            : '';
+        if (code === '23505') {
+          Alert.alert('Already reviewed', 'You already reviewed this order.');
+          dismissReviewPrompt();
+          void refreshOrdersRef.current();
+          return;
+        }
+        const message =
+          result.error instanceof Error
+            ? result.error.message
+            : typeof result.error === 'object' && result.error && 'message' in result.error
+              ? String((result.error as { message: unknown }).message)
+              : 'Could not submit review.';
+        Alert.alert('Could not submit', message);
+        return;
+      }
+
+      const localReview: Review = {
+        id: `local-${reviewOrder.id}`,
+        order_id: reviewOrder.id,
+        customer_id: customerId,
+        partner_id: reviewOrder.partner_id,
+        rating,
+        comment: comment.trim() || null,
+        quantity_feedback: null,
+        value_feedback: null,
+        would_return: null,
+        photo_url: null,
+        partner_reply: null,
+        partner_replied_at: null,
+        created_at: new Date().toISOString(),
+      };
+
+      setOrders((prev) => {
+        const next = prev.map((row) =>
+          row.id === reviewOrder.id ? { ...row, review: localReview } : row,
+        );
+        ordersCacheRef.current = next;
+        return next;
+      });
+
+      void markReviewPromptShown(reviewOrder.id);
+      setShowReviewPrompt(false);
+      setReviewOrder(null);
+      void hapticSuccess();
+      setShowReviewToast(true);
+    },
+    [customerId, dismissReviewPrompt, reviewOrder],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: CustomerOrderWithDetails }) => {
       const expanded = expandedId === item.id;
@@ -361,7 +491,7 @@ export default function MyBagsScreen() {
           onDirections={() =>
             openMapsDirections(item.partner.latitude, item.partner.longitude, item.partner.name)
           }
-          onReview={() => router.push(`/review/${item.id}`)}
+          onReview={() => void openReviewPrompt(item, { force: true })}
           onHelp={() => router.push('/support/help')}
           onViewRestaurant={() => router.push(`/partner/${item.partner_id}`)}
           onChat={() => router.push(`/order/chat/${item.id}`)}
@@ -371,7 +501,7 @@ export default function MyBagsScreen() {
         />
       );
     },
-    [expandedId, router, showPhoneToRestaurants, tab, unreadByOrder],
+    [expandedId, openReviewPrompt, router, showPhoneToRestaurants, tab, unreadByOrder],
   );
 
   return (
@@ -433,11 +563,25 @@ export default function MyBagsScreen() {
         onConfirm={(payload) => void handleConfirmCancel(payload)}
       />
 
+      <ReviewPromptSheet
+        visible={showReviewPrompt}
+        order={reviewOrder}
+        submitting={reviewSubmitting}
+        onSubmit={(rating, comment) => void handleSubmitReview(rating, comment)}
+        onDismiss={dismissReviewPrompt}
+      />
+
       <SuccessToast
         visible={showPickupToast}
         title="Pickup confirmed"
-        message="Your bag has been collected. Enjoy your meal!"
+        message="Moved to Past orders. Enjoy your meal!"
         onHide={() => setShowPickupToast(false)}
+      />
+
+      <SuccessToast
+        visible={showReviewToast}
+        title="Review submitted! Thank you 🙏"
+        onHide={() => setShowReviewToast(false)}
       />
 
       <SuccessToast

@@ -1,8 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { Camera, UserRound } from 'lucide-react-native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { AuthAccountExistsBanner } from '@/components/auth/AuthAccountExistsBanner';
 import { AuthDivider } from '@/components/auth/AuthDivider';
@@ -27,6 +38,7 @@ import {
 } from '@/lib/auth';
 import {
   friendlyAuthError,
+  friendlyGoogleSignInError,
   isEmailAlreadyRegisteredError,
   isNetworkError,
 } from '@/lib/auth/authErrors';
@@ -73,6 +85,7 @@ export default function CustomerBasicsScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
+  const [avatarUri, setAvatarUri] = useState<string | null>(customer.avatarUri);
 
   const {
     control,
@@ -93,6 +106,70 @@ export default function CustomerBasicsScreen() {
   });
 
   const authMethod = watch('authMethod');
+
+  const pickAvatar = async (source: 'camera' | 'library') => {
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow access to add a profile photo.');
+      return;
+    }
+
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+          });
+
+    if (result.canceled || !result.assets[0]) return;
+    setAvatarUri(result.assets[0].uri);
+  };
+
+  const showAvatarActions = () => {
+    const hasPhoto = Boolean(avatarUri);
+    const options = ['Take photo', 'Choose from library'];
+    if (hasPhoto) options.push('Remove photo');
+    options.push('Cancel');
+
+    const handleSelection = (index: number) => {
+      if (index === 0) void pickAvatar('camera');
+      else if (index === 1) void pickAvatar('library');
+      else if (hasPhoto && index === 2) setAvatarUri(null);
+    };
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: options.length - 1,
+          destructiveButtonIndex: hasPhoto ? 2 : undefined,
+        },
+        handleSelection,
+      );
+      return;
+    }
+
+    Alert.alert('Profile photo', undefined, [
+      { text: 'Take photo', onPress: () => void pickAvatar('camera') },
+      { text: 'Choose from library', onPress: () => void pickAvatar('library') },
+      ...(hasPhoto
+        ? [{ text: 'Remove photo', style: 'destructive' as const, onPress: () => setAvatarUri(null) }]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
 
   const onContinue = handleSubmit(async (values) => {
     if (!termsAccepted) {
@@ -143,6 +220,7 @@ export default function CustomerBasicsScreen() {
         fullName: values.fullName,
         email: (values.email ?? '').trim(),
         phone: values.phone,
+        avatarUri,
       });
 
       if (values.authMethod === 'phone') {
@@ -204,15 +282,16 @@ export default function CustomerBasicsScreen() {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
       if (!result.ok) {
         if (result.expoGo || result.cancelled) return;
-        setSubmitError('Google Sign-In failed. Please try again or use phone/email.');
+        setSubmitError(friendlyGoogleSignInError('failed'));
         return;
       }
       if (result.needsTerms) {
         setPendingGoogleUserId(result.userId);
         setShowTermsModal(true);
       }
-    } catch {
-      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
+    } catch (err) {
+      console.error('[Google] Sign-in failed:', err);
+      Alert.alert('Couldn’t sign in with Google', friendlyGoogleSignInError(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -251,6 +330,34 @@ export default function CustomerBasicsScreen() {
 
         <SignupFieldGroup label="About you" required>
           <AuthFormCard style={styles.cardCompact}>
+            <View style={styles.avatarRow}>
+              <Pressable
+                onPress={showAvatarActions}
+                style={styles.avatarTap}
+                accessibilityRole="button"
+                accessibilityLabel="Add profile photo">
+                <View style={styles.avatarCircle}>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                  ) : (
+                    <UserRound size={28} color={Palette.textTertiary} strokeWidth={1.75} />
+                  )}
+                </View>
+                <View style={styles.avatarBadge}>
+                  <Camera size={12} color={Palette.white} strokeWidth={2.25} />
+                </View>
+              </Pressable>
+              <View style={styles.avatarCopy}>
+                <Text style={styles.avatarTitle}>Profile photo</Text>
+                <Text style={styles.avatarHint}>Optional — helps partners recognize you</Text>
+                <Pressable onPress={showAvatarActions} hitSlop={8}>
+                  <Text style={styles.avatarAction}>
+                    {avatarUri ? 'Change photo' : 'Add photo'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
             <Controller
               control={control}
               name="fullName"
@@ -271,7 +378,11 @@ export default function CustomerBasicsScreen() {
 
         <SignupFieldGroup
           label="Sign-in details"
-          hint="How you'll log in to LastBag"
+          hint={
+            authMethod === 'phone'
+              ? 'We’ll text a one-time code next'
+              : 'We’ll email a verification code on the last step'
+          }
           required>
           <AuthFormCard style={styles.cardCompact}>
             {authMethod === 'email' ? (
@@ -431,6 +542,60 @@ const styles = StyleSheet.create({
   },
   googleBlock: {
     gap: Spacing.sm,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  avatarTap: {
+    position: 'relative',
+  },
+  avatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Palette.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Palette.white,
+  },
+  avatarCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  avatarTitle: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
+  avatarHint: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    marginBottom: 4,
+  },
+  avatarAction: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primary,
   },
   fieldHint: {
     ...Type.caption,

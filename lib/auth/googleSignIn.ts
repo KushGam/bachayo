@@ -92,9 +92,16 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
       redirectInUrl.startsWith('http') &&
       !redirectInUrl.startsWith(NATIVE_OAUTH_REDIRECT)
     ) {
+      console.error(
+        '[Google] Supabase rewrote redirect_to to',
+        redirectInUrl,
+        '— add',
+        NATIVE_OAUTH_REDIRECT,
+        'in Auth URL Configuration',
+      );
       Alert.alert(
-        'Google Sign-In misconfigured',
-        `Add this exact Redirect URL in Supabase Dashboard → Authentication → URL Configuration:\n\n${NATIVE_OAUTH_REDIRECT}`,
+        'Couldn’t sign in with Google',
+        'Google sign-in isn’t ready yet. Please try phone or email instead.',
       );
       return {
         success: false,
@@ -136,9 +143,10 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
 
     // Supabase ignored redirectTo and sent users to the website Site URL.
     if (/^https?:\/\//i.test(url) && !params.accessToken && !params.code) {
+      console.error('[Google] OAuth landed on website:', url);
       Alert.alert(
-        'Google Sign-In misconfigured',
-        `Supabase redirected to the website instead of the app.\n\nAdd this exact Redirect URL in Supabase Auth settings:\n${NATIVE_OAUTH_REDIRECT}`,
+        'Couldn’t sign in with Google',
+        'Google sign-in isn’t ready yet. Please try phone or email instead.',
       );
       return {
         success: false,

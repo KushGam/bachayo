@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { MessageIconBadge } from '@/components/ui/MessageIconBadge';
 import { NotificationBellBadge } from '@/components/ui/NotificationBellBadge';
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Spacing, Type } from '@/constants/theme';
 import { getGreeting } from '@/lib/helpers';
 
 type DashboardHeaderProps = {
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
   hero: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: Radius.lg + 8,
-    borderBottomRightRadius: Radius.lg + 8,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
   },
   glowPrimary: {
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     top: -80,
     right: -60,
   },
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md + 2,
   },
   actions: {
     flexDirection: 'row',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   date: {
     ...Type.caption,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.78)',
     fontWeight: '500',
   },
   copy: {
@@ -109,14 +109,14 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Palette.white,
     letterSpacing: -0.6,
     lineHeight: 34,
   },
   subline: {
     ...Type.caption,
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(255,255,255,0.78)',
     fontWeight: '500',
   },
 });

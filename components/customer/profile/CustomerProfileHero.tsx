@@ -29,24 +29,22 @@ export function CustomerProfileHero({
 }: CustomerProfileHeroProps) {
   return (
     <LinearGradient
-      colors={[Palette.primaryDarker, Palette.primaryDark, Palette.primary]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      colors={[Palette.primaryDarker, Palette.primaryDark, '#C24F28']}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
       style={[styles.hero, { paddingTop }]}>
-      <View style={styles.glowPrimary} pointerEvents="none" />
-      <View style={styles.glowSecondary} pointerEvents="none" />
+      <View style={styles.glowA} pointerEvents="none" />
+      <View style={styles.glowB} pointerEvents="none" />
 
       <View style={styles.topRow}>
-        <View>
-          <Text style={styles.eyebrow}>Account</Text>
-          <Text style={styles.title}>Profile</Text>
-        </View>
+        <Text style={styles.title}>Profile</Text>
         {isSignedIn ? (
           <Pressable
             onPress={onEdit}
             hitSlop={8}
+            accessibilityLabel="Edit profile"
             style={({ pressed }) => [styles.editBtn, pressed && styles.pressed]}>
-            <Pencil size={16} color={Palette.white} strokeWidth={2.2} />
+            <Pencil size={15} color={Palette.white} strokeWidth={2.2} />
           </Pressable>
         ) : (
           <View style={styles.editPlaceholder} />
@@ -71,11 +69,9 @@ export function CustomerProfileHero({
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <View style={styles.contactPill}>
-          <Text style={styles.contact} numberOfLines={1}>
-            {contactLine}
-          </Text>
-        </View>
+        <Text style={styles.contact} numberOfLines={1}>
+          {contactLine}
+        </Text>
         {loadError ? <Text style={styles.loadError}>{loadError}</Text> : null}
       </View>
     </LinearGradient>
@@ -84,127 +80,107 @@ export function CustomerProfileHero({
 
 const styles = StyleSheet.create({
   hero: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl + 4,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
     overflow: 'hidden',
-    alignItems: 'center',
   },
-  glowPrimary: {
+  glowA: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    top: -80,
-    right: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -110,
+    right: -70,
   },
-  glowSecondary: {
+  glowB: {
     position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    bottom: -40,
-    left: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    bottom: -50,
+    left: -40,
   },
   topRow: {
     width: '100%',
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.lg,
   },
-  eyebrow: {
-    ...Type.label,
-    color: 'rgba(255,255,255,0.65)',
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
   title: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: Palette.white,
-    letterSpacing: -0.5,
-    marginTop: 2,
+    letterSpacing: -0.6,
   },
   editBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   editPlaceholder: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.85,
   },
   identity: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   avatarRing: {
-    borderWidth: 2.5,
-    borderColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 48,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 52,
     padding: 3,
-    marginBottom: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 6,
   },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   avatarImage: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
   },
   avatarInitials: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: Palette.white,
     letterSpacing: -0.5,
   },
   name: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: Palette.white,
     textAlign: 'center',
-    letterSpacing: -0.4,
-  },
-  contactPill: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    maxWidth: '92%',
+    letterSpacing: -0.45,
   },
   contact: {
     ...Type.caption,
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.78)',
     textAlign: 'center',
     fontWeight: '500',
+    maxWidth: '90%',
   },
   loadError: {
     ...Type.caption,
     color: '#FECACA',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
 });

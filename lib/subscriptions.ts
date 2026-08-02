@@ -24,6 +24,7 @@ export type PartnerSubscriptionFields = PartnerApprovalFields & {
 export type TierPricing = {
   tier: SubscriptionTier;
   monthly_price_npr: number;
+  max_bags_per_day: number | null;
   max_bags_per_month: number | null;
   label: string;
 };
@@ -33,11 +34,18 @@ export function getTierPricing(
   pricingRows?: TierPricing[] | null,
 ): TierPricing {
   const row = pricingRows?.find((item) => item.tier === tier);
-  if (row) return row;
+  if (row) {
+    return {
+      ...row,
+      max_bags_per_day:
+        row.max_bags_per_day ?? DEFAULT_TIER_PRICING[tier].maxBagsPerDay,
+    };
+  }
   const fallback = DEFAULT_TIER_PRICING[tier];
   return {
     tier,
     monthly_price_npr: fallback.monthlyPriceNpr,
+    max_bags_per_day: fallback.maxBagsPerDay,
     max_bags_per_month: fallback.maxBagsPerMonth,
     label: fallback.label,
   };
@@ -81,6 +89,14 @@ export function formatSubscriptionDate(iso: string | null | undefined) {
 export function isPartnerVisibleToCustomers(partner: PartnerSubscriptionFields | null | undefined) {
   if (!partner) return false;
   if (!isPartnerApproved(partner)) return false;
+  if (partner.is_active === false) return false;
+  const status = partner.subscription_status ?? 'trial';
+  return status === 'trial' || status === 'active';
+}
+
+/** Mirrors DB trigger: only trial/active + is_active partners may create listings. */
+export function isPartnerAllowedToListBags(partner: PartnerSubscriptionFields | null | undefined) {
+  if (!partner) return false;
   if (partner.is_active === false) return false;
   const status = partner.subscription_status ?? 'trial';
   return status === 'trial' || status === 'active';

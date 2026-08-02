@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +12,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppImage } from '@/components/ui/AppImage';
+import { BagLocationMap } from '@/components/bag/BagLocationMap';
 import { Button } from '@/components/ui/Button';
+import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { BagCardSkeleton } from '@/components/ui/Skeleton';
 import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
@@ -29,6 +30,7 @@ import {
   isTooFarToReserve,
   MAX_RESERVE_DISTANCE_KM,
 } from '@/lib/distance';
+import { hapticButtonPress } from '@/lib/haptics';
 import { findActiveReservationForBag } from '@/lib/reservations';
 import { supabase } from '@/lib/supabase';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -68,6 +70,7 @@ export default function RescueBagDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [selectedServiceType, setSelectedServiceType] = useState<'takeaway' | 'dinein'>('takeaway');
   const [existingOrder, setExistingOrder] = useState<ExistingReservation | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const remaining = useMemo(() => {
     if (!bag) return 0;
@@ -189,18 +192,28 @@ export default function RescueBagDetailScreen() {
   const unitPrice =
     selectedServiceType === 'dinein' ? bag.rescue_price + dineInExtra : bag.rescue_price;
   const stickyTotal = unitPrice * quantity;
+  const heroImageUri = getRescueBagImageUrl(bag, 'hero');
 
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
-          <AppImage
-            source={{ uri: getRescueBagImageUrl(bag, 'hero') }}
-            style={styles.heroImage}
-            aspectRatio={16 / 9}
-            priority="high"
-          />
+          <Pressable
+            accessibilityRole="imagebutton"
+            accessibilityLabel="View bag photo"
+            onPress={() => {
+              void hapticButtonPress();
+              setPhotoOpen(true);
+            }}
+            style={({ pressed }) => [styles.heroPressable, pressed && { opacity: 0.92 }]}>
+            <AppImage
+              source={{ uri: heroImageUri }}
+              style={styles.heroImage}
+              aspectRatio={16 / 9}
+              priority="high"
+            />
+          </Pressable>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
@@ -257,15 +270,12 @@ export default function RescueBagDetailScreen() {
             <Text style={styles.infoRowText}>{bag.partner.address || 'Address not set'}</Text>
           </View>
 
-          {Platform.OS !== 'web' ? (
-            <View style={styles.mapFallback}>
-              <Text style={styles.mapFallbackText}>Map preview needs a development build</Text>
-            </View>
-          ) : (
-            <View style={styles.mapFallback}>
-              <Text style={styles.mapFallbackText}>Map preview available on iOS & Android</Text>
-            </View>
-          )}
+          <BagLocationMap
+            latitude={bag.partner.latitude}
+            longitude={bag.partner.longitude}
+            label={bag.partner.name}
+            address={bag.partner.address}
+          />
         </View>
 
         <View style={styles.priceBlock}>
@@ -473,6 +483,13 @@ export default function RescueBagDetailScreen() {
           </>
         )}
       </View>
+
+      <ImageLightbox
+        visible={photoOpen}
+        uri={heroImageUri}
+        title={bag.title}
+        onClose={() => setPhotoOpen(false)}
+      />
     </View>
   );
 }
@@ -501,6 +518,10 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: Palette.imagePlaceholder,
+  },
+  heroPressable: {
+    width: '100%',
+    height: '100%',
   },
   heroImage: {
     width: '100%',
@@ -625,18 +646,6 @@ const styles = StyleSheet.create({
   mapThumb: {
     height: 140,
     width: '100%',
-  },
-  mapFallback: {
-    marginTop: Spacing.sm,
-    height: 120,
-    borderRadius: Radius.lg,
-    backgroundColor: Palette.imagePlaceholder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapFallbackText: {
-    ...Type.bodyMedium,
-    color: Palette.textSecondary,
   },
   priceBlock: {
     marginTop: Spacing.lg,

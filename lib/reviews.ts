@@ -1,3 +1,4 @@
+import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 import type { Order, Partner, RescueBag } from '@/types/database';
 
@@ -59,6 +60,38 @@ export async function recalculatePartnerRating(partnerId: string) {
   if (error) throw error;
 }
 
+async function notifyPartnerNewReview(input: {
+  partnerId: string;
+  rating: number;
+  comment?: string;
+}) {
+  const { data: partner } = await supabase
+    .from('partners')
+    .select('user_id')
+    .eq('id', input.partnerId)
+    .maybeSingle();
+
+  const partnerUserId = (partner as { user_id?: string } | null)?.user_id;
+  if (!partnerUserId) return;
+
+  const comment = input.comment?.trim() ?? '';
+  const body =
+    comment.length > 0
+      ? `${input.rating}-star review: "${comment.slice(0, 50)}${comment.length > 50 ? '…' : ''}"`
+      : `You received a new ${input.rating}-star review!`;
+
+  await sendNotification({
+    userId: partnerUserId,
+    title: input.rating === 5 ? 'New 5-star review! ⭐' : 'New review received! ⭐',
+    body,
+    type: 'new_review',
+    data: {
+      partner_id: input.partnerId,
+      type: 'new_review',
+    },
+  });
+}
+
 export async function submitCustomerReview(input: SubmitCustomerReviewInput) {
   const { error } = await supabase.from('reviews').insert({
     order_id: input.orderId,
@@ -74,6 +107,12 @@ export async function submitCustomerReview(input: SubmitCustomerReviewInput) {
 
   if (error) return { error };
 
+  // Best-effort flag (migration 058). Failures must not block a successful review.
+  await supabase
+    .from('orders')
+    .update({ review_submitted: true } as never)
+    .eq('id', input.orderId);
+
   try {
     await recalculatePartnerRating(input.partnerId);
   } catch (recalcError) {
@@ -81,6 +120,12 @@ export async function submitCustomerReview(input: SubmitCustomerReviewInput) {
       error: recalcError instanceof Error ? recalcError : new Error('Failed to update partner rating'),
     };
   }
+
+  void notifyPartnerNewReview({
+    partnerId: input.partnerId,
+    rating: input.rating,
+    comment: input.comment,
+  });
 
   return { error: null };
 }

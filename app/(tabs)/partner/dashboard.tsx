@@ -1,5 +1,5 @@
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Lock } from 'lucide-react-native';
+import { Lock, MapPin, QrCode } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,7 +29,7 @@ import { OrderCardSkeleton } from '@/components/ui/Skeleton';
 import { Palette } from '@/constants/Colors';
 import { coercePlanId, getMaxListings } from '@/constants/plans';
 import { getCategoryById } from '@/constants/partnerCategories';
-import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
   formatTodayBilingual,
@@ -345,7 +345,7 @@ export default function PartnerDashboardScreen() {
   );
 
   const totalBagsReserved = useMemo(
-    () => bags.reduce((sum, bag) => sum + bag.quantity_reserved, 0),
+    () => bags.reduce((sum, bag) => sum + Math.max(0, bag.reserved_orders), 0),
     [bags],
   );
 
@@ -568,22 +568,25 @@ export default function PartnerDashboardScreen() {
           planId={coercePlanId(
             (partner as Partner & PartnerSubscriptionFields).subscription_tier,
           )}
+          onUpgrade={() => router.push('/(tabs)/partner/subscription')}
         />
       ) : null}
 
       {partner && !isPartnerLocationVerified(partner as PartnerLocationFields) ? (
-        <View style={styles.locationPrompt}>
-          <Text style={styles.locationPromptEmoji}>📍</Text>
+        <Pressable
+          onPress={() => router.push('/partner/edit-location')}
+          style={({ pressed }) => [styles.locationPrompt, pressed && { opacity: 0.92 }]}>
+          <View style={styles.locationPromptIcon}>
+            <MapPin size={16} color={Palette.warning} strokeWidth={2.2} />
+          </View>
           <View style={styles.locationPromptCopy}>
             <Text style={styles.locationPromptTitle}>Add your restaurant location</Text>
             <Text style={styles.locationPromptBody}>
               Customers can&apos;t see how far you are without it
             </Text>
           </View>
-          <Pressable onPress={() => router.push('/partner/edit-location')} hitSlop={8}>
-            <Text style={styles.locationPromptCta}>Add →</Text>
-          </Pressable>
-        </View>
+          <Text style={styles.locationPromptCta}>Add →</Text>
+        </Pressable>
       ) : null}
 
       <View style={styles.content}>
@@ -611,12 +614,37 @@ export default function PartnerDashboardScreen() {
             <DashboardQuickActions
               onScan={() => router.push('/(tabs)/partner/scan')}
               onMyBags={() => router.push('/(tabs)/partner/my-bags')}
+              onReports={() => router.push('/partner/reports')}
+              onAddBag={() => router.push('/partner/add-bag')}
+              waitingCount={todayStats.reserved}
             />
-            <DashboardCtaCard
-              category={partner.category}
-              compact={bags.length > 0}
-              onPress={() => router.push('/partner/add-bag')}
-            />
+            {todayStats.reserved > 0 ? (
+              <Pressable
+                onPress={() => {
+                  void hapticButtonPress();
+                  router.push('/(tabs)/partner/scan');
+                }}
+                style={({ pressed }) => [styles.pickupAttention, pressed && { opacity: 0.92 }]}>
+                <View style={styles.pickupAttentionIcon}>
+                  <QrCode size={16} color={Palette.primary} strokeWidth={2.2} />
+                </View>
+                <View style={styles.pickupAttentionCopy}>
+                  <Text style={styles.pickupAttentionTitle}>
+                    {todayStats.reserved} awaiting pickup
+                  </Text>
+                  <Text style={styles.pickupAttentionBody}>
+                    Scan a customer QR to confirm handover
+                  </Text>
+                </View>
+                <Text style={styles.pickupAttentionCta}>Scan</Text>
+              </Pressable>
+            ) : null}
+            {bags.length === 0 ? (
+              <DashboardCtaCard
+                category={partner.category}
+                onPress={() => router.push('/partner/add-bag')}
+              />
+            ) : null}
           </>
         ) : loading ? (
           <View style={styles.ctaSkeleton} />
@@ -624,7 +652,7 @@ export default function PartnerDashboardScreen() {
 
       <PartnerSectionHeader
         title="Active today"
-        count={bags.length > 0 ? totalBagsReserved : undefined}
+        count={totalBagsReserved > 0 ? totalBagsReserved : undefined}
         countSuffix="reserved"
         actionLabel={bags.length > 0 ? 'Manage' : undefined}
         onAction={bags.length > 0 ? () => router.push('/(tabs)/partner/my-bags') : undefined}
@@ -741,34 +769,61 @@ export default function PartnerDashboardScreen() {
 function ListingUsageRow({
   todayCount,
   planId,
+  onUpgrade,
 }: {
   todayCount: number;
   planId: ReturnType<typeof coercePlanId>;
+  onUpgrade?: () => void;
 }) {
   const maxAllowed = getMaxListings(planId);
   const atLimit = maxAllowed != null && todayCount >= maxAllowed;
+  const nearLimit =
+    maxAllowed != null && maxAllowed > 0 && todayCount / maxAllowed >= 0.8 && !atLimit;
   const progressPct =
     maxAllowed && maxAllowed > 0 ? Math.min((todayCount / maxAllowed) * 100, 100) : 0;
+  const unlimited = maxAllowed == null;
 
   return (
-    <View style={styles.listingUsageRow}>
-      <Text style={styles.listingUsageLabel}>Today&apos;s listings</Text>
+    <View style={[styles.listingUsageRow, atLimit && styles.listingUsageRowLimit]}>
+      <View style={styles.listingUsageLeft}>
+        <Text style={styles.listingUsageLabel}>Today&apos;s listings</Text>
+        {atLimit ? (
+          <Pressable
+            onPress={() => {
+              void hapticButtonPress();
+              onUpgrade?.();
+            }}
+            hitSlop={6}>
+            <Text style={styles.listingUsageHint}>Limit reached · Upgrade</Text>
+          </Pressable>
+        ) : nearLimit ? (
+          <Text style={styles.listingUsageHintMuted}>Almost at your plan limit</Text>
+        ) : unlimited ? (
+          <Text style={styles.listingUsageHintMuted}>Unlimited on your plan</Text>
+        ) : null}
+      </View>
       <View style={styles.listingUsageRight}>
         <Text style={[styles.listingUsageCount, atLimit && styles.listingUsageCountLimit]}>
           {todayCount}
         </Text>
         <Text style={styles.listingUsageMax}>/ {maxAllowed ?? '∞'}</Text>
-        <View style={styles.listingUsageTrack}>
-          <View
-            style={[
-              styles.listingUsageFill,
-              {
-                width: `${maxAllowed ? progressPct : 0}%`,
-                backgroundColor: atLimit ? '#DC2626' : '#D85A30',
-              },
-            ]}
-          />
-        </View>
+        {!unlimited ? (
+          <View style={styles.listingUsageTrack}>
+            <View
+              style={[
+                styles.listingUsageFill,
+                {
+                  width: `${progressPct}%`,
+                  backgroundColor: atLimit
+                    ? Palette.danger
+                    : nearLimit
+                      ? Palette.warning
+                      : Palette.primary,
+                },
+              ]}
+            />
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -790,38 +845,85 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xs,
   },
   locationPrompt: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    ...CardChrome,
+    borderRadius: 16,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
     flexDirection: 'row',
-    gap: 10,
+    gap: Spacing.sm + 2,
     alignItems: 'center',
+    backgroundColor: Palette.warningBg,
+    borderColor: '#E8D9B0',
   },
-  locationPromptEmoji: {
-    fontSize: 18,
+  locationPromptIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   locationPromptCopy: {
     flex: 1,
+    gap: 2,
   },
   locationPromptTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#92400E',
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.warning,
   },
   locationPromptBody: {
-    fontSize: 12,
-    color: '#92400E',
-    opacity: 0.8,
-    marginTop: 2,
+    ...Type.label,
+    color: Palette.warning,
+    opacity: 0.85,
     lineHeight: 16,
   },
   locationPromptCta: {
-    color: '#D85A30',
-    fontSize: 13,
-    fontWeight: '600',
+    color: Palette.primary,
+    ...Type.caption,
+    fontWeight: '700',
+  },
+  pickupAttention: {
+    ...CardChrome,
+    borderRadius: 16,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm + 2,
+    backgroundColor: Palette.primaryLight,
+    borderColor: Palette.primaryLightAlt,
+    ...FloatingShadow,
+  },
+  pickupAttentionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickupAttentionCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  pickupAttentionTitle: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primaryDark,
+  },
+  pickupAttentionBody: {
+    ...Type.label,
+    color: Palette.textSecondary,
+  },
+  pickupAttentionCta: {
+    ...Type.caption,
+    fontWeight: '800',
+    color: Palette.primary,
   },
   fallback: {
     padding: Spacing.xl,
@@ -829,8 +931,8 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     backgroundColor: Palette.primaryDark,
     height: 160,
-    borderBottomLeftRadius: Radius.lg + 8,
-    borderBottomRightRadius: Radius.lg + 8,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   retryWrap: {
     marginHorizontal: Spacing.lg,
@@ -838,7 +940,7 @@ const styles = StyleSheet.create({
   },
   ctaSkeleton: {
     height: 88,
-    borderRadius: Radius.lg,
+    borderRadius: 20,
     backgroundColor: Palette.surfaceMuted,
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
@@ -852,7 +954,7 @@ const styles = StyleSheet.create({
   },
   bagSkeletonCard: {
     height: 140,
-    borderRadius: Radius.lg,
+    borderRadius: 20,
     backgroundColor: Palette.surfaceMuted,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
@@ -867,6 +969,7 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderStyle: 'dashed',
     borderColor: Palette.border,
+    borderRadius: 20,
   },
   addAnotherPressed: {
     backgroundColor: Palette.surfaceMuted,
@@ -943,18 +1046,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F0EDE8',
+    ...CardChrome,
+    borderRadius: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+    ...FloatingShadow,
+  },
+  listingUsageRowLimit: {
+    backgroundColor: Palette.dangerSoft,
+    borderColor: Palette.dangerBorder,
+  },
+  listingUsageLeft: {
+    flex: 1,
+    gap: 2,
   },
   listingUsageLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.textPrimary,
+  },
+  listingUsageHint: {
+    ...Type.label,
+    fontWeight: '700',
+    color: Palette.danger,
+  },
+  listingUsageHintMuted: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '500',
   },
   listingUsageRight: {
     flexDirection: 'row',
@@ -962,27 +1084,29 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   listingUsageCount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontSize: 16,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    letterSpacing: -0.3,
   },
   listingUsageCountLimit: {
-    color: '#DC2626',
+    color: Palette.danger,
   },
   listingUsageMax: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: Palette.textTertiary,
+    fontWeight: '500',
   },
   listingUsageTrack: {
-    width: 60,
-    height: 4,
-    backgroundColor: '#F0EDE8',
-    borderRadius: 2,
+    width: 56,
+    height: 5,
+    backgroundColor: Palette.surfaceMuted,
+    borderRadius: 3,
     marginLeft: 4,
     overflow: 'hidden',
   },
   listingUsageFill: {
-    height: 4,
-    borderRadius: 2,
+    height: 5,
+    borderRadius: 3,
   },
 });

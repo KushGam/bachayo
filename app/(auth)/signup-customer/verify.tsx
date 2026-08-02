@@ -1,24 +1,32 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 import { AuthReviewCard } from '@/components/auth/AuthReviewCard';
+import { OtpInput } from '@/components/auth/OtpInput';
 import { SignupStepShell } from '@/components/auth/SignupStepShell';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
-import { signUpWithEmail } from '@/lib/auth';
+import {
+  resendEmailSignupOtp,
+  sendEmailSignupOtp,
+  verifyEmailSignupOtp,
+} from '@/lib/auth';
 import { friendlyAuthError } from '@/lib/auth/authErrors';
 import { getTabsRouteForRole } from '@/lib/navigation';
 import { hapticSuccess } from '@/lib/haptics';
 import { createCustomerProfile } from '@/lib/signupProfile';
 import { markTermsAcceptedLocally } from '@/lib/terms';
+import { uploadAvatar } from '@/lib/upload';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useSignupStore } from '@/store/useSignupStore';
 
 const TOTAL_STEPS = 4;
+const EMAIL_OTP_LENGTH = 8;
+const RESEND_SECONDS = 60;
 
 export default function CustomerVerifyScreen() {
   const router = useRouter();
@@ -28,12 +36,70 @@ export default function CustomerVerifyScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [emailOtp, setEmailOtp] = useState('');
+  const [needsEmailOtp, setNeedsEmailOtp] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const otpBootstrapRef = useRef(false);
+
+  const isEmail = customerAuthMethod === 'email';
 
   useEffect(() => {
     if (!customer.fullName || !signupPassword) {
       router.replace('/(auth)/signup-customer/basics');
     }
   }, [customer.fullName, router, signupPassword]);
+
+  const bootstrapEmailOtp = useCallback(async () => {
+    if (!isEmail || !signupPassword || !customer.email || otpBootstrapRef.current) {
+      return;
+    }
+    otpBootstrapRef.current = true;
+    setSendingOtp(true);
+    setSubmitError(null);
+    setNeedsEmailOtp(true);
+
+    try {
+      const result = await sendEmailSignupOtp(customer.email, signupPassword);
+      if (result.status === 'otp_sent') {
+        setResendSeconds(RESEND_SECONDS);
+      } else {
+        setSubmitError(
+          friendlyAuthError(result.error, 'Could not send verification email.'),
+        );
+        otpBootstrapRef.current = false;
+      }
+    } finally {
+      setSendingOtp(false);
+    }
+  }, [customer.email, isEmail, signupPassword]);
+
+  useEffect(() => {
+    void bootstrapEmailOtp();
+  }, [bootstrapEmailOtp]);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const id = setTimeout(() => setResendSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendSeconds]);
+
+  const onResendEmailOtp = async () => {
+    if (!customer.email || !signupPassword || resendSeconds > 0 || sendingOtp) return;
+    setSendingOtp(true);
+    setSubmitError(null);
+    try {
+      const result = await resendEmailSignupOtp(customer.email, signupPassword);
+      if (result.status === 'error') {
+        setSubmitError(friendlyAuthError(result.error, 'Could not resend code.'));
+      } else {
+        setEmailOtp('');
+        setResendSeconds(RESEND_SECONDS);
+      }
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   const finishSignup = useCallback(async () => {
     await hapticSuccess();
@@ -63,23 +129,55 @@ export default function CustomerVerifyScreen() {
         }
         userId = sessionData.user.id;
       } else {
-        const { data, error } = await signUpWithEmail(customer.email, signupPassword);
-        if (error || !data.user) {
-          setSubmitError(friendlyAuthError(error, 'Could not create your account.'));
+        if (emailOtp.replace(/\D/g, '').length < 6) {
+          Alert.alert('Invalid code', 'Enter the full code from your email.');
           setLoading(false);
           return;
         }
-        userId = data.user.id;
+        const { user, error } = await verifyEmailSignupOtp(customer.email, emailOtp);
+        if (error || !user) {
+          const message = friendlyAuthError(error, 'Invalid code. Please try again.');
+          setEmailOtp('');
+          setSubmitError(message);
+          Alert.alert('Invalid code', message);
+          setLoading(false);
+          return;
+        }
+        userId = user.id;
+      }
+
+      const { data: sessionCheck } = await supabase.auth.getSession();
+      if (!sessionCheck.session) {
+        setSubmitError('Could not start your session. Please try logging in.');
+        setLoading(false);
+        return;
+      }
+
+      let avatarUrl: string | null = null;
+      if (customer.avatarUri) {
+        try {
+          avatarUrl = await uploadAvatar(userId, customer.avatarUri);
+        } catch (uploadErr) {
+          console.warn('[signup] avatar upload failed:', uploadErr);
+        }
       }
 
       const { error: profileError } = await createCustomerProfile(
         userId,
         customer,
         termsAccepted,
+        avatarUrl,
       );
 
       if (profileError) {
-        setSubmitError(profileError.message ?? 'Could not create your profile.');
+        setSubmitError(
+          friendlyAuthError(
+            profileError,
+            profileError.message?.toLowerCase().includes('row-level security')
+              ? 'Could not save your profile. Please try again or log in.'
+              : 'Could not create your profile.',
+          ),
+        );
         setLoading(false);
         return;
       }
@@ -119,23 +217,65 @@ export default function CustomerVerifyScreen() {
       currentStep={4}
       totalSteps={TOTAL_STEPS}
       title="Almost there"
-      subtitle="Review your account details before we finish"
+      subtitle={
+        isEmail && needsEmailOtp
+          ? 'Enter the code we emailed you, then finish'
+          : 'Review your account details before we finish'
+      }
       showBack
       onBack={() => router.back()}
       continueLabel="Finish signup"
       onContinue={onFinish}
-      continueLoading={loading}>
+      continueLoading={loading || sendingOtp}
+      continueDisabled={
+        isEmail && needsEmailOtp && emailOtp.replace(/\D/g, '').length < 6
+      }>
       <AuthReviewCard
         authMethod={customerAuthMethod}
         identifier={loginLabel}
         name={customer.fullName}
       />
 
-      <Text style={styles.copy}>
-        Tap finish to create your LastBag account. You can log in with
-        {customerAuthMethod === 'email' ? ' this email' : ' this phone number'} and your password
-        next time.
-      </Text>
+      {isEmail && needsEmailOtp ? (
+        <View style={styles.otpBlock}>
+          <Text style={styles.otpLabel}>Email verification code</Text>
+          <Text style={styles.otpHint}>
+            We sent an {EMAIL_OTP_LENGTH}-digit code to {customer.email}
+          </Text>
+          <OtpInput
+            value={emailOtp}
+            onChange={(value) => {
+              setEmailOtp(value);
+              setSubmitError(null);
+            }}
+            length={EMAIL_OTP_LENGTH}
+            autoComplete="one-time-code"
+            error={submitError ?? undefined}
+          />
+          <Pressable
+            onPress={onResendEmailOtp}
+            disabled={resendSeconds > 0 || sendingOtp}
+            style={styles.resendBtn}>
+            <Text
+              style={[
+                styles.resendText,
+                (resendSeconds > 0 || sendingOtp) && styles.resendDisabled,
+              ]}>
+              {resendSeconds > 0
+                ? `Resend code in ${resendSeconds}s`
+                : sendingOtp
+                  ? 'Sending…'
+                  : 'Resend code'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={styles.copy}>
+          Tap finish to create your LastBag account. You can log in with
+          {customerAuthMethod === 'email' ? ' this email' : ' this phone number'} and your
+          password next time.
+        </Text>
+      )}
 
       {submitError ? <AuthErrorBanner message={submitError} /> : null}
     </SignupStepShell>
@@ -148,6 +288,32 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     lineHeight: 22,
     marginTop: Spacing.lg,
+  },
+  otpBlock: {
+    marginTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  otpLabel: {
+    ...Type.bodyMedium,
+    color: Palette.textPrimary,
+    fontWeight: '700',
+  },
+  otpHint: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  resendBtn: {
+    alignSelf: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  resendText: {
+    ...Type.bodyMedium,
+    color: Palette.primary,
+    fontWeight: '600',
+  },
+  resendDisabled: {
+    color: Palette.textSecondary,
   },
   successScreen: {
     flex: 1,

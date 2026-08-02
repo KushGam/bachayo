@@ -457,8 +457,8 @@ export function PartnerTodayBagCard({
               <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
             </View>
           )}
+          <Text style={styles.headerPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
         </View>
-        <Text style={styles.headerPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
       </View>
 
       <View style={styles.metaRow}>
@@ -468,54 +468,56 @@ export function PartnerTodayBagCard({
             {formatPickupRange(bag.pickup_start, bag.pickup_end)}
           </Text>
         </View>
-        {serviceBadge ? (
-          <View style={styles.serviceBadge}>
-            <Text style={styles.serviceBadgeText}>{serviceBadge}</Text>
-          </View>
-        ) : null}
-        {savings > 0 ? (
-          <View style={styles.savingsBadge}>
-            <Text style={styles.savingsText}>{savings}% off</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.progressSection}>
-        {fullyReserved ? (
-          <Text style={styles.soldOutCelebration}>Sold out</Text>
-        ) : null}
-        <View style={styles.progressRow}>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${progressPct}%`,
-                  backgroundColor: fullyReserved ? Palette.success : Palette.primary,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.progressLabel, { color: progressLabel.color }]}>
-            {progressLabel.text}
-          </Text>
+        <View style={styles.metaBadges}>
+          {serviceBadge ? (
+            <View style={styles.serviceBadge}>
+              <Text style={styles.serviceBadgeText}>{serviceBadge}</Text>
+            </View>
+          ) : null}
+          {savings > 0 ? (
+            <View style={styles.savingsBadge}>
+              <Text style={styles.savingsText}>{savings}% off</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.revenueStatsRow}>
-        <Text
-          style={[
-            styles.revenueStatsValue,
-            showEarned ? styles.revenueStatsEarned : styles.revenueStatsPotential,
-          ]}>
-          {formatNprFromPaisa(showEarned ? earnedRevenue : potentialRevenue)}
-        </Text>
-        <Text style={[styles.revenueStatsLabel, showEarned && styles.revenueStatsEarnedLabel]}>
-          {showEarned ? 'earned' : 'potential'}
-        </Text>
+      <View style={styles.progressSection}>
+        <View style={styles.progressHeader}>
+          {fullyReserved ? (
+            <Text style={styles.soldOutCelebration}>Sold out</Text>
+          ) : (
+            <Text style={[styles.progressLabel, { color: progressLabel.color }]}>
+              {progressLabel.text}
+            </Text>
+          )}
+        </View>
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${progressPct}%`,
+                backgroundColor: fullyReserved ? Palette.success : Palette.primary,
+              },
+            ]}
+          />
+        </View>
       </View>
 
-      <View style={styles.countdownWrap}>
+      <View style={styles.footerRow}>
+        <View style={styles.revenueStatsRow}>
+          <Text
+            style={[
+              styles.revenueStatsValue,
+              showEarned ? styles.revenueStatsEarned : styles.revenueStatsPotential,
+            ]}>
+            {formatNprFromPaisa(showEarned ? earnedRevenue : potentialRevenue)}
+          </Text>
+          <Text style={[styles.revenueStatsLabel, showEarned && styles.revenueStatsEarnedLabel]}>
+            {showEarned ? 'earned' : 'potential'}
+          </Text>
+        </View>
         <CountdownPill state={countdown} />
       </View>
 
@@ -777,11 +779,11 @@ export function formatUpcomingDateLabel(isoDate: string) {
 const styles = StyleSheet.create({
   cardSwipeWrap: {
     marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm + 2,
+    marginBottom: Spacing.md,
   },
   card: {
     ...CardChrome,
-    borderRadius: Radius.lg,
+    borderRadius: 20,
     overflow: 'hidden',
     ...FloatingShadow,
   },
@@ -804,32 +806,35 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md + 2,
-    paddingBottom: 4,
+    paddingBottom: 2,
     gap: Spacing.sm,
   },
   cardTitle: {
     flex: 1,
-    ...Type.bodyMedium,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: '700',
     color: Palette.textPrimary,
+    letterSpacing: -0.3,
   },
   titleMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.sm + 2,
     gap: Spacing.sm,
   },
   titleMetaLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
   },
   headerPrice: {
-    ...Type.bodyMedium,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: Palette.primary,
+    letterSpacing: -0.3,
   },
   metaRow: {
     flexDirection: 'row',
@@ -837,23 +842,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   pickupRow: {
-    flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
+  metaBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
   menuBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Palette.background,
   },
   pickupPillText: {
     ...Type.caption,
     color: Palette.textSecondary,
+    fontWeight: '500',
   },
   savingsBadge: {
     backgroundColor: Palette.warningBg,
@@ -889,25 +903,40 @@ const styles = StyleSheet.create({
   statusDot: { fontSize: 10, color: Palette.success, lineHeight: 12 },
   statusBadgeText: { ...Type.label, fontWeight: '700' },
   statusBadgeActiveText: { color: Palette.success },
-  progressSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, gap: 6 },
-  progressRow: {
+  progressSection: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Palette.background,
+    gap: 8,
+  },
+  progressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md + 2,
+    gap: Spacing.sm,
   },
   revenueStatsRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 6,
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
+    flexShrink: 1,
   },
   revenueStatsValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   revenueStatsPotential: {
-    color: Palette.primary,
+    color: Palette.textPrimary,
   },
   revenueStatsEarned: {
     color: Palette.success,
@@ -915,26 +944,24 @@ const styles = StyleSheet.create({
   revenueStatsLabel: {
     ...Type.label,
     color: Palette.textSecondary,
+    fontWeight: '600',
   },
   revenueStatsEarnedLabel: {
     color: Palette.success,
   },
-  progressLabel: { ...Type.label, fontWeight: '500', flexShrink: 0 },
+  progressLabel: { ...Type.caption, fontWeight: '600', flexShrink: 1 },
   soldOutCelebration: {
     ...Type.caption,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.success,
-    marginBottom: 2,
   },
   progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Palette.borderSubtle,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Palette.surfaceMuted,
     overflow: 'hidden',
   },
-  progressFill: { height: '100%', borderRadius: 3 },
-  countdownWrap: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md + 2 },
+  progressFill: { height: '100%', borderRadius: 4 },
   countdownMutedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -946,22 +973,22 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderRadius: Radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   countdownAmber: { backgroundColor: Palette.warningBg },
   countdownUrgent: { backgroundColor: Palette.dangerSoft },
-  countdownPillText: { ...Type.label, fontWeight: '600' },
+  countdownPillText: { ...Type.label, fontWeight: '700' },
   countdownAmberText: { color: Palette.warning },
   countdownUrgentText: { color: Palette.dangerText },
   ordersToggle: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Palette.borderSubtle,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Palette.background,
+    backgroundColor: Palette.surface,
     gap: Spacing.sm,
   },
   ordersTogglePressed: {
@@ -970,7 +997,7 @@ const styles = StyleSheet.create({
   ordersToggleText: {
     flex: 1,
     ...Type.caption,
-    color: Palette.textPrimary,
+    color: Palette.textSecondary,
     fontWeight: '600',
   },
   swipeActionsRow: { flexDirection: 'row', alignItems: 'stretch' },

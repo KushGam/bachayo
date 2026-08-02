@@ -106,7 +106,7 @@ export default function BrowsePartnersScreen() {
   });
 
   const neighbourhoodName = neighbourhood ?? (locale === 'np' ? 'नजिक' : 'Near you');
-  const neighbourhoodLabel = `📍 ${neighbourhoodName}`;
+  const neighbourhoodLabel = neighbourhoodName;
 
   useEffect(() => {
     void (async () => {
@@ -399,18 +399,22 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: Spacing.md,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
     marginBottom: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.border,
   },
   resultsTitle: {
-    ...Type.bodyMedium,
+    ...Type.caption,
     fontWeight: '700',
     color: Palette.textPrimary,
+    letterSpacing: -0.1,
   },
   resultsMeta: {
     ...Type.label,
     color: Palette.textTertiary,
-    fontWeight: '600',
+    fontWeight: '500',
     flexShrink: 1,
     textAlign: 'right',
   },

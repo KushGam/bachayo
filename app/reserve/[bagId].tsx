@@ -21,10 +21,12 @@ import { DismissKeyboardView } from '@/components/ui/DismissKeyboardView';
 import { RetryState } from '@/components/ui/RetryState';
 import { BagCardSkeleton } from '@/components/ui/Skeleton';
 import { TextField } from '@/components/ui/TextField';
+import { PhoneInput } from '@/components/auth/PhoneInput';
 import { Palette } from '@/constants/Colors';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
-import { hapticButtonPress } from '@/lib/haptics';
+import { formatNepalPhone } from '@/lib/auth';
+import { hapticButtonPress, hapticWarning } from '@/lib/haptics';
 import { enrichBagsWithLiveStock } from '@/lib/bagStock';
 import {
   formatNprPaisa,
@@ -48,6 +50,17 @@ import type { RescueBagWithPartner } from '@/types/app';
 
 const NOTE_MAX = 100;
 
+function toLocalNepalDigits(phone: string | null | undefined) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('977') && digits.length >= 12) return digits.slice(-10);
+  return digits.slice(0, 10);
+}
+
+function isValidNepalMobile(digits: string) {
+  return /^(97|98)\d{8}$/.test(digits);
+}
+
 export default function ReserveBagScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -65,6 +78,9 @@ export default function ReserveBagScreen() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [detailsAttempted, setDetailsAttempted] = useState(false);
   const [quantity, setQuantity] = useState(() => {
     const parsed = Number(qtyParam);
     return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
@@ -158,7 +174,7 @@ export default function ReserveBagScreen() {
           .eq('id', userId)
           .maybeSingle();
         if (profile?.full_name) setFullName(profile.full_name);
-        if (profile?.phone) setPhone(profile.phone);
+        if (profile?.phone) setPhone(toLocalNepalDigits(profile.phone));
       }
 
       setLoading(false);
@@ -194,19 +210,47 @@ export default function ReserveBagScreen() {
     return unit * quantity;
   }, [bag, quantity, selectedServiceType]);
 
-  const canSubmit =
-    fullName.trim().length > 0 && phone.trim().length > 0 && !submitting && remaining > 0;
+  const validateDetails = () => {
+    const name = fullName.trim();
+    const digits = toLocalNepalDigits(phone);
+    let nextNameError: string | null = null;
+    let nextPhoneError: string | null = null;
+
+    if (!name) nextNameError = 'Full name is required';
+    else if (name.length < 2) nextNameError = 'Enter your full name';
+
+    if (!digits) nextPhoneError = 'Phone number is required';
+    else if (!isValidNepalMobile(digits)) {
+      nextPhoneError = 'Enter a valid 10-digit NTC or Ncell number';
+    }
+
+    setNameError(nextNameError);
+    setPhoneError(nextPhoneError);
+    return !nextNameError && !nextPhoneError;
+  };
+
+  const detailsValid = useMemo(() => {
+    const name = fullName.trim();
+    const digits = toLocalNepalDigits(phone);
+    return name.length >= 2 && isValidNepalMobile(digits);
+  }, [fullName, phone]);
 
   const handleSubmit = async () => {
-    if (!bag || !bagId || !canSubmit) return;
+    if (!bag || !bagId || submitting || remaining <= 0) return;
+
+    setDetailsAttempted(true);
+    if (!validateDetails()) {
+      void hapticWarning();
+      return;
+    }
 
     void hapticButtonPress();
     setSubmitting(true);
     const result = await createReservation({
       bagId,
       quantity,
-      customerName: fullName,
-      customerPhone: phone,
+      customerName: fullName.trim(),
+      customerPhone: formatNepalPhone(toLocalNepalDigits(phone)),
       customerNote: note,
       serviceType: selectedServiceType,
     });
@@ -438,15 +482,39 @@ export default function ReserveBagScreen() {
             <>
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Your details</Text>
-                <Text style={styles.cardSubtitle}>So the restaurant knows who&apos;s picking up</Text>
+                <Text style={styles.cardSubtitle}>
+                  Required so the restaurant knows who&apos;s picking up
+                </Text>
 
-                <TextField label="Full name" value={fullName} onChangeText={setFullName} placeholder="Your name" />
                 <TextField
-                  label="Phone number"
+                  label="Full name *"
+                  value={fullName}
+                  onChangeText={(text) => {
+                    setFullName(text);
+                    if (detailsAttempted) setNameError(text.trim().length >= 2 ? null : 'Full name is required');
+                  }}
+                  placeholder="Your name"
+                  error={nameError ?? undefined}
+                  autoComplete="name"
+                  textContentType="name"
+                />
+                <PhoneInput
+                  label="Phone number *"
                   value={phone}
-                  onChangeText={setPhone}
+                  onChange={(digits) => {
+                    setPhone(digits);
+                    if (detailsAttempted) {
+                      setPhoneError(
+                        !digits
+                          ? 'Phone number is required'
+                          : isValidNepalMobile(digits)
+                            ? null
+                            : 'Enter a valid 10-digit NTC or Ncell number',
+                      );
+                    }
+                  }}
                   placeholder="98XXXXXXXX"
-                  keyboardType="phone-pad"
+                  error={phoneError ?? undefined}
                 />
 
                 <View style={styles.optionalLabelRow}>
@@ -573,14 +641,14 @@ export default function ReserveBagScreen() {
             </View>
             <Pressable
               onPress={() => void handleSubmit()}
-              disabled={!canSubmit}
+              disabled={submitting || remaining <= 0}
               style={({ pressed }) => [
                 styles.stickyBtn,
-                !canSubmit && styles.stickyBtnDisabled,
-                pressed && canSubmit && { opacity: 0.92 },
+                (!detailsValid || submitting) && styles.stickyBtnDisabled,
+                pressed && !submitting && remaining > 0 && { opacity: 0.92 },
               ]}>
               <Text style={styles.stickyBtnText}>
-                {submitting ? 'Reserving…' : 'Confirm →'}
+                {submitting ? 'Reserving…' : detailsValid ? 'Confirm →' : 'Add details →'}
               </Text>
             </Pressable>
           </View>

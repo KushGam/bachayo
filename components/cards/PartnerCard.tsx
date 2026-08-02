@@ -35,7 +35,7 @@ export const PartnerCard = memo(function PartnerCard({ order }: PartnerCardProps
     <View style={styles.orderCard}>
       <View style={styles.orderTop}>
         <Text style={styles.customerName}>
-          {getDisplayName(order.customer)}
+          {getDisplayName(order.customer) || order.customer_name || 'Customer'}
         </Text>
         <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
           <Text style={[styles.statusText, { color: statusStyle.text }]}>

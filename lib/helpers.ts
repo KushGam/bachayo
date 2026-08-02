@@ -1,6 +1,8 @@
 import * as Clipboard from 'expo-clipboard';
-import { Alert, Linking, Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { ActionSheetIOS, Alert, Linking, Platform } from 'react-native';
 
+import { isExpoGo } from '@/lib/expoGo';
 import type { BagServiceType } from '@/types/database';
 
 export function formatCurrency(amount: number, currency = 'USD'): string {
@@ -196,14 +198,175 @@ export function getPickupCountdownLabel(availableDate: string, pickupEnd: string
   return `Pickup in ${hrs}h ${remMins}m`;
 }
 
+export async function openExternalUrl(
+  urls: string | string[],
+  fallbackMessage?: string,
+): Promise<boolean> {
+  const candidates = (Array.isArray(urls) ? urls : [urls]).filter(Boolean);
+  const inExpoGo = isExpoGo();
+
+  for (const url of candidates) {
+    const isHttp = /^https?:\/\//i.test(url);
+
+    // Expo Go's host app can't open custom maps:// / comgooglemaps:// schemes.
+    if (!isHttp && inExpoGo) continue;
+
+    try {
+      if (!isHttp) {
+        const supported = await Linking.canOpenURL(url);
+        if (!supported) continue;
+      }
+      await Linking.openURL(url);
+      return true;
+    } catch {
+      // https links often still work via in-app browser when Linking rejects them.
+      if (isHttp) {
+        try {
+          await WebBrowser.openBrowserAsync(url);
+          return true;
+        } catch {
+          // Try the next candidate.
+        }
+      }
+    }
+  }
+
+  if (fallbackMessage) {
+    Alert.alert('Unable to open link', fallbackMessage);
+  }
+  return false;
+}
+
 export function openMapsDirections(latitude: number, longitude: number, label?: string) {
   const encoded = encodeURIComponent(label ?? 'Pickup location');
-  const url = Platform.select({
-    ios: `http://maps.apple.com/?daddr=${latitude},${longitude}&q=${encoded}`,
-    android: `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encoded})`,
-    default: `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
-  });
-  if (url) Linking.openURL(url);
+  const googleWeb = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+  const appleHttps = `https://maps.apple.com/?daddr=${latitude},${longitude}&q=${encoded}`;
+  const appleScheme = `maps://?daddr=${latitude},${longitude}&q=${encoded}`;
+  const geo = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${encoded})`;
+
+  void (async () => {
+    const opened = await openExternalUrl(
+      Platform.OS === 'ios'
+        ? [appleHttps, googleWeb, appleScheme]
+        : Platform.OS === 'android'
+          ? [googleWeb, geo]
+          : [googleWeb],
+    );
+    if (!opened) {
+      Alert.alert('Unable to open Maps', 'Could not open a maps app on this device.');
+    }
+  })();
+}
+
+type StoreMapsTarget = {
+  latitude?: number | null;
+  longitude?: number | null;
+  name: string;
+  address?: string | null;
+};
+
+function storeMapsQuery(target: StoreMapsTarget) {
+  const { latitude, longitude, name, address } = target;
+  const hasCoords =
+    latitude != null &&
+    longitude != null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
+
+  if (hasCoords) {
+    return {
+      hasCoords: true as const,
+      latitude: latitude as number,
+      longitude: longitude as number,
+      label: name,
+    };
+  }
+
+  const query = address?.trim() || name;
+  return { hasCoords: false as const, query };
+}
+
+export function googleMapsStoreUrls(target: StoreMapsTarget): string[] {
+  const parsed = storeMapsQuery(target);
+  if (parsed.hasCoords) {
+    const { latitude, longitude, label } = parsed;
+    const q = encodeURIComponent(`${label} @${latitude},${longitude}`);
+    // https first — works in Expo Go + production; native scheme only after.
+    return [
+      `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+      `https://www.google.com/maps/search/?api=1&query=${q}`,
+      `comgooglemaps://?q=${latitude},${longitude}&center=${latitude},${longitude}`,
+    ];
+  }
+  const q = encodeURIComponent(parsed.query);
+  return [`https://www.google.com/maps/search/?api=1&query=${q}`, `comgooglemaps://?q=${q}`];
+}
+
+export function appleMapsStoreUrls(target: StoreMapsTarget): string[] {
+  const parsed = storeMapsQuery(target);
+  if (parsed.hasCoords) {
+    const { latitude, longitude, label } = parsed;
+    const q = encodeURIComponent(label);
+    return [
+      `https://maps.apple.com/?ll=${latitude},${longitude}&q=${q}`,
+      `maps://?ll=${latitude},${longitude}&q=${q}`,
+    ];
+  }
+  const q = encodeURIComponent(parsed.query);
+  return [`https://maps.apple.com/?q=${q}`, `maps://?q=${q}`];
+}
+
+/** @deprecated Prefer googleMapsStoreUrls */
+export function googleMapsStoreUrl(target: StoreMapsTarget) {
+  return googleMapsStoreUrls(target).find((url) => url.startsWith('https://')) ?? googleMapsStoreUrls(target)[0];
+}
+
+/** @deprecated Prefer appleMapsStoreUrls */
+export function appleMapsStoreUrl(target: StoreMapsTarget) {
+  return appleMapsStoreUrls(target).find((url) => url.startsWith('https://')) ?? appleMapsStoreUrls(target)[0];
+}
+
+/** Ask which maps app to use (iOS), or open Google Maps directly (Android). */
+export function promptOpenStoreInMaps(target: StoreMapsTarget) {
+  const openGoogle = () => {
+    void (async () => {
+      const opened = await openExternalUrl(googleMapsStoreUrls(target));
+      if (!opened) {
+        Alert.alert('Unable to open Maps', 'Could not open Google Maps on this device.');
+      }
+    })();
+  };
+  const openApple = () => {
+    void (async () => {
+      // Fall back to Google https if Apple links are blocked (common in Expo Go).
+      const opened = await openExternalUrl([
+        ...appleMapsStoreUrls(target),
+        ...googleMapsStoreUrls(target),
+      ]);
+      if (!opened) {
+        Alert.alert('Unable to open Maps', 'Could not open Maps on this device.');
+      }
+    })();
+  };
+
+  // Android / web: Google Maps only — no Apple Maps option.
+  if (Platform.OS !== 'ios') {
+    openGoogle();
+    return;
+  }
+
+  ActionSheetIOS.showActionSheetWithOptions(
+    {
+      title: 'Open store location',
+      message: 'Choose which maps app to use.',
+      options: ['Cancel', 'Apple Maps', 'Google Maps'],
+      cancelButtonIndex: 0,
+    },
+    (index) => {
+      if (index === 1) openApple();
+      if (index === 2) openGoogle();
+    },
+  );
 }
 
 export function formatTime12h(time: string) {
@@ -323,17 +486,4 @@ export async function openWhatsAppChat({
       : 'WhatsApp didn’t open from this build. Please message us manually.',
   );
   return false;
-}
-
-export async function openExternalUrl(url: string, fallbackMessage?: string) {
-  try {
-    await Linking.openURL(url);
-    return true;
-  } catch {
-    Alert.alert(
-      'Unable to open link',
-      fallbackMessage ?? 'This link is not available on this device.',
-    );
-    return false;
-  }
 }

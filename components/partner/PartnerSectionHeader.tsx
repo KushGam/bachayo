@@ -25,6 +25,7 @@ export function PartnerSectionHeader({
   return (
     <View style={styles.row}>
       <View style={styles.left}>
+        <View style={styles.accent} />
         <Text style={styles.title}>{title}</Text>
         {showBadge ? (
           <View style={styles.badge}>
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     marginTop: Spacing.xl,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.sm + 2,
   },
   left: {
     flexDirection: 'row',
@@ -65,18 +66,25 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     flex: 1,
   },
+  accent: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: Palette.primary,
+  },
   title: {
-    ...Type.h2,
+    fontSize: 18,
+    lineHeight: 22,
     color: Palette.textPrimary,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   badge: {
     backgroundColor: Palette.primaryLight,
     borderRadius: Radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: Palette.overlay.border,
   },
   badgeText: {
@@ -91,7 +99,7 @@ const styles = StyleSheet.create({
   },
   action: {
     ...Type.caption,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.primary,
   },
 });

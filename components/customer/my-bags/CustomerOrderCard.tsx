@@ -279,11 +279,11 @@ export function CustomerOrderCard({
                 style={({ pressed }) => [
                   styles.actionPill,
                   styles.actionPillFlex,
-                  styles.actionPillPrimary,
+                  styles.reviewCtaOutline,
                   pressed && styles.pressed,
                 ]}>
-                <Star size={14} color={Palette.primaryDark} strokeWidth={2.2} />
-                <Text style={styles.actionPillTextPrimary}>Leave review</Text>
+                <Star size={14} color={Palette.primary} strokeWidth={2.2} />
+                <Text style={styles.reviewCtaText}>Leave a review →</Text>
               </Pressable>
             ) : null}
           </View>
@@ -291,14 +291,16 @@ export function CustomerOrderCard({
           {hasReview && order.review ? (
             <View style={styles.reviewBlock}>
               <View style={styles.reviewedPill}>
-                <Check size={12} color={Palette.success} strokeWidth={2.5} />
-                <Text style={styles.reviewedText}>
-                  You rated {order.review.rating}★
-                  {order.review.comment
-                    ? ` · “${order.review.comment.slice(0, 48)}${order.review.comment.length > 48 ? '…' : ''}”`
-                    : ''}
+                <Text style={styles.reviewedStars}>
+                  {'⭐'.repeat(Math.max(1, Math.min(5, order.review.rating)))}
                 </Text>
+                <Text style={styles.reviewedText}>Reviewed</Text>
               </View>
+              {order.review.comment ? (
+                <Text style={styles.reviewedComment} numberOfLines={2}>
+                  “{order.review.comment}”
+                </Text>
+              ) : null}
               {order.review.partner_reply ? (
                 <View style={styles.partnerReplyBox}>
                   <Text style={styles.partnerReplyLabel}>Reply from {order.partner.name}</Text>
@@ -522,6 +524,16 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.primaryLight,
     borderColor: Palette.overlay.border,
   },
+  reviewCtaOutline: {
+    backgroundColor: Palette.surface,
+    borderColor: Palette.primary,
+    borderWidth: 1.5,
+  },
+  reviewCtaText: {
+    ...Type.caption,
+    fontWeight: '700',
+    color: Palette.primary,
+  },
   actionPillText: {
     ...Type.caption,
     fontWeight: '700',
@@ -606,21 +618,29 @@ const styles = StyleSheet.create({
   },
   reviewedPill: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 6,
+    alignSelf: 'flex-start',
     backgroundColor: Palette.successBg,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: '#C5D9CB',
   },
+  reviewedStars: {
+    fontSize: 11,
+    letterSpacing: 1,
+  },
   reviewedText: {
-    flex: 1,
     ...Type.label,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.success,
-    lineHeight: 16,
+  },
+  reviewedComment: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    lineHeight: 18,
   },
   partnerReplyBox: {
     backgroundColor: Palette.background,

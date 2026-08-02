@@ -1,9 +1,9 @@
 import { Map, X } from 'lucide-react-native';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { SearchField } from '@/components/ui/SearchField';
 import { Palette } from '@/constants/Colors';
-import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Radius, Spacing } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
 
 type BrowsePartnersToolbarProps = {
@@ -31,7 +31,7 @@ export function BrowsePartnersToolbar({
         <SearchField
           value={value}
           onChangeText={onChangeText}
-          placeholder={isNp ? 'रेस्टुरेन्टको नाम खोज्नुहोस्…' : 'Search by restaurant name…'}
+          placeholder={isNp ? 'रेस्टुरेन्टको नाम खोज्नुहोस्…' : 'Search restaurants…'}
           returnKeyType="search"
           clearButtonMode="while-editing"
           containerStyle={styles.searchArea}
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     overflow: 'hidden',
     height: 48,
-    ...FloatingShadow,
+    backgroundColor: Palette.surface,
   },
   searchArea: {
     flex: 1,
@@ -87,9 +87,9 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surface,
   },
   divider: {
-    width: 1,
+    width: StyleSheet.hairlineWidth,
     alignSelf: 'stretch',
-    backgroundColor: Palette.borderSubtle,
+    backgroundColor: Palette.border,
   },
   mapBtn: {
     width: 48,

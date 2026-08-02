@@ -2,7 +2,7 @@ import { ShoppingBag, Star, Wallet } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Spacing, Type } from '@/constants/theme';
 
 type CustomerProfileImpactCardProps = {
   bagsRescued: number;
@@ -21,53 +21,47 @@ export function CustomerProfileImpactCard({
       value: String(bagsRescued),
       label: 'Bags rescued',
       icon: ShoppingBag,
-      accent: false,
     },
     {
       key: 'saved',
       value: moneySavedLabel,
       label: 'Money saved',
       icon: Wallet,
-      accent: true,
+      highlight: true,
     },
     {
       key: 'reviews',
       value: String(reviewsGiven),
       label: 'Reviews',
       icon: Star,
-      accent: false,
     },
   ] as const;
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.header}>
-        <View style={styles.headerAccent} />
-        <Text style={styles.eyebrow}>Your impact</Text>
-      </View>
-
+      <Text style={styles.eyebrow}>Your impact</Text>
       <View style={styles.card}>
-        {stats.map((stat) => {
+        {stats.map((stat, index) => {
           const Icon = stat.icon;
+          const highlight = 'highlight' in stat && stat.highlight;
           return (
-            <View
-              key={stat.key}
-              style={[styles.tile, stat.accent && styles.tileAccent]}>
-              <View style={[styles.iconWrap, stat.accent && styles.iconWrapAccent]}>
+            <View key={stat.key} style={styles.tile}>
+              {index > 0 ? <View style={styles.divider} /> : null}
+              <View style={styles.tileInner}>
                 <Icon
-                  size={14}
-                  color={stat.accent ? Palette.primary : Palette.primaryDark}
+                  size={15}
+                  color={highlight ? Palette.primary : Palette.textSecondary}
                   strokeWidth={2.2}
                 />
+                <Text
+                  style={[styles.value, highlight && styles.valueHighlight]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}>
+                  {stat.value}
+                </Text>
+                <Text style={styles.label}>{stat.label}</Text>
               </View>
-              <Text
-                style={[styles.value, stat.accent && styles.valueAccent]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}>
-                {stat.value}
-              </Text>
-              <Text style={styles.label}>{stat.label}</Text>
             </View>
           );
         })}
@@ -82,71 +76,48 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     gap: Spacing.sm,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 2,
-  },
-  headerAccent: {
-    width: 3,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: Palette.primary,
-  },
   eyebrow: {
-    ...Type.caption,
-    color: Palette.textPrimary,
+    ...Type.label,
+    color: Palette.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    marginLeft: 4,
   },
   card: {
     ...CardChrome,
     borderRadius: 20,
-    padding: Spacing.sm,
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'stretch',
+    paddingVertical: Spacing.md + 2,
     backgroundColor: Palette.surface,
-    ...FloatingShadow,
   },
   tile: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingVertical: 12,
+  },
+  divider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: Palette.border,
+    marginVertical: 4,
+  },
+  tileInner: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 6,
-    borderRadius: Radius.lg,
-    backgroundColor: Palette.background,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-  },
-  tileAccent: {
-    backgroundColor: Palette.primaryLight,
-    borderColor: Palette.overlay.border,
-  },
-  iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Palette.surface,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  iconWrapAccent: {
-    backgroundColor: Palette.white,
-    borderColor: Palette.overlay.border,
   },
   value: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: Palette.textPrimary,
     letterSpacing: -0.4,
     textAlign: 'center',
+    marginTop: 2,
   },
-  valueAccent: {
+  valueHighlight: {
     color: Palette.primary,
   },
   label: {

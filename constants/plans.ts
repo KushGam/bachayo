@@ -63,6 +63,26 @@ export function canAddListing(planId: PlanId, currentListingsToday: number): boo
   return currentListingsToday < max;
 }
 
+export function isDailyListingLimitError(error: unknown): boolean {
+  const message =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message ?? '')
+      : error instanceof Error
+        ? error.message
+        : String(error ?? '');
+  return /listing_limit_reached|Daily listing limit/i.test(message);
+}
+
+export function isSubscriptionInactiveListingError(error: unknown): boolean {
+  const message =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message?: unknown }).message ?? '')
+      : error instanceof Error
+        ? error.message
+        : String(error ?? '');
+  return /subscription_inactive|Subscription is/i.test(message);
+}
+
 export function getDiscountedPrice(planId: PlanId, months: 1 | 3 | 12): number {
   const price = getPlanPrice(planId);
   if (months === 3) return Math.round(price * 3 * 0.95);

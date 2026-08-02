@@ -379,7 +379,7 @@ export default function EditProfileScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete account',
-      'Are you sure? This will permanently delete your account and all your data.',
+      'Are you sure? Your account will be deleted. Restaurants keep order history for their records (your phone is removed).',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -398,12 +398,36 @@ export default function EditProfileScreen() {
     if (!userId || deleteConfirmText !== 'DELETE') return;
     setDeleting(true);
     try {
-      // Clear first: if RLS silently blocks the delete, the row survives and
-      // would otherwise keep pushing to whoever next uses this device.
       await clearPushToken(userId);
-      const { error } = await supabase.from('profiles').delete().eq('id', userId);
-      if (error) throw error;
-      await supabase.auth.signOut();
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Please sign in again, then delete your account.');
+      }
+
+      const { config } = await import('@/constants/config');
+      const baseUrl = config.apiUrl?.replace(/\/$/, '');
+      if (!baseUrl) {
+        throw new Error('Account deletion is temporarily unavailable. Try again later.');
+      }
+
+      const response = await fetch(`${baseUrl}/api/account/delete`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Could not delete account.');
+      }
+
+      const { performSignOut } = await import('@/lib/auth/performSignOut');
+      await performSignOut();
       reset();
       setDeleteModalOpen(false);
       router.replace('/(auth)/welcome');

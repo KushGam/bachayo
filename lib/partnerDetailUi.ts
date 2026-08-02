@@ -35,7 +35,13 @@ export function shortLocationLabel(partner: PartnerDetailData['partner']) {
   const city = partner.city_id ? getCityById(partner.city_id) : undefined;
   if (area && city) {
     const cityShort =
-      city.id === 'kathmandu' ? 'KTM' : city.id === 'lalitpur' ? 'LTP' : city.name.slice(0, 3).toUpperCase();
+      city.id === 'kathmandu'
+        ? 'KTM'
+        : city.id === 'lalitpur'
+          ? 'LTP'
+          : city.id === 'bhaktapur'
+            ? 'BKT'
+            : city.name;
     return `${area.name}, ${cityShort}`;
   }
   return formatPartnerLocationLabel(partner);

@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Lock } from 'lucide-react-native';
+import { ChevronLeft, Eye, Lock, Phone } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,24 +16,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
+import { hapticSuccess } from '@/lib/haptics';
 import {
   DEFAULT_PRIVACY_SETTINGS,
+  getAnonymousDisplayName,
+  getDisplayName,
   normalizePrivacySettings,
   type NameDisplayMode,
 } from '@/lib/privacy';
 import { supabase } from '@/lib/supabase';
-
-const NAME_OPTIONS: Array<{
-  value: NameDisplayMode;
-  label: string;
-  example: string;
-}> = [
-  { value: 'full', label: 'Full name', example: 'e.g. Kushal Gautam' },
-  { value: 'first', label: 'First name only', example: 'e.g. Kushal' },
-  { value: 'initials', label: 'Initials', example: 'e.g. K.G.' },
-  { value: 'anonymous', label: 'Anonymous', example: 'e.g. Customer #A3F2' },
-];
 
 export default function PrivacySettingsScreen() {
   const router = useRouter();
@@ -43,6 +36,8 @@ export default function PrivacySettingsScreen() {
   const [fullName, setFullName] = useState('Customer');
   const [showPhone, setShowPhone] = useState(DEFAULT_PRIVACY_SETTINGS.show_phone);
   const [nameDisplay, setNameDisplay] = useState<NameDisplayMode>('full');
+  const [savedShowPhone, setSavedShowPhone] = useState(DEFAULT_PRIVACY_SETTINGS.show_phone);
+  const [savedNameDisplay, setSavedNameDisplay] = useState<NameDisplayMode>('full');
   const [toastVisible, setToastVisible] = useState(false);
 
   const load = useCallback(async () => {
@@ -68,10 +63,17 @@ export default function PrivacySettingsScreen() {
 
       setFullName(row?.full_name?.trim() || 'Customer');
       const normalized = normalizePrivacySettings(row?.privacy_settings);
+      const mode = normalized.name_display as NameDisplayMode;
       setShowPhone(normalized.show_phone);
-      setNameDisplay(normalized.name_display as NameDisplayMode);
+      setNameDisplay(mode);
+      setSavedShowPhone(normalized.show_phone);
+      setSavedNameDisplay(mode);
     } catch (error) {
       console.error('[privacy] load failed:', error);
+      Alert.alert(
+        'Couldn’t load settings',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -81,19 +83,41 @@ export default function PrivacySettingsScreen() {
     void load();
   }, [load]);
 
-  const exampleName = useMemo(() => {
+  const nameOptions = useMemo(() => {
     const parts = fullName.trim().split(/\s+/).filter(Boolean);
-    if (nameDisplay === 'first') return parts[0] || 'Kushal';
-    if (nameDisplay === 'initials') {
-      if (parts.length >= 2) return parts.map((p) => `${p[0]?.toUpperCase() ?? ''}.`).join('');
-      return `${(parts[0] ?? 'K')[0]?.toUpperCase() ?? 'K'}.`;
-    }
-    if (nameDisplay === 'anonymous') return 'Customer';
-    return fullName;
-  }, [fullName, nameDisplay]);
+    const first = parts[0] || 'Kushal';
+    const initials =
+      parts.length >= 2
+        ? parts.map((p) => `${p[0]?.toUpperCase() ?? ''}.`).join('')
+        : `${first[0]?.toUpperCase() ?? 'K'}.`;
+
+    return [
+      { value: 'full' as const, label: 'Full name', example: fullName },
+      { value: 'first' as const, label: 'First name only', example: first },
+      { value: 'initials' as const, label: 'Initials', example: initials },
+      {
+        value: 'anonymous' as const,
+        label: 'Anonymous',
+        example: getAnonymousDisplayName(userId),
+      },
+    ];
+  }, [fullName, userId]);
+
+  const previewName = useMemo(
+    () =>
+      getDisplayName({
+        id: userId,
+        full_name: fullName,
+        privacy_settings: { name_display: nameDisplay },
+      }),
+    [fullName, nameDisplay, userId],
+  );
+
+  const hasChanges = showPhone !== savedShowPhone || nameDisplay !== savedNameDisplay;
+  const canSave = Boolean(userId) && hasChanges && !saving && !loading;
 
   const save = async () => {
-    if (!userId || saving) return;
+    if (!canSave || !userId) return;
     setSaving(true);
     try {
       const privacy_settings = {
@@ -109,12 +133,19 @@ export default function PrivacySettingsScreen() {
 
       if (error) throw error;
 
+      setSavedShowPhone(showPhone);
+      setSavedNameDisplay(nameDisplay);
+      await hapticSuccess();
       setToastVisible(true);
       setTimeout(() => {
         router.back();
       }, 700);
     } catch (error) {
       console.error('[privacy] save failed:', error);
+      Alert.alert(
+        'Couldn’t save',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -125,7 +156,7 @@ export default function PrivacySettingsScreen() {
       <StatusBar style="light" />
       <SuccessToast
         visible={toastVisible}
-        title="Privacy settings saved ✓"
+        title="Privacy settings saved"
         onHide={() => setToastVisible(false)}
       />
 
@@ -144,56 +175,89 @@ export default function PrivacySettingsScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={Palette.primary} />
         </View>
+      ) : !userId ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>Sign in required</Text>
+          <Text style={styles.emptyBody}>
+            Sign in to manage what restaurants can see about you.
+          </Text>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: insets.bottom + 100 },
+            { paddingBottom: insets.bottom + 110 },
           ]}
           showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionLabel}>PHONE NUMBER</Text>
+          <View style={styles.previewCard}>
+            <View style={styles.previewIcon}>
+              <Eye size={16} color={Palette.primaryDark} strokeWidth={2.2} />
+            </View>
+            <View style={styles.previewCopy}>
+              <Text style={styles.previewLabel}>Restaurants see you as</Text>
+              <Text style={styles.previewName} numberOfLines={1}>
+                {previewName}
+              </Text>
+              <Text style={styles.previewMeta}>
+                {showPhone ? 'Phone visible for pickup' : 'Phone hidden'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionLabel}>Phone number</Text>
           <View style={styles.card}>
             <View style={styles.toggleRow}>
+              <View style={styles.rowIcon}>
+                <Phone size={16} color={Palette.primary} strokeWidth={2.2} />
+              </View>
               <View style={styles.toggleCopy}>
                 <Text style={styles.rowTitle}>Show phone to restaurants</Text>
                 <Text style={styles.rowSubtitle}>
-                  Restaurants see your number for pickup coordination
+                  Used for pickup coordination if something comes up
                 </Text>
               </View>
               <Switch
                 value={showPhone}
                 onValueChange={setShowPhone}
-                trackColor={{ false: '#E5E7EB', true: Palette.primary }}
+                trackColor={{ false: Palette.border, true: Palette.primary }}
                 thumbColor={Palette.white}
+                ios_backgroundColor={Palette.border}
               />
             </View>
             {!showPhone ? (
               <View style={styles.warnBox}>
                 <Text style={styles.warnText}>
-                  ⚠️ Hiding your phone may make it harder for restaurants to contact you if
-                  there&apos;s an issue with your pickup.
+                  Hiding your phone can make it harder for restaurants to reach you about pickup
+                  issues. Chat in the app still works.
                 </Text>
               </View>
             ) : null}
           </View>
 
-          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>YOUR NAME</Text>
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Your name</Text>
           <View style={styles.card}>
             <Text style={styles.namePrompt}>How restaurants see your name</Text>
-            <Text style={styles.livePreview}>Preview: {exampleName}</Text>
-            {NAME_OPTIONS.map((option, index) => {
+            {nameOptions.map((option, index) => {
               const selected = nameDisplay === option.value;
-              const isLast = index === NAME_OPTIONS.length - 1;
+              const isLast = index === nameOptions.length - 1;
               return (
                 <Pressable
                   key={option.value}
                   onPress={() => setNameDisplay(option.value)}
-                  style={[styles.optionRow, !isLast && styles.optionBorder]}>
+                  style={[
+                    styles.optionRow,
+                    selected && styles.optionRowSelected,
+                    !isLast && styles.optionBorder,
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
                     {selected ? <View style={styles.radioDot} /> : null}
                   </View>
                   <View style={styles.optionCopy}>
-                    <Text style={styles.rowTitle}>{option.label}</Text>
+                    <Text style={[styles.rowTitle, selected && styles.rowTitleSelected]}>
+                      {option.label}
+                    </Text>
                     <Text style={styles.rowSubtitle}>{option.example}</Text>
                   </View>
                 </Pressable>
@@ -201,22 +265,19 @@ export default function PrivacySettingsScreen() {
             })}
           </View>
 
-          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>EMAIL ADDRESS</Text>
+          <Text style={[styles.sectionLabel, styles.sectionSpacing]}>Email address</Text>
           <View style={styles.card}>
             <View style={styles.toggleRow}>
+              <View style={[styles.rowIcon, styles.lockIcon]}>
+                <Lock size={16} color={Palette.textTertiary} strokeWidth={2.2} />
+              </View>
               <View style={styles.toggleCopy}>
-                <Text style={styles.rowTitle}>Show email to restaurants</Text>
+                <Text style={styles.rowTitle}>Always private</Text>
                 <Text style={styles.rowSubtitle}>
                   Your email is never shared with restaurants
                 </Text>
               </View>
-              <View style={styles.lockWrap}>
-                <Lock size={16} color={Palette.textTertiary} strokeWidth={2.2} />
-              </View>
             </View>
-            <Text style={styles.emailInfo}>
-              🔒 Your email is always private and never shared.
-            </Text>
           </View>
         </ScrollView>
       )}
@@ -224,16 +285,18 @@ export default function PrivacySettingsScreen() {
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <Pressable
           onPress={() => void save()}
-          disabled={saving || loading || !userId}
+          disabled={!canSave}
           style={({ pressed }) => [
             styles.saveBtn,
-            (saving || loading || !userId) && styles.saveBtnDisabled,
-            pressed && !saving && { opacity: 0.92 },
+            !canSave && styles.saveBtnDisabled,
+            pressed && canSave && { opacity: 0.92 },
           ]}>
           {saving ? (
             <ActivityIndicator color={Palette.white} />
           ) : (
-            <Text style={styles.saveBtnText}>Save privacy settings</Text>
+            <Text style={styles.saveBtnText}>
+              {hasChanges ? 'Save privacy settings' : 'No changes to save'}
+            </Text>
           )}
         </Pressable>
       </View>
@@ -244,7 +307,7 @@ export default function PrivacySettingsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F5F3EF',
+    backgroundColor: Palette.background,
   },
   header: {
     backgroundColor: Palette.primary,
@@ -277,7 +340,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     marginTop: 4,
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
   },
   loadingWrap: {
@@ -285,83 +348,153 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xxl,
+    gap: Spacing.sm,
+  },
+  emptyTitle: {
+    ...Type.h2,
+    color: Palette.textPrimary,
+  },
+  emptyBody: {
+    ...Type.body,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+  },
   content: {
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.lg,
+  },
+  previewCard: {
+    ...CardChrome,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+    padding: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  previewIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  previewLabel: {
+    ...Type.caption,
+    color: Palette.textTertiary,
+    fontWeight: '600',
+  },
+  previewName: {
+    ...Type.h2,
+    color: Palette.textPrimary,
+  },
+  previewMeta: {
+    ...Type.caption,
+    color: Palette.textSecondary,
+    marginTop: 2,
   },
   sectionLabel: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    ...Type.label,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
     color: Palette.textTertiary,
+    fontWeight: '700',
   },
   sectionSpacing: {
-    marginTop: 24,
+    marginTop: Spacing.xl,
   },
   card: {
+    ...CardChrome,
     marginHorizontal: Spacing.lg,
-    backgroundColor: Palette.white,
-    borderRadius: 16,
-    padding: Spacing.lg,
+    padding: Spacing.md,
+    overflow: 'hidden',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Palette.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockIcon: {
+    backgroundColor: Palette.surfaceMuted,
   },
   toggleCopy: {
     flex: 1,
   },
   rowTitle: {
-    fontSize: 14,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: Palette.textPrimary,
+  },
+  rowTitleSelected: {
+    color: Palette.primaryDark,
   },
   rowSubtitle: {
     marginTop: 2,
-    fontSize: 12,
-    color: '#6B7280',
-    lineHeight: 16,
+    ...Type.caption,
+    color: Palette.textSecondary,
   },
   warnBox: {
-    marginTop: 10,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 10,
-    padding: 10,
+    marginTop: Spacing.sm,
+    marginHorizontal: Spacing.sm,
+    marginBottom: Spacing.sm,
+    backgroundColor: Palette.warningBg,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
   },
   warnText: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 17,
+    ...Type.caption,
+    color: Palette.warning,
+    lineHeight: 18,
   },
   namePrompt: {
-    fontSize: 14,
+    ...Type.bodyMedium,
     fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  livePreview: {
-    fontSize: 12,
-    color: Palette.primary,
-    fontWeight: '600',
-    marginBottom: 12,
+    color: Palette.textPrimary,
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  optionRowSelected: {
+    backgroundColor: Palette.primaryLight,
   },
   optionBorder: {
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#F0EDE8',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Palette.borderSubtle,
   },
   radio: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: Palette.border,
     backgroundColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -377,20 +510,7 @@ const styles = StyleSheet.create({
   },
   optionCopy: {
     flex: 1,
-    marginLeft: 12,
-  },
-  lockWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emailInfo: {
-    marginTop: 8,
-    fontSize: 12,
-    color: Palette.textTertiary,
+    marginLeft: Spacing.md,
   },
   footer: {
     position: 'absolute',
@@ -399,9 +519,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    backgroundColor: '#F5F3EF',
-    borderTopWidth: 1,
-    borderTopColor: '#E8E4DC',
+    backgroundColor: Palette.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.border,
   },
   saveBtn: {
     height: 52,
@@ -411,7 +531,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnDisabled: {
-    opacity: 0.6,
+    opacity: 0.45,
   },
   saveBtnText: {
     ...Type.bodyMedium,

@@ -1,9 +1,10 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Plus } from 'lucide-react-native';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { Palette } from '@/constants/Colors';
-import { Radius, Spacing, Type } from '@/constants/theme';
+import { Spacing, Type } from '@/constants/theme';
 import { hapticButtonPress } from '@/lib/haptics';
 import type { PartnerCategory } from '@/types/database';
 
@@ -35,60 +36,60 @@ export function DashboardCtaCard({ onPress, compact = false }: DashboardCtaCardP
         onPress();
       }}
       android_ripple={null}
-      style={[styles.card, compact && styles.cardCompact, animStyle]}>
-      <View style={styles.glow} pointerEvents="none" />
-      <View style={styles.glowSecondary} pointerEvents="none" />
+      style={[styles.wrap, compact && styles.wrapCompact, animStyle]}>
+      <LinearGradient
+        colors={[Palette.primaryDark, Palette.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.card, compact && styles.cardCompact]}>
+        <View style={styles.glow} pointerEvents="none" />
+        <View style={styles.glowSecondary} pointerEvents="none" />
 
-      <View style={styles.copy}>
-        <Text style={styles.eyebrow}>Today&apos;s listing</Text>
-        <Text style={[styles.title, compact && styles.titleCompact]}>
-          {compact ? 'Add another rescue bag' : 'List a rescue bag'}
-        </Text>
-        {!compact ? (
-          <Text style={styles.subtitle}>Turn tonight&apos;s surplus into revenue</Text>
-        ) : null}
-      </View>
+        <View style={styles.copy}>
+          <Text style={styles.eyebrow}>Today&apos;s listing</Text>
+          <Text style={[styles.title, compact && styles.titleCompact]}>
+            {compact ? 'Add another rescue bag' : 'List a rescue bag'}
+          </Text>
+          {!compact ? (
+            <Text style={styles.subtitle}>Turn tonight&apos;s surplus into revenue</Text>
+          ) : null}
+        </View>
 
-      <View style={styles.plusCircle}>
-        <Plus size={22} color={Palette.white} strokeWidth={2.5} />
-      </View>
+        <View style={styles.plusCircle}>
+          <Plus size={22} color={Palette.white} strokeWidth={2.5} />
+        </View>
+      </LinearGradient>
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  wrapCompact: {
+    marginTop: Spacing.md,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.lg,
-    borderRadius: Radius.lg,
-    backgroundColor: Palette.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
     overflow: 'hidden',
     position: 'relative',
-    ...Platform.select({
-      ios: {
-        shadowColor: Palette.primary,
-        shadowOpacity: 0.28,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 8 },
-      },
-      android: { elevation: 6 },
-      default: {},
-    }),
   },
   cardCompact: {
     paddingVertical: Spacing.md + 2,
-    marginTop: Spacing.md,
   },
   glow: {
     position: 'absolute',
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     right: -50,
     top: -70,
   },
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     left: -20,
     bottom: -40,
   },
@@ -107,15 +108,16 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...Type.label,
-    color: 'rgba(255,255,255,0.65)',
-    fontWeight: '600',
+    color: 'rgba(255,255,255,0.68)',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   title: {
     ...Type.h2,
     color: Palette.white,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   titleCompact: {
     fontSize: 16,
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...Type.caption,
-    color: 'rgba(255,255,255,0.78)',
+    color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
   plusCircle: {

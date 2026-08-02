@@ -18,6 +18,8 @@ export type CustomerSignupData = {
   homeLatitude: number;
   homeLongitude: number;
   foodPreferences: string[];
+  /** Local photo URI from basics; uploaded after auth on finish. */
+  avatarUri: string | null;
 };
 
 export type PartnerSignupData = {
@@ -52,6 +54,7 @@ const defaultCustomer: CustomerSignupData = {
   homeLatitude: DEFAULT_AREA.latitude,
   homeLongitude: DEFAULT_AREA.longitude,
   foodPreferences: [],
+  avatarUri: null,
 };
 
 const defaultPartner: PartnerSignupData = {

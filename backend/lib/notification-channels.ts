@@ -18,6 +18,7 @@ const CHANNEL_BY_TYPE: Record<string, AndroidChannelId> = {
   subscription: 'system',
   review_request: 'system',
   review_reply: 'system',
+  new_review: 'system',
   system: 'system',
 };
 

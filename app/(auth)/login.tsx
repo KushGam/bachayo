@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
@@ -16,6 +16,7 @@ import { FormField } from '@/components/auth/FormField';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PhoneInput } from '@/components/auth/PhoneInput';
+import { RememberMeToggle } from '@/components/auth/RememberMeToggle';
 import { TermsAcceptanceModal } from '@/components/auth/TermsAcceptanceModal';
 import { Screen } from '@/components/Screen';
 import { Palette } from '@/constants/Colors';
@@ -25,6 +26,7 @@ import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
 import {
   friendlyAuthError,
+  friendlyGoogleSignInError,
   isInvalidCredentialsError,
   isNetworkError,
 } from '@/lib/auth/authErrors';
@@ -36,6 +38,12 @@ import {
   signInWithEmail,
   signInWithPhone,
 } from '@/lib/auth';
+import {
+  clearRememberedLogin,
+  loadRememberedLogin,
+  saveRememberedLogin,
+  type RememberedLoginMethod,
+} from '@/lib/loginRemember';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
 import { clearPushTokenForCurrentUser } from '@/lib/notifications';
@@ -67,6 +75,8 @@ export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingGoogleUserId, setPendingGoogleUserId] = useState<string | null>(null);
+  const [rememberLogin, setRememberLogin] = useState(false);
+  const [rememberReady, setRememberReady] = useState(false);
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
@@ -84,6 +94,51 @@ export default function LoginScreen() {
     resolver: zodResolver(passwordLoginSchema),
     defaultValues: { phone: '', password: '' },
   });
+
+  useEffect(() => {
+    void (async () => {
+      const saved = await loadRememberedLogin();
+      if (saved.remember) {
+        setRememberLogin(true);
+        if (saved.email) {
+          emailForm.reset({ email: saved.email, password: '' });
+        }
+        if (saved.phone) {
+          setPhone(saved.phone);
+          passwordForm.reset({ phone: saved.phone, password: '' });
+        }
+        if (saved.lastMethod) {
+          setTab(saved.lastMethod);
+        } else if (saved.email) {
+          setTab('email');
+        } else if (saved.phone) {
+          setTab('phone');
+        }
+      }
+      setRememberReady(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
+  }, []);
+
+  const handleRememberChange = (next: boolean) => {
+    setRememberLogin(next);
+    if (!next) {
+      void clearRememberedLogin();
+    }
+  };
+
+  const persistRemember = async (values: {
+    email?: string;
+    phone?: string;
+    lastMethod: RememberedLoginMethod;
+  }) => {
+    await saveRememberedLogin({
+      remember: rememberLogin,
+      email: values.email,
+      phone: values.phone,
+      lastMethod: values.lastMethod,
+    });
+  };
 
   const handleSendPhoneCode = async () => {
     setSubmitError(null);
@@ -106,6 +161,7 @@ export default function LoginScreen() {
         return;
       }
 
+      await persistRemember({ phone, lastMethod: 'phone' });
       setPendingPhone(phone);
       setPendingMode('login');
       router.push({
@@ -140,6 +196,7 @@ export default function LoginScreen() {
         setSubmitError(friendlyAuthError(error, t(locale, 'authError')));
         return;
       }
+      await persistRemember({ email: values.email, lastMethod: 'email' });
       const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
       if (!result.ok) setSubmitError(result.error);
     } catch (err) {
@@ -170,6 +227,7 @@ export default function LoginScreen() {
         );
         return;
       }
+      await persistRemember({ phone: values.phone, lastMethod: 'password' });
       const result = await navigateAfterPasswordSignIn(router, setAuthRole, data.user.id);
       if (!result.ok) setSubmitError(result.error);
     } catch (err) {
@@ -206,11 +264,8 @@ export default function LoginScreen() {
         setShowTermsModal(true);
       }
     } catch (err) {
-      const message =
-        err instanceof Error && err.message
-          ? err.message
-          : 'Google Sign-In failed. Please try phone or email instead.';
-      Alert.alert('Google Sign-In failed', message);
+      console.error('[Google] Sign-in failed:', err);
+      Alert.alert('Couldn’t sign in with Google', friendlyGoogleSignInError(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -261,6 +316,9 @@ export default function LoginScreen() {
               onChangeText={setPhone}
               error={phoneError ?? undefined}
             />
+            {rememberReady ? (
+              <RememberMeToggle value={rememberLogin} onChange={handleRememberChange} />
+            ) : null}
             {submitError ? <AuthErrorBanner message={submitError} /> : null}
             <AuthButton
               label="Send code →"
@@ -306,6 +364,24 @@ export default function LoginScreen() {
                 />
               )}
             />
+            <View style={styles.rowBetween}>
+              {rememberReady ? (
+                <RememberMeToggle value={rememberLogin} onChange={handleRememberChange} />
+              ) : (
+                <View />
+              )}
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/(auth)/forgot-password',
+                    params: { email: emailForm.getValues('email') || '' },
+                  })
+                }
+                hitSlop={8}
+                style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+            </View>
             {submitError ? <AuthErrorBanner message={submitError} /> : null}
             {emailNoAccount ? (
               <AuthNoAccountPrompt
@@ -362,6 +438,24 @@ export default function LoginScreen() {
                 />
               )}
             />
+            <View style={styles.rowBetween}>
+              {rememberReady ? (
+                <RememberMeToggle value={rememberLogin} onChange={handleRememberChange} />
+              ) : (
+                <View />
+              )}
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/(auth)/forgot-password',
+                    params: { email: emailForm.getValues('email') || '' },
+                  })
+                }
+                hitSlop={8}
+                style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+            </View>
             {submitError ? <AuthErrorBanner message={submitError} /> : null}
             <AuthButton
               label="Log in"
@@ -455,6 +549,23 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: Spacing.sm,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  forgotBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  forgotText: {
+    ...Type.caption,
+    color: Palette.primary,
+    fontWeight: '700',
   },
   footer: {
     marginTop: Spacing.xxl,

@@ -14,27 +14,42 @@ export const DEFAULT_PRIVACY_SETTINGS: Required<
   name_display: 'full',
 };
 
+const VALID_NAME_DISPLAY: NameDisplayMode[] = ['full', 'first', 'initials', 'anonymous'];
+
 export function normalizePrivacySettings(
   value: PrivacySettings | null | undefined,
 ): Required<typeof DEFAULT_PRIVACY_SETTINGS> {
   const nameDisplay = (value?.name_display as NameDisplayMode | undefined) ?? 'full';
-  const valid: NameDisplayMode[] = ['full', 'first', 'initials', 'anonymous'];
   return {
     show_phone: value?.show_phone ?? true,
     show_full_name: value?.show_full_name ?? nameDisplay === 'full',
-    name_display: valid.includes(nameDisplay as NameDisplayMode) ? nameDisplay : 'full',
+    name_display: VALID_NAME_DISPLAY.includes(nameDisplay as NameDisplayMode)
+      ? nameDisplay
+      : 'full',
   };
 }
 
+/** Stable short code for anonymous display, e.g. A3F2 */
+export function getAnonymousCode(userId?: string | null): string {
+  if (!userId) return 'GUEST';
+  const hex = userId.replace(/-/g, '').slice(-4).toUpperCase();
+  return hex || 'GUEST';
+}
+
+export function getAnonymousDisplayName(userId?: string | null): string {
+  return `Customer #${getAnonymousCode(userId)}`;
+}
+
 export function getDisplayName(profile: {
+  id?: string | null;
   full_name?: string | null;
   privacy_settings?: PrivacySettings | null;
-}): string {
+} | null | undefined): string {
+  if (!profile) return 'Customer';
   const setting = profile.privacy_settings?.name_display || 'full';
   const fullName = profile.full_name?.trim() || 'Customer';
   const parts = fullName.split(/\s+/).filter(Boolean);
   const firstName = parts[0] || 'Customer';
-  const lastName = parts[parts.length - 1] || firstName;
 
   switch (setting) {
     case 'full':
@@ -47,7 +62,7 @@ export function getDisplayName(profile: {
       }
       return `${firstName[0]?.toUpperCase() ?? 'C'}.`;
     case 'anonymous':
-      return 'Customer';
+      return getAnonymousDisplayName(profile.id);
     default:
       return fullName;
   }
@@ -56,7 +71,8 @@ export function getDisplayName(profile: {
 export function getDisplayPhone(profile: {
   phone?: string | null;
   privacy_settings?: PrivacySettings | null;
-}): string | null {
+} | null | undefined): string | null {
+  if (!profile) return null;
   const showPhone = profile.privacy_settings?.show_phone ?? true;
   if (!showPhone) return null;
   return profile.phone?.trim() || null;

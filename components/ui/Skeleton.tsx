@@ -130,15 +130,9 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.md,
-    marginBottom: Spacing.lg,
   },
   statCard: {
-    width: '48%',
-    backgroundColor: Palette.surface,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
+    width: '50%',
     padding: Spacing.md,
   },
 });

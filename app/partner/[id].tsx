@@ -41,6 +41,7 @@ import {
   shortLocationLabel,
 } from '@/lib/partnerDetailUi';
 import { formatOpeningHours } from '@/lib/partnerProfile';
+import { promptOpenStoreInMaps } from '@/lib/helpers';
 import { supabase } from '@/lib/supabase';
 
 export default function PartnerDetailScreen() {
@@ -201,10 +202,13 @@ export default function PartnerDetailScreen() {
 
   const openMaps = () => {
     if (!partner) return;
-    const query = partner.address
-      ? encodeURIComponent(partner.address)
-      : `${partner.latitude},${partner.longitude}`;
-    void Linking.openURL(`https://maps.google.com/?q=${query}`);
+    void hapticButtonPress();
+    promptOpenStoreInMaps({
+      latitude: partner.latitude,
+      longitude: partner.longitude,
+      name: partner.name,
+      address: partner.address,
+    });
   };
 
   const sharePartner = async () => {

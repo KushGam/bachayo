@@ -60,7 +60,7 @@ export function ProfileMenuRow({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 56,
+    minHeight: 58,
     paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -70,13 +70,13 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.surfaceMuted,
   },
   rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.borderSubtle,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Palette.border,
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
   label: {
     ...Type.bodyMedium,
     fontWeight: '600',
+    letterSpacing: -0.15,
   },
   subtitle: {
     ...Type.label,

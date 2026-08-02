@@ -20,25 +20,59 @@ export type PartnerProfileStats = {
   bagsSold: number;
   totalRevenue: number;
   foodRescuedKg: number;
+  avgRating: number | null;
+  reviewCount: number;
 };
 
-export async function fetchPartnerProfileStats(partnerId: string): Promise<PartnerProfileStats> {
-  const { data: orders, error } = await supabase
-    .from('orders')
-    .select('total_price')
-    .eq('partner_id', partnerId)
-    .eq('status', 'picked_up');
+export function statsFromPartnerRating(
+  partner: Pick<Partner, 'rating' | 'total_reviews'> | null | undefined,
+): Pick<PartnerProfileStats, 'avgRating' | 'reviewCount'> {
+  const reviewCount = partner?.total_reviews ?? 0;
+  const raw = partner?.rating ?? 0;
+  return {
+    reviewCount,
+    avgRating: reviewCount > 0 && raw > 0 ? Math.round(raw * 10) / 10 : null,
+  };
+}
 
-  if (error) throw error;
+export async function fetchPartnerProfileStats(
+  partnerId: string,
+  ratingHint?: Pick<Partner, 'rating' | 'total_reviews'> | null,
+): Promise<PartnerProfileStats> {
+  const rating = statsFromPartnerRating(ratingHint);
 
-  const list = orders ?? [];
-  const bagsSold = list.length;
-  const totalRevenue = list.reduce((sum, order) => sum + order.total_price, 0);
+  const { data, error } = await supabase.rpc('get_partner_sales_stats', {
+    p_partner_id: partnerId,
+  });
+
+  if (error) {
+    // Fallback for environments that have not applied migration 057 yet.
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('total_price, quantity')
+      .eq('partner_id', partnerId)
+      .eq('status', 'picked_up');
+    if (ordersError) throw ordersError;
+    const list = orders ?? [];
+    const bagsSold = list.reduce((sum, order) => sum + Math.max(1, order.quantity ?? 1), 0);
+    const totalRevenue = list.reduce((sum, order) => sum + order.total_price, 0);
+    return {
+      bagsSold,
+      totalRevenue,
+      foodRescuedKg: Math.round(bagsSold * 0.5 * 10) / 10,
+      ...rating,
+    };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const bagsSold = Number(row?.bags_sold ?? 0);
+  const totalRevenue = Number(row?.total_revenue ?? 0);
 
   return {
     bagsSold,
     totalRevenue,
     foodRescuedKg: Math.round(bagsSold * 0.5 * 10) / 10,
+    ...rating,
   };
 }
 
@@ -49,8 +83,9 @@ export function formatFoodRescued(kg: number) {
   return `${kg} kg`;
 }
 
-export function formatRatingDisplay(rating: number) {
-  if (rating <= 0) return '0.0';
+export function formatRatingDisplay(rating: number | null | undefined, reviewCount?: number) {
+  if (reviewCount != null && reviewCount <= 0) return '—';
+  if (rating == null || rating <= 0) return '—';
   return `${rating.toFixed(1)} ★`;
 }
 

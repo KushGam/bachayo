@@ -1176,6 +1176,8 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
     ...FloatingShadow,
   },
 });

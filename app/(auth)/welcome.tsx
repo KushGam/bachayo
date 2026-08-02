@@ -14,10 +14,9 @@ import { t } from '@/constants/i18n';
 import { Palette } from '@/constants/Colors';
 import { Border, Spacing, Type } from '@/constants/theme';
 import { fetchUserRole, navigateAfterGoogleSignIn } from '@/lib/auth';
+import { friendlyGoogleSignInError } from '@/lib/auth/authErrors';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { recordTermsAcceptance } from '@/lib/terms';
-import { clearPushTokenForCurrentUser } from '@/lib/notifications';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function WelcomeScreen() {
@@ -55,11 +54,8 @@ export default function WelcomeScreen() {
         setShowTermsModal(true);
       }
     } catch (err) {
-      const message =
-        err instanceof Error && err.message
-          ? err.message
-          : 'Google Sign-In failed. Please try phone or email instead.';
-      Alert.alert('Google Sign-In failed', message);
+      console.error('[Google] Sign-in failed:', err);
+      Alert.alert('Couldn’t sign in with Google', friendlyGoogleSignInError(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -133,8 +129,8 @@ export default function WelcomeScreen() {
         onCancel={async () => {
           setShowTermsModal(false);
           setPendingGoogleUserId(null);
-          await clearPushTokenForCurrentUser();
-          await supabase.auth.signOut();
+          const { performSignOut } = await import('@/lib/auth/performSignOut');
+          await performSignOut();
           Alert.alert('Sign in cancelled', 'You must accept the terms to use LastBag.');
         }}
       />

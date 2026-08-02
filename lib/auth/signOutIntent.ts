@@ -2,13 +2,11 @@
 let intentionalSignOutUntil = 0;
 
 export function markIntentionalSignOut() {
-  intentionalSignOutUntil = Date.now() + 4000;
+  // Keep the window open long enough for async signOut + auth listeners.
+  intentionalSignOutUntil = Date.now() + 15_000;
 }
 
+/** True while a user-initiated logout is in progress (does not clear the flag). */
 export function wasIntentionalSignOut() {
-  if (Date.now() <= intentionalSignOutUntil) {
-    intentionalSignOutUntil = 0;
-    return true;
-  }
-  return false;
+  return Date.now() <= intentionalSignOutUntil;
 }

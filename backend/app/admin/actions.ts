@@ -220,8 +220,8 @@ export async function suspendCustomer(profileId: string) {
 }
 
 export async function deleteCustomer(profileId: string) {
-  const supabase = await admin();
-  await supabase.auth.admin.deleteUser(profileId);
+  const { deleteCustomerAccount } = await import('@/lib/delete-customer-account');
+  await deleteCustomerAccount(profileId);
   revalidatePath('/admin/customers');
 }
 

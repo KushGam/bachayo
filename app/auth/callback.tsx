@@ -7,15 +7,15 @@ import {
   createSessionFromUrl,
   fetchUserRole,
   hasUserProfile,
+  isPasswordRecoveryUrl,
 } from '@/lib/auth';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { hasAcceptedTerms } from '@/lib/terms';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
- * Handles OAuth deep links (lastbag://auth/callback?code=...).
- * When Google redirects back, the app often restarts here instead of
- * returning to WebBrowser.openAuthSessionAsync on the welcome screen.
+ * Handles OAuth + password-recovery deep links (lastbag://auth/callback?...).
+ * When Google or a reset email redirects back, the app often restarts here.
  */
 export default function AuthCallbackScreen() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function AuthCallbackScreen() {
     if (!url.includes('auth/callback')) return;
 
     handled.current = true;
+    const isRecovery = isPasswordRecoveryUrl(url);
 
     void (async () => {
       try {
@@ -35,6 +36,11 @@ export default function AuthCallbackScreen() {
         const userId = session?.user?.id;
         if (!userId) {
           throw new Error('Sign-in failed');
+        }
+
+        if (isRecovery) {
+          router.replace('/(auth)/reset-password');
+          return;
         }
 
         const hasProfile = await hasUserProfile(userId);
@@ -54,7 +60,7 @@ export default function AuthCallbackScreen() {
         router.replace(await resolveAuthenticatedRoute(userId, role ?? 'customer'));
       } catch (error) {
         console.error('[auth] OAuth callback failed:', error);
-        router.replace('/(auth)/welcome');
+        router.replace(isRecovery ? '/(auth)/forgot-password' : '/(auth)/welcome');
       }
     })();
   }, [router, setAuthRole, url]);

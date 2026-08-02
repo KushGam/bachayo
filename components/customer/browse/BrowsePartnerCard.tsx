@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppImage } from '@/components/ui/AppImage';
 import { Palette } from '@/constants/Colors';
 import { getCategoryLabel } from '@/constants/partnerCategories';
-import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { formatDistanceKm, getInitials } from '@/lib/helpers';
 import { getOptimizedImageUrl } from '@/lib/images';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -54,48 +54,52 @@ export const BrowsePartnerCard = memo(function BrowsePartnerCard({
         <Text style={styles.name} numberOfLines={1}>
           {displayName}
         </Text>
-        <Text style={styles.category} numberOfLines={1}>
-          {categoryLabel}
-        </Text>
 
         <View style={styles.metaRow}>
-          {rating > 0 ? (
-            <View style={styles.ratingRow}>
-              <Star size={12} color={Palette.primary} fill={Palette.primary} strokeWidth={2} />
-              <Text style={styles.metaText}>{rating.toFixed(1)}</Text>
-              {reviewCount > 0 ? <Text style={styles.metaMuted}> ({reviewCount})</Text> : null}
-            </View>
-          ) : (
-            <Text style={styles.metaMuted}>{isNp ? 'नयाँ' : 'New'}</Text>
-          )}
-
+          <Text style={styles.category} numberOfLines={1}>
+            {categoryLabel}
+          </Text>
           {distanceKm != null ? (
             <View style={styles.distanceRow}>
-              <MapPin size={11} color={Palette.textTertiary} strokeWidth={2} />
+              <MapPin size={11} color={Palette.textTertiary} strokeWidth={2.2} />
               <Text style={styles.metaMuted}>{formatDistanceKm(distanceKm)}</Text>
             </View>
           ) : null}
         </View>
 
-        <View style={[styles.bagPill, hasBags ? styles.bagPillLive : styles.bagPillMuted]}>
-          <ShoppingBag
-            size={12}
-            color={hasBags ? Palette.primaryDark : Palette.textTertiary}
-            strokeWidth={2.2}
-          />
-          <Text style={[styles.bagText, hasBags ? styles.bagTextLive : styles.bagTextMuted]}>
-            {hasBags
-              ? isNp
-                ? `${bagsToday} ब्याग आज`
-                : `${bagsToday} bag${bagsToday === 1 ? '' : 's'} today`
-              : isNp
-                ? 'आज छैन'
-                : 'None today'}
-          </Text>
+        <View style={styles.footerRow}>
+          {rating > 0 ? (
+            <View style={styles.ratingRow}>
+              <Star size={12} color={Palette.amber} fill={Palette.amber} strokeWidth={2} />
+              <Text style={styles.metaText}>{rating.toFixed(1)}</Text>
+              {reviewCount > 0 ? (
+                <Text style={styles.metaMuted}> · {reviewCount}</Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={styles.metaMuted}>{isNp ? 'नयाँ' : 'New'}</Text>
+          )}
+
+          <View style={[styles.bagPill, hasBags ? styles.bagPillLive : styles.bagPillMuted]}>
+            <ShoppingBag
+              size={11}
+              color={hasBags ? Palette.primaryDark : Palette.textTertiary}
+              strokeWidth={2.2}
+            />
+            <Text style={[styles.bagText, hasBags ? styles.bagTextLive : styles.bagTextMuted]}>
+              {hasBags
+                ? isNp
+                  ? `${bagsToday} आज`
+                  : `${bagsToday} today`
+                : isNp
+                  ? 'आज छैन'
+                  : 'No bags today'}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <ChevronRight size={18} color={Palette.textTertiary} strokeWidth={2.5} />
+      <ChevronRight size={16} color={Palette.textTertiary} strokeWidth={2.4} />
     </Pressable>
   );
 });
@@ -107,60 +111,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: Radius.lg,
+    borderRadius: 18,
     backgroundColor: Palette.surface,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
-    ...FloatingShadow,
   },
   pressed: {
-    opacity: 0.95,
+    opacity: 0.94,
+    backgroundColor: Palette.surfaceMuted,
   },
   accent: {
     position: 'absolute',
     left: 0,
-    top: 0,
-    bottom: 0,
+    top: 10,
+    bottom: 10,
     width: 3,
+    borderRadius: 2,
     backgroundColor: Palette.primary,
   },
   thumb: {
-    width: 72,
-    height: 72,
-    borderRadius: Radius.md,
+    width: 76,
+    height: 76,
+    borderRadius: 14,
     backgroundColor: Palette.primaryLight,
   },
   thumbPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Palette.overlay.border,
   },
   thumbInitials: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: Palette.primaryDark,
   },
   body: {
     flex: 1,
-    gap: 3,
+    gap: 5,
+    minWidth: 0,
   },
   name: {
     ...Type.bodyMedium,
     fontWeight: '700',
     color: Palette.textPrimary,
+    letterSpacing: -0.2,
   },
   category: {
     ...Type.caption,
     color: Palette.textSecondary,
     fontWeight: '500',
+    flexShrink: 1,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
-    marginTop: 2,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    marginTop: 1,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -171,6 +183,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    flexShrink: 0,
   },
   metaText: {
     ...Type.label,
@@ -185,21 +198,16 @@ const styles = StyleSheet.create({
   bagPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 4,
-    marginTop: 4,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: Radius.pill,
-    borderWidth: 1,
   },
   bagPillLive: {
     backgroundColor: Palette.primaryLight,
-    borderColor: Palette.overlay.border,
   },
   bagPillMuted: {
     backgroundColor: Palette.background,
-    borderColor: Palette.borderSubtle,
   },
   bagText: {
     ...Type.label,

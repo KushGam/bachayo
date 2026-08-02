@@ -42,7 +42,10 @@ export function DashboardHeroBlock({
       />
 
       <View style={styles.statsSection}>
-        <Text style={styles.statsEyebrow}>Today</Text>
+        <View style={styles.head}>
+          <Text style={styles.eyebrow}>Today</Text>
+          <Text style={styles.title}>Snapshot</Text>
+        </View>
         {loading ? (
           <View style={styles.statsSkeleton}>
             <StatsSkeleton />
@@ -61,20 +64,33 @@ const styles = StyleSheet.create({
   },
   statsSection: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md + 4,
+    paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  statsEyebrow: {
+  head: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  eyebrow: {
     ...Type.label,
-    color: Palette.textSecondary,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-    marginLeft: 2,
+    color: Palette.textTertiary,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  title: {
+    ...Type.bodyMedium,
+    fontWeight: '700',
+    color: Palette.textPrimary,
   },
   statsSkeleton: {
-    borderRadius: 16,
-    padding: Spacing.lg,
-    backgroundColor: Palette.surfaceMuted,
+    borderRadius: 20,
+    padding: Spacing.sm,
+    backgroundColor: Palette.surface,
+    borderWidth: 1,
+    borderColor: Palette.borderSubtle,
   },
 });

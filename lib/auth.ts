@@ -1,7 +1,9 @@
 import type { Href } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
+import { config } from '@/constants/config';
 import { signInWithGoogle as signInWithGoogleNative } from '@/lib/auth/googleSignIn';
+import { friendlyGoogleSignInError } from '@/lib/auth/authErrors';
 import { resolveAuthenticatedRoute } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { hasAcceptedTerms } from '@/lib/terms';
@@ -52,6 +54,30 @@ export async function createSessionFromUrl(url: string) {
 
   throw new Error('No auth credentials returned');
 }
+
+/** True when the deep link is a password-recovery handoff from Supabase. */
+export function isPasswordRecoveryUrl(url: string) {
+  const hashParams = new URLSearchParams(url.split('#')[1] || '');
+  const queryString = url.split('?')[1]?.split('#')[0] || '';
+  const queryParams = new URLSearchParams(queryString);
+  const type = queryParams.get('type') || hashParams.get('type');
+  return type === 'recovery';
+}
+
+export function getPasswordResetRedirectUri() {
+  // Kept for legacy magic-link templates / web bridge.
+  const base = (config.apiUrl || 'https://lastbag.app').replace(/\/$/, '');
+  return `${base}/auth/reset`;
+}
+
+export {
+  confirmPasswordResetWithToken,
+  clearPendingPasswordReset,
+  getPendingPasswordReset,
+  requestPasswordReset,
+  verifyPasswordRecoveryOtp,
+} from '@/lib/passwordReset';
+
 
 export async function fetchUserRole(userId: string) {
   const { data, error } = await supabase
@@ -147,11 +173,12 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   }
 
   if (!result.success || !('user' in result) || !result.user) {
-    const err =
+    const technical =
       'error' in result && result.error instanceof Error
         ? result.error
         : new Error('Google sign-in failed');
-    throw err;
+    console.error('[Google] Sign-in failed:', technical);
+    throw new Error(friendlyGoogleSignInError(technical));
   }
 
   const hasProfile = await hasUserProfile(result.user.id);
@@ -188,6 +215,115 @@ export async function signUpWithEmail(email: string, password: string) {
     email: normalizeEmail(email),
     password,
   });
+}
+
+/**
+ * Sends an email OTP via the backend. Does NOT create auth.users —
+ * the account is created only after verifyEmailSignupOtp succeeds.
+ */
+export async function sendEmailSignupOtp(email: string, password: string) {
+  const normalized = normalizeEmail(email);
+
+  try {
+    const response = await fetch(`${config.apiUrl}/api/auth/email-otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: normalized, password }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        status: 'error' as const,
+        user: null,
+        error: new Error(
+          payload.error ||
+            (response.status === 409
+              ? 'Account already exists. Please log in instead.'
+              : 'Could not send verification email.'),
+        ),
+      };
+    }
+
+    return { status: 'otp_sent' as const, user: null, error: null };
+  } catch (error) {
+    return {
+      status: 'error' as const,
+      user: null,
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Could not send verification email.'),
+    };
+  }
+}
+
+export async function resendEmailSignupOtp(email: string, password: string) {
+  return sendEmailSignupOtp(email, password);
+}
+
+/**
+ * Verifies the emailed OTP, creates the auth user, and sets the local session.
+ */
+export async function verifyEmailSignupOtp(email: string, token: string) {
+  const normalized = normalizeEmail(email);
+  const cleaned = token.replace(/\D/g, '');
+
+  if (cleaned.length < 6) {
+    return { user: null, error: new Error('Enter the code from your email.') };
+  }
+
+  try {
+    const response = await fetch(`${config.apiUrl}/api/auth/email-otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: normalized, code: cleaned }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+
+    if (!response.ok) {
+      return {
+        user: null,
+        error: new Error(payload.error || 'Wrong or expired code. Try again.'),
+      };
+    }
+
+    if (!payload.access_token || !payload.refresh_token) {
+      return {
+        user: null,
+        error: new Error('Could not start your session.'),
+      };
+    }
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token,
+    });
+
+    if (error || !data.user) {
+      return {
+        user: null,
+        error: error ?? new Error('Could not start your session.'),
+      };
+    }
+
+    return { user: data.user, error: null };
+  } catch (error) {
+    return {
+      user: null,
+      error:
+        error instanceof Error ? error : new Error('Verification failed.'),
+    };
+  }
 }
 
 export async function signUpWithPhone(phoneDigits: string, password: string) {

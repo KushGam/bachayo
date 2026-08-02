@@ -210,6 +210,7 @@ export const ANDROID_CHANNEL_BY_TYPE: Record<string, AndroidChannelId> = {
   subscription: 'system',
   review_request: 'system',
   review_reply: 'system',
+  new_review: 'system',
   system: 'system',
 };
 
@@ -238,7 +239,10 @@ export function getRouteFromNotificationData(data: NotificationData) {
     return `/order/${orderId}` as const;
   }
   if ((type === 'review_request' || type === 'review') && orderId) {
-    return `/review/${orderId}` as const;
+    return `/(tabs)/customer/my-bags?review=${orderId}` as const;
+  }
+  if (type === 'new_review') {
+    return '/(tabs)/partner/reviews' as const;
   }
   if (type === 'order_message' && orderId) {
     return `/order/chat/${orderId}` as const;

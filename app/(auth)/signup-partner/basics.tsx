@@ -28,6 +28,7 @@ import {
 } from '@/lib/auth';
 import {
   friendlyAuthError,
+  friendlyGoogleSignInError,
   isEmailAlreadyRegisteredError,
   isNetworkError,
 } from '@/lib/auth/authErrors';
@@ -203,15 +204,16 @@ export default function PartnerBasicsScreen() {
       const result = await navigateAfterGoogleSignIn(router, setAuthRole);
       if (!result.ok) {
         if (result.expoGo || result.cancelled) return;
-        setSubmitError('Google Sign-In failed. Please try again or use phone/email.');
+        setSubmitError(friendlyGoogleSignInError('failed'));
         return;
       }
       if (result.needsTerms) {
         setPendingGoogleUserId(result.userId);
         setShowTermsModal(true);
       }
-    } catch {
-      Alert.alert('Error', 'Google Sign-In failed. Please try phone or email instead.');
+    } catch (err) {
+      console.error('[Google] Sign-in failed:', err);
+      Alert.alert('Couldn’t sign in with Google', friendlyGoogleSignInError(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -268,7 +270,14 @@ export default function PartnerBasicsScreen() {
         </AuthFormCard>
       </SignupFieldGroup>
 
-      <SignupFieldGroup label="Sign-in details" hint="How you'll manage your restaurant" required>
+      <SignupFieldGroup
+        label="Sign-in details"
+        hint={
+          authMethod === 'phone'
+            ? 'We’ll text a one-time code next'
+            : 'We’ll email a verification code on the last step'
+        }
+        required>
         <AuthFormCard style={styles.cardCompact}>
           {authMethod === 'email' ? (
             <Controller

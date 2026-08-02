@@ -8,7 +8,8 @@ import { formatFoodRescued, formatRatingDisplay } from '@/lib/partnerProfile';
 type PartnerProfileStatsCardProps = {
   bagsSold: number;
   revenueLabel: string;
-  rating: number;
+  rating: number | null;
+  reviewCount?: number;
   foodRescuedKg: number;
   tierLabel: string;
   statusLabel: string;
@@ -25,6 +26,7 @@ export function PartnerProfileStatsCard({
   bagsSold,
   revenueLabel,
   rating,
+  reviewCount = 0,
   foodRescuedKg,
   tierLabel,
   statusLabel,
@@ -32,7 +34,7 @@ export function PartnerProfileStatsCard({
   const values: Record<(typeof STAT_CONFIG)[number]['key'], string> = {
     bags: String(bagsSold),
     revenue: revenueLabel,
-    rating: formatRatingDisplay(rating),
+    rating: formatRatingDisplay(rating, reviewCount),
     food: formatFoodRescued(foodRescuedKg),
   };
 

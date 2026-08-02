@@ -42,12 +42,14 @@ export function BrowsePartnersQuickBar({
             void hapticButtonPress();
             onBagsTodayOnlyChange(!bagsTodayOnly);
           }}
-          style={[styles.chip, bagsTodayOnly && styles.chipActive]}>
+          style={[styles.liveChip, bagsTodayOnly && styles.liveChipActive]}>
           <View style={[styles.dot, bagsTodayOnly && styles.dotActive]} />
-          <Text style={[styles.chipText, bagsTodayOnly && styles.chipTextActive]}>
+          <Text style={[styles.liveText, bagsTodayOnly && styles.liveTextActive]}>
             {isNp ? 'आज सूची' : 'Live today'}
           </Text>
         </Pressable>
+
+        <View style={styles.sortDivider} />
 
         {SORT_OPTIONS.map((option) => {
           const active = sortBy === option.key;
@@ -58,8 +60,8 @@ export function BrowsePartnersQuickBar({
                 void hapticButtonPress();
                 onSortChange(option.key);
               }}
-              style={[styles.chip, active && styles.chipActive]}>
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              style={[styles.sortChip, active && styles.sortChipActive]}>
+              <Text style={[styles.sortText, active && styles.sortTextActive]}>
                 {isNp ? option.labelNp : option.labelEn}
               </Text>
             </Pressable>
@@ -79,23 +81,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   row: {
+    alignItems: 'center',
     gap: Spacing.sm,
     paddingRight: Spacing.sm,
   },
-  chip: {
+  liveChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     height: 32,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 12,
     borderRadius: Radius.pill,
     backgroundColor: Palette.surface,
     borderWidth: 1,
-    borderColor: Palette.borderSubtle,
+    borderColor: Palette.border,
   },
-  chipActive: {
-    backgroundColor: Palette.primaryLight,
-    borderColor: Palette.overlay.border,
+  liveChipActive: {
+    backgroundColor: Palette.successBg,
+    borderColor: 'rgba(61,107,79,0.25)',
   },
   dot: {
     width: 7,
@@ -106,12 +109,38 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: Palette.success,
   },
-  chipText: {
+  liveText: {
     ...Type.caption,
     fontWeight: '600',
     color: Palette.textSecondary,
   },
-  chipTextActive: {
+  liveTextActive: {
+    color: Palette.success,
+    fontWeight: '700',
+  },
+  sortDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 18,
+    backgroundColor: Palette.border,
+    marginHorizontal: 2,
+  },
+  sortChip: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  sortChipActive: {
+    backgroundColor: Palette.primaryLight,
+  },
+  sortText: {
+    ...Type.caption,
+    fontWeight: '600',
+    color: Palette.textSecondary,
+  },
+  sortTextActive: {
     color: Palette.primaryDark,
     fontWeight: '700',
   },

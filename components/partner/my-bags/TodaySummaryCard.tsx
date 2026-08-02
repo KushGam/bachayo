@@ -1,8 +1,8 @@
-import { ShoppingBag, Sparkles, Wallet } from 'lucide-react-native';
+import { Package, ShoppingBag, TrendingUp, Wallet } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette } from '@/constants/Colors';
-import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, FloatingShadow, Spacing, Type } from '@/constants/theme';
 import { computeTodaySummary, formatNprFromPaisa, type PartnerBagWithStats } from '@/lib/partnerBags';
 
 export function TodaySummaryCard({ bags }: { bags: PartnerBagWithStats[] }) {
@@ -11,142 +11,176 @@ export function TodaySummaryCard({ bags }: { bags: PartnerBagWithStats[] }) {
     {
       value: String(summary.listed),
       label: 'Listed',
-      icon: ShoppingBag,
+      hint: 'Live now',
+      icon: Package,
     },
     {
       value: String(summary.reserved),
-      label: 'Reserved',
-      icon: Sparkles,
+      label: 'Waiting',
+      hint: 'Awaiting pickup',
+      icon: ShoppingBag,
     },
     {
       value: formatNprFromPaisa(summary.potentialRevenue),
-      label: 'Potential',
-      icon: Wallet,
+      label: 'Pipeline',
+      hint: 'Not picked yet',
+      icon: TrendingUp,
     },
     {
       value: formatNprFromPaisa(summary.earned),
       label: 'Earned',
+      hint: 'From pickups',
       icon: Wallet,
       accent: true,
     },
   ] as const;
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.headerAccent} />
-        <Text style={styles.title}>Today&apos;s snapshot</Text>
+    <View style={styles.wrap}>
+      <View style={styles.head}>
+        <Text style={styles.eyebrow}>Today</Text>
+        <Text style={styles.title}>Snapshot</Text>
       </View>
 
-      <View style={styles.grid}>
-        {[0, 1].map((row) => (
-          <View key={row} style={styles.gridRow}>
-            {stats.slice(row * 2, row * 2 + 2).map((stat) => {
-              const Icon = stat.icon;
-              const accent = 'accent' in stat && stat.accent;
-              return (
-                <View key={stat.label} style={styles.tile}>
+      <View style={styles.card}>
+        <View style={styles.grid}>
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+            const accent = 'accent' in stat && stat.accent;
+            const isRight = index % 2 === 1;
+            const isBottom = index >= 2;
+            return (
+              <View
+                key={stat.label}
+                style={[
+                  styles.tile,
+                  isRight && styles.tileRight,
+                  isBottom && styles.tileBottom,
+                  accent && styles.tileAccent,
+                ]}>
+                <View style={styles.tileTop}>
                   <View style={[styles.iconWrap, accent && styles.iconWrapAccent]}>
                     <Icon
                       size={14}
-                      color={accent ? Palette.primary : Palette.primaryDark}
+                      color={accent ? Palette.primary : Palette.textSecondary}
                       strokeWidth={2.2}
                     />
                   </View>
-                  <Text
-                    style={[styles.value, accent && styles.valueAccent]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.7}>
-                    {stat.value}
+                  <Text style={styles.hint} numberOfLines={1}>
+                    {stat.hint}
                   </Text>
-                  <Text style={styles.label}>{stat.label}</Text>
                 </View>
-              );
-            })}
-          </View>
-        ))}
+                <Text
+                  style={[styles.value, accent && styles.valueAccent]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}>
+                  {stat.value}
+                </Text>
+                <Text style={[styles.label, accent && styles.labelAccent]}>{stat.label}</Text>
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    ...CardChrome,
+  wrap: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.lg,
-    borderRadius: 20,
-    backgroundColor: Palette.surface,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    ...FloatingShadow,
+    gap: Spacing.sm,
   },
-  header: {
+  head: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: 8,
-    marginBottom: Spacing.md,
     paddingHorizontal: 2,
   },
-  headerAccent: {
-    width: 3,
-    height: 14,
-    borderRadius: 2,
-    backgroundColor: Palette.primary,
+  eyebrow: {
+    ...Type.label,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: Palette.textTertiary,
   },
   title: {
-    ...Type.caption,
-    color: Palette.textPrimary,
+    ...Type.bodyMedium,
     fontWeight: '700',
-    letterSpacing: -0.2,
+    color: Palette.textPrimary,
+  },
+  card: {
+    ...CardChrome,
+    borderRadius: 20,
+    backgroundColor: Palette.surface,
+    overflow: 'hidden',
+    ...FloatingShadow,
   },
   grid: {
-    gap: 8,
-    paddingBottom: 4,
-  },
-  gridRow: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
   },
   tile: {
-    flex: 1,
-    backgroundColor: Palette.background,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    width: '50%',
+    paddingVertical: Spacing.md + 2,
+    paddingHorizontal: Spacing.md,
     gap: 4,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.border,
+  },
+  tileRight: {
+    borderRightWidth: 0,
+  },
+  tileBottom: {
+    borderBottomWidth: 0,
+  },
+  tileAccent: {
+    backgroundColor: Palette.primaryLight,
+  },
+  tileTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: 2,
   },
   iconWrap: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Palette.surface,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
+    backgroundColor: Palette.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   iconWrapAccent: {
-    backgroundColor: Palette.primaryLight,
+    backgroundColor: Palette.white,
     borderColor: Palette.overlay.border,
   },
+  hint: {
+    ...Type.label,
+    color: Palette.textTertiary,
+    fontWeight: '500',
+    flex: 1,
+  },
   value: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: Palette.textPrimary,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   valueAccent: {
     color: Palette.primary,
   },
   label: {
-    ...Type.label,
+    ...Type.caption,
     color: Palette.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  labelAccent: {
+    color: Palette.primaryDark,
   },
 });

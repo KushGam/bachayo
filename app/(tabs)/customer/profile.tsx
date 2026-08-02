@@ -10,10 +10,7 @@ import {
   LogIn,
   LogOut,
   MapPin,
-  RefreshCw,
-  Share2,
   Shield,
-  Star,
   Store,
   User,
   UtensilsCrossed,
@@ -25,10 +22,8 @@ import {
   Alert,
   Linking,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -41,12 +36,11 @@ import { CustomerProfileImpactCard } from '@/components/customer/profile/Custome
 import { ProfileMenuRow } from '@/components/partner/ProfileMenuRow';
 import { FOOD_PREFERENCE_OPTIONS } from '@/constants/foodPreferences';
 import { Palette } from '@/constants/Colors';
-import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { CardChrome, Radius, Spacing, Type } from '@/constants/theme';
 import { fetchCustomerImpactStats } from '@/lib/customerStats';
 import { formatRsPaisa } from '@/lib/helpers';
 import { getProfileAvatarUrl } from '@/lib/images';
 import { hapticWarning } from '@/lib/haptics';
-import { clearPushTokenForCurrentUser } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore, type Locale } from '@/store/useAuthStore';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -67,8 +61,6 @@ type ProfileStats = {
 };
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-const SHARE_MESSAGE =
-  "I'm rescuing food with LastBag! Download it to find discounted meals near you.";
 
 function formatFoodPreferences(prefs: string[] | null | undefined) {
   if (!prefs?.length) return 'Not set';
@@ -117,7 +109,7 @@ function ProfileLocationRow() {
       <View style={[styles.locationIconWrap, !hasLocation && styles.locationIconWrapMuted]}>
         <MapPin
           size={16}
-          color={hasLocation ? Palette.primary : '#9CA3AF'}
+          color={hasLocation ? Palette.primary : Palette.textTertiary}
           strokeWidth={2.2}
         />
       </View>
@@ -133,16 +125,13 @@ function ProfileLocationRow() {
         onPress={handleRefresh}
         disabled={refreshing}
         hitSlop={8}
-        style={({ pressed }) => [styles.locationRefreshPill, pressed && styles.pressed]}>
+        style={({ pressed }) => [styles.locationRefresh, pressed && styles.pressed]}>
         {refreshing ? (
           <ActivityIndicator size="small" color={Palette.primary} />
         ) : (
-          <>
-            <RefreshCw size={12} color={Palette.primary} strokeWidth={2.4} />
-            <Text style={styles.locationRefreshText}>
-              {hasLocation ? 'Refresh' : 'Detect'}
-            </Text>
-          </>
+          <Text style={styles.locationRefreshText}>
+            {hasLocation ? 'Refresh' : 'Detect'}
+          </Text>
         )}
       </Pressable>
     </View>
@@ -250,31 +239,14 @@ export default function ProfileScreen() {
         onPress: () => {
           void hapticWarning();
           void (async () => {
-            await clearPushTokenForCurrentUser();
-            await supabase.auth.signOut();
+            const { performSignOut } = await import('@/lib/auth/performSignOut');
+            await performSignOut();
             reset();
             router.replace('/(auth)/welcome');
           })();
         },
       },
     ]);
-  };
-
-  const handleShare = async () => {
-    try {
-      await Share.share({ message: SHARE_MESSAGE });
-    } catch (error) {
-      console.error('[profile] share failed:', error);
-    }
-  };
-
-  const handleRate = () => {
-    const storeUrl = Platform.select({
-      ios: 'https://apps.apple.com/app/id0000000000',
-      android: 'market://details?id=com.lastbag.app',
-      default: 'https://lastbag.com',
-    });
-    if (storeUrl) void Linking.openURL(storeUrl);
   };
 
   const moneySavedLabel = formatRsPaisa(stats.moneySavedPaisa).replace('Rs ', '₨');
@@ -359,8 +331,6 @@ export default function ProfileScreen() {
             <SectionLabel>Support</SectionLabel>
             <SettingsCard>
               <ProfileMenuRow icon={HelpCircle} label="Help & support" onPress={() => router.push('/support/help')} />
-              <ProfileMenuRow icon={Star} label="Rate LastBag" onPress={handleRate} />
-              <ProfileMenuRow icon={Share2} label="Share LastBag" onPress={() => void handleShare()} />
               <ProfileMenuRow icon={FileText} label="Terms of Service" onPress={() => router.push('/legal/terms')} />
               <ProfileMenuRow icon={Shield} label="Privacy Policy" onPress={() => router.push('/legal/privacy')} isLast />
             </SettingsCard>
@@ -380,10 +350,8 @@ export default function ProfileScreen() {
 
             <Pressable
               onPress={signOut}
-              style={({ pressed }) => [styles.signOutCard, pressed && styles.pressed]}>
-              <View style={styles.signOutIcon}>
-                <LogOut size={18} color={Palette.danger} strokeWidth={2} />
-              </View>
+              style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressed]}>
+              <LogOut size={16} color={Palette.danger} strokeWidth={2.2} />
               <Text style={styles.signOutText}>Sign out</Text>
             </Pressable>
           </>
@@ -463,7 +431,7 @@ const styles = StyleSheet.create({
     color: Palette.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.7,
-    marginLeft: Spacing.lg + 2,
+    marginLeft: Spacing.lg + 4,
     marginTop: Spacing.xl,
     marginBottom: Spacing.sm,
     fontWeight: '700',
@@ -474,29 +442,28 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     overflow: 'hidden',
     backgroundColor: Palette.surface,
-    ...FloatingShadow,
   },
   locationRow: {
-    minHeight: 56,
+    minHeight: 58,
     paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
   },
   rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.borderSubtle,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Palette.border,
   },
   locationIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: Palette.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   locationIconWrapMuted: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Palette.surfaceMuted,
   },
   locationCopy: {
     flex: 1,
@@ -504,31 +471,27 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     ...Type.bodyMedium,
-    fontWeight: '500',
+    fontWeight: '600',
+    letterSpacing: -0.15,
     color: Palette.textPrimary,
   },
   locationValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Palette.textSecondary,
   },
   locationValueMuted: {
-    fontWeight: '400',
     color: Palette.textTertiary,
   },
-  locationRefreshPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: Palette.primaryLight,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    minWidth: 78,
+  locationRefresh: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    minWidth: 56,
+    alignItems: 'flex-end',
     justifyContent: 'center',
   },
   locationRefreshText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: Palette.primary,
   },
@@ -537,30 +500,17 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     fontWeight: '600',
   },
-  signOutCard: {
-    marginTop: Spacing.lg,
+  signOutBtn: {
+    marginTop: Spacing.xl,
     marginHorizontal: Spacing.lg,
-    ...CardChrome,
-    borderRadius: 18,
-    minHeight: 56,
-    paddingHorizontal: Spacing.lg,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Palette.surface,
-    borderColor: Palette.dangerBorder,
-    ...FloatingShadow,
+    justifyContent: 'center',
+    gap: Spacing.sm,
   },
   pressed: {
-    opacity: 0.9,
-  },
-  signOutIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Palette.dangerSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    opacity: 0.88,
   },
   signOutText: {
     ...Type.bodyMedium,
@@ -583,7 +533,7 @@ const styles = StyleSheet.create({
   },
   languageBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(28,25,23,0.4)',
   },
   languageSheet: {
     position: 'absolute',
@@ -597,7 +547,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     borderWidth: 1,
     borderColor: Palette.borderSubtle,
-    ...FloatingShadow,
   },
   languageSheetTitle: {
     ...Type.h2,

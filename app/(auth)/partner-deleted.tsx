@@ -5,23 +5,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
-import { clearPushTokenForCurrentUser } from '@/lib/notifications';
-import { supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/store/useAuthStore';
+import { performSignOut } from '@/lib/auth/performSignOut';
 
 export default function PartnerDeletedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const setAuthRole = useAuthStore((s) => s.setAuthRole);
 
   useEffect(() => {
     void (async () => {
-      await clearPushTokenForCurrentUser();
-      await supabase.auth.signOut();
-      setAuthRole(null);
+      await performSignOut();
       router.replace('/(auth)/welcome?accountRemoved=1');
     })();
-  }, [router, setAuthRole]);
+  }, [router]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 32 }]}>

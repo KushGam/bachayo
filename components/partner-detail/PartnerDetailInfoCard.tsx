@@ -21,14 +21,19 @@ export function PartnerDetailInfoCard({
 }: PartnerDetailInfoCardProps) {
   return (
     <View style={styles.card}>
-      <Pressable onPress={onOpenMaps} style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open store location in Maps"
+        onPress={onOpenMaps}
+        style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
         <View style={styles.iconCircle}>
           <MapPin size={16} color={Palette.primary} strokeWidth={2.2} />
         </View>
         <Text style={styles.label}>Location</Text>
-        <Text style={styles.value} numberOfLines={2}>
+        <Text style={styles.value} numberOfLines={3}>
           {locationLabel}
         </Text>
+        <Text style={styles.hint}>Maps →</Text>
       </Pressable>
 
       <View style={styles.divider} />
@@ -38,14 +43,18 @@ export function PartnerDetailInfoCard({
           <Clock size={16} color={Palette.primary} strokeWidth={2.2} />
         </View>
         <Text style={styles.label}>Hours</Text>
-        <Text style={styles.value} numberOfLines={2}>
+        <Text style={styles.value} numberOfLines={3}>
           {hours}
         </Text>
       </View>
 
       <View style={styles.divider} />
 
-      <Pressable onPress={onCall} style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={phone ? `Call ${phone}` : 'Phone not listed'}
+        onPress={onCall}
+        style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
         <View style={styles.iconCircle}>
           <Phone size={16} color={Palette.primary} strokeWidth={2.2} />
         </View>
@@ -65,7 +74,8 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: Radius.lg,
     backgroundColor: Palette.surface,
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'stretch',
     ...FloatingShadow,
@@ -74,7 +84,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
+    minWidth: 0,
   },
   pressed: {
     opacity: 0.88,
@@ -103,9 +114,19 @@ const styles = StyleSheet.create({
   },
   value: {
     ...Type.caption,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
     color: Palette.textPrimary,
     textAlign: 'center',
+    width: '100%',
+  },
+  hint: {
+    ...Type.label,
+    fontSize: 11,
+    color: Palette.primary,
+    fontWeight: '700',
+    marginTop: 2,
   },
   valueMuted: {
     color: Palette.textTertiary,

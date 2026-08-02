@@ -57,6 +57,8 @@ function getNotificationIcon(type: InboxNotificationType) {
       return { bg: Palette.primaryLight, Icon: Clock, color: Palette.primary };
     case 'review_request':
       return { bg: '#FEF3C7', Icon: Star, color: '#D97706' };
+    case 'new_review':
+      return { bg: '#FEF3C7', Icon: Star, color: '#D97706' };
     case 'bag_expiring':
       return { bg: '#FEF3C7', Icon: Timer, color: '#D97706' };
     case 'subscription':
@@ -82,7 +84,11 @@ function getNotificationRoute(notification: InboxNotification): Href | null {
     case 'pickup_reminder':
       return orderId ? (`/order/${orderId}` as Href) : null;
     case 'review_request':
-      return orderId ? (`/review/${orderId}` as Href) : null;
+      return orderId
+        ? (`/(tabs)/customer/my-bags?review=${orderId}` as Href)
+        : ('/(tabs)/customer/my-bags' as Href);
+    case 'new_review':
+      return '/(tabs)/partner/reviews' as Href;
     case 'bag_expiring':
       return '/(tabs)/partner/my-bags' as Href;
     case 'subscription':

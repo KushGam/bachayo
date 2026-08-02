@@ -1,18 +1,26 @@
 /**
- * Maps raw Supabase / NepalOTP / network errors to short user-facing copy.
+ * Maps raw Supabase / NepalOTP / network / Google OAuth errors to short user-facing copy.
+ * Never surface project refs, token codes, or gateway jargon to customers.
  */
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Wrong email or password. Try again.',
   'Invalid login credentials': 'Wrong email or password. Try again.',
-  'Email not confirmed': 'Please verify your email first.',
+  'Email not confirmed': 'Enter the verification code we emailed you.',
+  'Please verify your email first.': 'Enter the verification code we emailed you.',
   'User already registered': 'Account already exists. Please login.',
+  INVALID_OTP: 'Invalid code. Please try again.',
+  'Wrong code': 'Invalid code. Please try again.',
+  'invalid otp': 'Invalid code. Please try again.',
+  'Token has expired': 'Code expired. Tap resend for a new one.',
+  otp_expired: 'Code expired. Tap resend for a new one.',
+  OTP_EXPIRED: 'Code expired. Request a new one.',
+  'Email rate limit': 'Too many emails sent. Wait a moment.',
   'Email already in use': 'Account already exists. Please login.',
   'Phone number already in use': 'This number is already registered.',
-  INVALID_OTP: 'Wrong code. Please try again.',
-  OTP_EXPIRED: 'Code expired. Request a new one.',
-  MAX_ATTEMPTS_EXCEEDED: 'Too many attempts. Request a new code.',
+  RATE_LIMITED: 'Please wait a moment before requesting another code.',
   RATE_LIMIT_EXCEEDED: 'Too many attempts. Please wait.',
+  MAX_ATTEMPTS_EXCEEDED: 'Too many attempts. Request a new code.',
   INSUFFICIENT_BALANCE: 'Service temporarily unavailable.',
   weak_password: 'Password too weak. Use 8+ characters.',
   over_email_send_rate_limit: 'Too many emails sent. Wait a moment.',
@@ -20,7 +28,38 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   NETWORK_ERROR: 'No internet connection. Please check your connection and try again.',
   'network request failed': 'No internet connection. Please check your connection and try again.',
   'Failed to fetch': 'No internet connection. Please check your connection and try again.',
+  'exchange external code':
+    'Google sign-in didn’t finish. Please try again, or use phone or email.',
+  'unable to exchange':
+    'Google sign-in didn’t finish. Please try again, or use phone or email.',
+  'no tokens in callback':
+    'Google sign-in didn’t finish. Please try again, or use phone or email.',
+  'no valid flow state': 'Google sign-in timed out. Please try again.',
+  'code verifier':
+    'Google sign-in didn’t finish. Please try again, or use phone or email.',
+  'flow state': 'Google sign-in timed out. Please try again.',
+  access_denied: 'Google sign-in was cancelled.',
+  'user cancelled': 'Google sign-in was cancelled.',
+  cancelled: 'Google sign-in was cancelled.',
+  supabase: 'Couldn’t sign in with Google. Please try phone or email instead.',
+  misconfigured: 'Google sign-in isn’t ready yet. Please try phone or email instead.',
+  'row-level security': 'Could not save your profile. Please try again.',
+  'violates row-level security': 'Could not save your profile. Please try again.',
 };
+const TECHNICAL_PATTERNS = [
+  /supabase\.co/i,
+  /exchange external code/i,
+  /code_verifier/i,
+  /flow state/i,
+  /access_token/i,
+  /refresh_token/i,
+  /pkce/i,
+  /\b4\/[0-9A-Za-z_-]+/,
+  /redirect_to/i,
+  /oauth/i,
+  /jwt/i,
+  /https?:\/\//i,
+];
 
 function errorBlob(error: unknown): string {
   if (typeof error === 'string') return error;
@@ -35,6 +74,10 @@ function errorBlob(error: unknown): string {
   return String(error ?? '');
 }
 
+function looksTechnical(raw: string) {
+  return TECHNICAL_PATTERNS.some((pattern) => pattern.test(raw));
+}
+
 export function friendlyAuthError(
   error: unknown,
   fallback = 'Something went wrong. Try again.',
@@ -47,7 +90,16 @@ export function friendlyAuthError(
     if (lower.includes(key.toLowerCase())) return message;
   }
 
-  return raw.length < 120 ? raw : fallback;
+  if (looksTechnical(raw) || raw.length > 80) return fallback;
+  return raw;
+}
+
+/** Always safe to show in Google Sign-In alerts — never dumps OAuth codes. */
+export function friendlyGoogleSignInError(error: unknown): string {
+  return friendlyAuthError(
+    error,
+    'Couldn’t sign in with Google. Please try again, or use phone or email instead.',
+  );
 }
 
 export function isInvalidCredentialsError(error: unknown): boolean {

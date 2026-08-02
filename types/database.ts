@@ -274,7 +274,7 @@ export type Database = {
       orders: {
         Row: {
           id: string;
-          customer_id: string;
+          customer_id: string | null;
           bag_id: string;
           partner_id: string;
           quantity: number;
@@ -306,7 +306,7 @@ export type Database = {
         };
         Update: {
           id?: string;
-          customer_id?: string;
+          customer_id?: string | null;
           bag_id?: string;
           partner_id?: string;
           quantity?: number;
@@ -348,7 +348,7 @@ export type Database = {
         Row: {
           id: string;
           order_id: string;
-          customer_id: string;
+          customer_id: string | null;
           partner_id: string;
           rating: number;
           comment: string | null;
@@ -378,7 +378,7 @@ export type Database = {
         Update: {
           id?: string;
           order_id?: string;
-          customer_id?: string;
+          customer_id?: string | null;
           partner_id?: string;
           rating?: number;
           comment?: string | null;
@@ -592,18 +592,21 @@ export type Database = {
         Row: {
           tier: SubscriptionTier;
           monthly_price_npr: number;
+          max_bags_per_day: number | null;
           max_bags_per_month: number | null;
           label: string;
         };
         Insert: {
           tier: SubscriptionTier;
           monthly_price_npr: number;
+          max_bags_per_day?: number | null;
           max_bags_per_month?: number | null;
           label: string;
         };
         Update: {
           tier?: SubscriptionTier;
           monthly_price_npr?: number;
+          max_bags_per_day?: number | null;
           max_bags_per_month?: number | null;
           label?: string;
         };
@@ -614,7 +617,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      get_partner_sales_stats: {
+        Args: { p_partner_id: string };
+        Returns: { bags_sold: number; total_revenue: number }[];
+      };
+      get_partner_rating_breakdown: {
+        Args: { p_partner_id: string };
+        Returns: { stars: number; review_count: number }[];
+      };
+      get_bags_reserved_counts: {
+        Args: { bag_ids: string[] };
+        Returns: { bag_id: string; reserved_quantity: number }[];
+      };
     };
     Enums: {
       user_role: UserRole;

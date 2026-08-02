@@ -93,11 +93,6 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    padding: Spacing.sm,
-    backgroundColor: Palette.surface,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
     gap: Spacing.sm,
   },
   cardEmbedded: {
@@ -111,7 +106,7 @@ const styles = StyleSheet.create({
     height: 34,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.pill,
-    backgroundColor: Palette.background,
+    backgroundColor: Palette.surface,
     borderWidth: 1,
     borderColor: Palette.border,
     alignItems: 'center',
@@ -128,14 +123,13 @@ const styles = StyleSheet.create({
   },
   categoryTextActive: {
     color: Palette.white,
+    fontWeight: '700',
   },
   distanceTrack: {
     flexDirection: 'row',
-    backgroundColor: Palette.background,
+    backgroundColor: Palette.surfaceMuted,
     borderRadius: Radius.md,
     padding: 3,
-    borderWidth: 1,
-    borderColor: Palette.borderSubtle,
   },
   distanceSegment: {
     flex: 1,
@@ -145,12 +139,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   distanceSegmentActive: {
-    backgroundColor: Palette.white,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: Palette.surface,
   },
   distanceText: {
     ...Type.caption,
@@ -159,5 +148,6 @@ const styles = StyleSheet.create({
   },
   distanceTextActive: {
     color: Palette.primaryDark,
+    fontWeight: '700',
   },
 });

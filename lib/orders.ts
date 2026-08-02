@@ -6,6 +6,7 @@ import {
 } from '@/constants/cancellation';
 import {
   isPartnerPickupEligibleDbStatus,
+  isReservedOrderStatus,
   isRevenueOrderStatus,
   normalizeOrderStatus,
   PARTNER_PICKUP_ELIGIBLE_ENUM_STATUSES,
@@ -190,25 +191,32 @@ export async function fetchPartnerDayStats(partnerId: string, date: string) {
       .eq('available_date', date),
     supabase
       .from('orders')
-      .select('total_price, status, quantity, created_at, picked_up_at')
+      .select('bag_id, total_price, status, quantity, created_at, picked_up_at')
       .eq('partner_id', partnerId),
   ]);
 
   const bagList = bags ?? [];
   const allOrders = orders ?? [];
-  const createdToday = allOrders.filter((o) => isLocalIsoDate(o.created_at, date));
+  const todayBagIds = new Set(bagList.map((bag) => bag.id));
+
+  // Awaiting pickup = still pending/confirmed for today's bags.
+  // Do NOT use quantity_reserved — that includes picked_up (capacity occupied).
+  const awaitingPickup = allOrders.filter(
+    (order) => todayBagIds.has(order.bag_id) && isReservedOrderStatus(order.status),
+  );
   const pickedUpToday = allOrders.filter(
-    (o) => o.status === 'picked_up' && o.picked_up_at && isLocalIsoDate(o.picked_up_at, date),
+    (order) =>
+      order.status === 'picked_up' &&
+      order.picked_up_at &&
+      isLocalIsoDate(order.picked_up_at, date),
   );
 
   const bagsListed = bagList.filter(
     (bag) => bag.status === 'active' || bag.status === 'sold_out',
   ).length;
-  const reserved = bagList.reduce((sum, bag) => sum + (bag.quantity_reserved ?? 0), 0);
+  const reserved = awaitingPickup.reduce((sum, order) => sum + (order.quantity ?? 1), 0);
   const pickedUp = pickedUpToday.reduce((sum, order) => sum + (order.quantity ?? 1), 0);
-  const revenue = createdToday
-    .filter((o) => isRevenueOrderStatus(o.status))
-    .reduce((sum, o) => sum + (o.total_price || 0), 0);
+  const revenue = pickedUpToday.reduce((sum, order) => sum + (order.total_price || 0), 0);
 
   return {
     bagsListed,
@@ -346,11 +354,27 @@ export async function notifyCustomerPickupConfirmed(
       type: 'pickup_confirmed',
     },
   });
+
+  // Immediate review prompt — opens My Bags review sheet on tap
+  await sendNotification({
+    userId: order.customer_id,
+    title: 'How was your rescue bag? 🛍',
+    body: `Rate your experience at ${restaurant}`,
+    type: 'review_request',
+    data: {
+      order_id: order.id,
+      orderId: order.id,
+      partner_id: order.partner_id,
+      partner_name: restaurant,
+      type: 'review_request',
+    },
+  });
 }
 
 type PickupNotifyOrder = {
   id: string;
   customer_id: string;
+  partner_id: string;
   bag?: { title: string };
 };
 

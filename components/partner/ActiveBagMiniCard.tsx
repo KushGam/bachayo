@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Clock } from 'lucide-react-native';
 import { memo, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -104,26 +104,27 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
             <Text numberOfLines={2} style={styles.title}>
               {bag.title}
             </Text>
-            <View style={styles.titleRight}>
-              {soldOut ? (
-                <View style={styles.statusBadgeSoldOut}>
-                  <Text style={styles.statusBadgeSoldOutText}>Sold out</Text>
-                </View>
-              ) : isActive ? (
-                <ActiveStatusBadge />
-              ) : (
-                <View style={styles.statusBadgeExpired}>
-                  <Text style={styles.statusBadgeExpiredText}>Expired</Text>
-                </View>
-              )}
-              <Text style={styles.headerPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
-            </View>
+            <Text style={styles.headerPrice}>{formatNprFromPaisa(bag.rescue_price)}</Text>
           </View>
 
           <View style={styles.metaRow}>
-            <Text style={styles.pickupTime}>
-              {formatPickupRange(bag.pickup_start, bag.pickup_end)}
-            </Text>
+            {soldOut ? (
+              <View style={styles.statusBadgeSoldOut}>
+                <Text style={styles.statusBadgeSoldOutText}>Sold out</Text>
+              </View>
+            ) : isActive ? (
+              <ActiveStatusBadge />
+            ) : (
+              <View style={styles.statusBadgeExpired}>
+                <Text style={styles.statusBadgeExpiredText}>Expired</Text>
+              </View>
+            )}
+            <View style={styles.pickupRow}>
+              <Clock size={13} color={Palette.textSecondary} strokeWidth={2} />
+              <Text style={styles.pickupTime}>
+                {formatPickupRange(bag.pickup_start, bag.pickup_end)}
+              </Text>
+            </View>
             {savings > 0 ? (
               <View style={styles.savingsBadge}>
                 <Text style={styles.savingsText}>{savings}% off</Text>
@@ -131,7 +132,10 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
             ) : null}
           </View>
 
-          <View style={styles.progressRow}>
+          <View style={styles.progressSection}>
+            <Text style={[styles.progressLabel, { color: progressLabel.color }]}>
+              {progressLabel.text}
+            </Text>
             <View style={styles.progressTrack}>
               <View
                 style={[
@@ -143,9 +147,6 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
                 ]}
               />
             </View>
-            <Text style={[styles.progressLabel, { color: progressLabel.color }]}>
-              {progressLabel.text}
-            </Text>
           </View>
         </View>
       </Pressable>
@@ -176,8 +177,9 @@ export const ActiveBagMiniCard = memo(function ActiveBagMiniCard({
 const styles = StyleSheet.create({
   card: {
     ...CardChrome,
+    borderRadius: 20,
     marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm + 2,
+    marginBottom: Spacing.md,
     overflow: 'hidden',
     ...FloatingShadow,
   },
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md + 2,
-    paddingBottom: Spacing.md + 2,
+    paddingBottom: Spacing.md,
   },
   titleRow: {
     flexDirection: 'row',
@@ -199,20 +201,17 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    ...Type.bodyMedium,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: '700',
     color: Palette.textPrimary,
-    lineHeight: 20,
-  },
-  titleRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
+    letterSpacing: -0.3,
   },
   headerPrice: {
-    ...Type.bodyMedium,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: Palette.primary,
+    letterSpacing: -0.3,
   },
   statusBadgeActive: {
     flexDirection: 'row',
@@ -230,7 +229,7 @@ const styles = StyleSheet.create({
   },
   statusBadgeActiveText: {
     ...Type.label,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.success,
   },
   statusBadgeExpired: {
@@ -241,7 +240,7 @@ const styles = StyleSheet.create({
   },
   statusBadgeExpiredText: {
     ...Type.label,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.textSecondary,
   },
   statusBadgeSoldOut: {
@@ -252,60 +251,66 @@ const styles = StyleSheet.create({
   },
   statusBadgeSoldOutText: {
     ...Type.label,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Palette.success,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
+    flexWrap: 'wrap',
+  },
+  pickupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 1,
   },
   pickupTime: {
-    flex: 1,
     ...Type.caption,
     color: Palette.textSecondary,
+    fontWeight: '500',
   },
   savingsBadge: {
     backgroundColor: Palette.warningBg,
     borderRadius: Radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    marginLeft: 'auto',
   },
   savingsText: {
     ...Type.label,
     fontWeight: '700',
     color: Palette.warning,
   },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  progressSection: {
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Palette.background,
+    gap: 8,
   },
   progressLabel: {
-    ...Type.label,
-    fontWeight: '500',
-    flexShrink: 0,
+    ...Type.caption,
+    fontWeight: '600',
   },
   progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Palette.borderSubtle,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Palette.surfaceMuted,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   ordersRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Palette.background,
-    borderTopWidth: 1,
-    borderTopColor: Palette.borderSubtle,
+    backgroundColor: Palette.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.border,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
@@ -317,6 +322,6 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Type.caption,
     fontWeight: '600',
-    color: Palette.textPrimary,
+    color: Palette.textSecondary,
   },
 });

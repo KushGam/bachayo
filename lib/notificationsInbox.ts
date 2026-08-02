@@ -5,6 +5,7 @@ export type InboxNotificationType =
   | 'cancellation'
   | 'pickup_reminder'
   | 'review_request'
+  | 'new_review'
   | 'bag_expiring'
   | 'subscription'
   | 'new_bag'

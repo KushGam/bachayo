@@ -41,20 +41,28 @@ export const TIER_SIGNUP_OPTIONS: {
 
 export const DEFAULT_TIER_PRICING: Record<
   SubscriptionTier,
-  { monthlyPriceNpr: number; maxBagsPerMonth: number | null; label: string }
+  {
+    monthlyPriceNpr: number;
+    maxBagsPerDay: number | null;
+    maxBagsPerMonth: number | null;
+    label: string;
+  }
 > = {
   small: {
     monthlyPriceNpr: 1000,
+    maxBagsPerDay: 5,
     maxBagsPerMonth: null,
     label: 'Small — café, dhaba, home bakery',
   },
   medium: {
     monthlyPriceNpr: 1500,
+    maxBagsPerDay: 15,
     maxBagsPerMonth: null,
     label: 'Medium — restaurant, bakery, café',
   },
   large: {
     monthlyPriceNpr: 3500,
+    maxBagsPerDay: null,
     maxBagsPerMonth: null,
     label: 'Large — hotel, mart, multi-branch',
   },

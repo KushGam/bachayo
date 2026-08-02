@@ -10,6 +10,7 @@ export async function createCustomerProfile(
   userId: string,
   data: CustomerSignupData,
   termsAccepted = false,
+  avatarUrl: string | null = null,
 ) {
   const area = getAreaById(data.areaId);
   const city = getCityById(data.cityId);
@@ -18,7 +19,7 @@ export async function createCustomerProfile(
   return supabase.from('profiles').upsert({
     id: userId,
     full_name: data.fullName.trim(),
-    phone: formatNepalPhone(data.phone),
+    phone: data.phone?.trim() ? formatNepalPhone(data.phone) : null,
     email: data.email.trim() || null,
     role: 'customer',
     city_id: data.cityId,
@@ -28,6 +29,7 @@ export async function createCustomerProfile(
     home_latitude: data.homeLatitude,
     home_longitude: data.homeLongitude,
     food_preferences: data.foodPreferences.length > 0 ? data.foodPreferences : null,
+    avatar_url: avatarUrl,
     onboarding_completed: true,
     ...termsAcceptanceFields(termsAccepted),
   } as never);

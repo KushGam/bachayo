@@ -33,14 +33,19 @@ export type PartnerDetailData = {
   stats: PartnerDetailStats;
 };
 
-function buildRatingBreakdown(ratings: number[]) {
-  const counts = [0, 0, 0, 0, 0];
-  for (const rating of ratings) {
-    if (rating >= 1 && rating <= 5) counts[rating - 1] += 1;
+function emptyBreakdown() {
+  return [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 }));
+}
+
+function breakdownFromRows(rows: Array<{ stars: number; review_count: number | string }> | null) {
+  const base = emptyBreakdown();
+  for (const row of rows ?? []) {
+    const stars = Number(row.stars);
+    const count = Number(row.review_count ?? 0);
+    const slot = base.find((item) => item.stars === stars);
+    if (slot) slot.count = count;
   }
-  return counts
-    .map((count, index) => ({ stars: index + 1, count }))
-    .reverse();
+  return base;
 }
 
 export async function fetchPartnerDetail(
@@ -52,8 +57,7 @@ export async function fetchPartnerDetail(
     { data: bags, error: bagsError },
     { data: reviews, error: reviewsError },
     { count: pickupCount, error: pickupsError },
-    { data: ratingRows, error: ratingsError },
-    { count: reviewCount, error: reviewCountError },
+    { data: breakdownRows, error: breakdownError },
   ] = await Promise.all([
     supabase.from('partners').select('*').eq('id', partnerId).maybeSingle(),
     supabase
@@ -66,7 +70,7 @@ export async function fetchPartnerDetail(
     supabase
       .from('reviews')
       .select(`
-        *,
+        id, rating, comment, created_at, partner_reply, partner_replied_at,
         customer:profiles(full_name),
         order:orders(bag:rescue_bags(title))
       `)
@@ -78,8 +82,7 @@ export async function fetchPartnerDetail(
       .select('*', { count: 'exact', head: true })
       .eq('partner_id', partnerId)
       .eq('status', 'picked_up'),
-    supabase.from('reviews').select('rating').eq('partner_id', partnerId),
-    supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('partner_id', partnerId),
+    supabase.rpc('get_partner_rating_breakdown', { p_partner_id: partnerId }),
   ]);
 
   if (partnerError) throw partnerError;
@@ -87,14 +90,33 @@ export async function fetchPartnerDetail(
   if (bagsError) throw bagsError;
   if (reviewsError) throw reviewsError;
   if (pickupsError) throw pickupsError;
-  if (ratingsError) throw ratingsError;
-  if (reviewCountError) throw reviewCountError;
 
-  const ratings = (ratingRows ?? []).map((row) => row.rating);
+  let ratingBreakdown = emptyBreakdown();
+  if (!breakdownError && breakdownRows) {
+    ratingBreakdown = breakdownFromRows(
+      breakdownRows as Array<{ stars: number; review_count: number | string }>,
+    );
+  } else {
+    // Fallback before migration 057: one light ratings query.
+    const { data: ratingRows } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('partner_id', partnerId);
+    const counts = [0, 0, 0, 0, 0];
+    for (const row of ratingRows ?? []) {
+      const rating = row.rating;
+      if (rating >= 1 && rating <= 5) counts[rating - 1] += 1;
+    }
+    ratingBreakdown = counts
+      .map((count, index) => ({ stars: index + 1, count }))
+      .reverse();
+  }
+
+  const totalReviews = partner.total_reviews ?? 0;
   const avgRating =
-    ratings.length > 0
-      ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
-      : partner.rating ?? 0;
+    totalReviews > 0 && partner.rating > 0
+      ? Math.round(partner.rating * 10) / 10
+      : 0;
 
   const liveBags = await enrichBagsWithLiveStock(bags ?? []);
 
@@ -105,8 +127,8 @@ export async function fetchPartnerDetail(
     stats: {
       totalPickups: pickupCount ?? 0,
       avgRating,
-      totalReviews: reviewCount ?? 0,
-      ratingBreakdown: buildRatingBreakdown(ratings),
+      totalReviews,
+      ratingBreakdown,
     },
   };
 }
