@@ -1,14 +1,14 @@
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import Constants from 'expo-constants';
-import { Alert } from 'react-native';
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
+import { Alert, Platform } from 'react-native';
 
+import { config } from '@/constants/config';
+import { isExpoGo } from '@/lib/expoGo';
 import { supabase } from '@/lib/supabase';
-
-WebBrowser.maybeCompleteAuthSession();
-
-/** HTTPS callback so iOS shows "lastbag.app" instead of the Supabase project host. */
-const OAUTH_REDIRECT_TO = 'https://lastbag.app/auth/callback';
 
 export type GoogleSignInNativeResult =
   | { success: true; user: any }
@@ -16,130 +16,107 @@ export type GoogleSignInNativeResult =
   | { success: false; cancelled: true }
   | { success: false; cancelled?: false; expoGo?: false; error?: unknown };
 
-async function getSessionUser() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user ?? null;
+let configured = false;
+
+function ensureConfigured() {
+  if (configured) return;
+
+  const webClientId = config.googleWebClientId;
+  if (!webClientId) {
+    throw new Error(
+      'Missing EXPO_PUBLIC_GOOGLE_CLIENT_ID (Google Cloud Web client ID). Required for native Google Sign-In.',
+    );
+  }
+
+  GoogleSignin.configure({
+    webClientId,
+    iosClientId: config.googleIosClientId || undefined,
+    offlineAccess: false,
+    scopes: ['openid', 'email', 'profile'],
+  });
+  configured = true;
 }
 
+/**
+ * Native Google Sign-In → Supabase session via ID token.
+ *
+ * Uses Google's system UI (no supabase.co in the iOS / Google prompts) and
+ * avoids the brittle browser PKCE redirect that was failing in EAS builds.
+ */
 export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
-  const isExpoGo = Constants.appOwnership === 'expo';
-
-  if (isExpoGo) {
+  if (isExpoGo()) {
     Alert.alert(
       'Google Sign-In',
-      'Google Sign-In is not available in Expo Go. Please use email or phone.',
+      'Google Sign-In is not available in Expo Go. Please use a development or store build, or sign in with email or phone.',
       [{ text: 'OK', style: 'default' }],
     );
     return { success: false, expoGo: true };
   }
 
   try {
-    const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'lastbag',
-      path: 'auth/callback',
-    });
+    ensureConfigured();
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: OAUTH_REDIRECT_TO,
-        scopes: 'openid email profile',
-        skipBrowserRedirect: true,
-      },
-    });
-
-    if (error || !data?.url) {
-      return {
-        success: false,
-        error: error ?? new Error('No OAuth URL'),
-      };
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     }
 
-    // Keeps the flow inside the app: ASWebAuthenticationSession on iOS,
-    // Chrome Custom Tabs on Android — never a hand-off to Safari/Chrome.
-    // Pass the HTTPS callback so iOS shows "lastbag.app" (not supabase.co).
-    console.log('[Google] redirectUri:', redirectUri, 'redirectTo:', OAUTH_REDIRECT_TO);
-    const result = await WebBrowser.openAuthSessionAsync(data.url, OAUTH_REDIRECT_TO, {
-      showInRecents: false,
-      preferEphemeralSession: false,
-      createTask: false,
-    });
+    const response = await GoogleSignin.signIn();
 
-    // Deep link handler (app/auth/callback) may have already exchanged the code
-    // and established a session while the auth sheet was closing.
-    const existingUser = await getSessionUser();
-    if (existingUser) {
-      return { success: true, user: existingUser };
+    if (!isSuccessResponse(response)) {
+      return { success: false, cancelled: true };
     }
 
-    if (result.type !== 'success') {
-      return {
-        success: false,
-        cancelled: result.type === 'cancel' || result.type === 'dismiss',
-      };
-    }
-
-    const url = result.url;
-    console.log('[Google] Callback URL:', url);
-
-    // Parse all params
-    const hashParams = new URLSearchParams(url.split('#')[1] || '');
-    const queryString = url.split('?')[1]?.split('#')[0] || '';
-    const queryParams = new URLSearchParams(queryString);
-
-    const code = queryParams.get('code') || hashParams.get('code');
-
-    const accessToken =
-      hashParams.get('access_token') || queryParams.get('access_token');
-
-    const refreshToken =
-      hashParams.get('refresh_token') || queryParams.get('refresh_token');
-
-    const oauthError = queryParams.get('error') || hashParams.get('error');
-    const oauthErrorDescription =
-      queryParams.get('error_description') || hashParams.get('error_description');
-
-    if (oauthError) {
-      return {
-        success: false,
-        error: new Error(oauthErrorDescription || oauthError),
-      };
-    }
-
-    // Try access token first
-    if (accessToken) {
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken || '',
-      });
-      if (!sessionError && sessionData.user) {
-        return { success: true, user: sessionData.user };
+    const idToken = response.data.idToken;
+    if (!idToken) {
+      // Some Android configs return tokens only via getTokens().
+      const tokens = await GoogleSignin.getTokens();
+      if (!tokens.idToken) {
+        return {
+          success: false,
+          error: new Error('Google did not return an ID token'),
+        };
       }
-      const recovered = await getSessionUser();
-      if (recovered) return { success: true, user: recovered };
+      return exchangeIdToken(tokens.idToken);
     }
 
-    // Try code exchange
-    if (code) {
-      const { data: exchangeData, error: exchangeError } =
-        await supabase.auth.exchangeCodeForSession(code);
-      if (!exchangeError && exchangeData.user) {
-        return { success: true, user: exchangeData.user };
-      }
-      console.error('[Google] Code exchange failed:', exchangeError);
-      // Code may already have been consumed by app/auth/callback.tsx.
-      const recovered = await getSessionUser();
-      if (recovered) return { success: true, user: recovered };
-    }
-
-    return {
-      success: false,
-      error: new Error('No tokens in callback'),
-    };
+    return exchangeIdToken(idToken);
   } catch (err) {
-    console.error('[Google] Error:', err);
-    const recovered = await getSessionUser();
-    if (recovered) return { success: true, user: recovered };
+    if (isErrorWithCode(err)) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        return { success: false, cancelled: true };
+      }
+      if (err.code === statusCodes.IN_PROGRESS) {
+        return { success: false, cancelled: true };
+      }
+      if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        return {
+          success: false,
+          error: new Error('Google Play Services is not available on this device'),
+        };
+      }
+    }
+
+    console.error('[Google] Native sign-in error:', err);
     return { success: false, error: err };
   }
+}
+
+async function exchangeIdToken(idToken: string): Promise<GoogleSignInNativeResult> {
+  console.log('[Google] Exchanging ID token with Supabase');
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+
+  if (error) {
+    console.error('[Google] signInWithIdToken failed:', error.message);
+    return { success: false, error };
+  }
+
+  if (!data.user) {
+    return { success: false, error: new Error('No user returned from Google sign-in') };
+  }
+
+  return { success: true, user: data.user };
 }

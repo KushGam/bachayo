@@ -41,6 +41,10 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   access_denied: 'Google sign-in was cancelled.',
   'user cancelled': 'Google sign-in was cancelled.',
   cancelled: 'Google sign-in was cancelled.',
+  nonce: 'Google sign-in isn’t ready yet. Ask support to enable Skip nonce check in Supabase.',
+  'Missing EXPO_PUBLIC_GOOGLE':
+    'Google sign-in isn’t configured in this build. Please try phone or email instead.',
+  'ID token': 'Google sign-in didn’t finish. Please try again, or use phone or email.',
   supabase: 'Couldn’t sign in with Google. Please try phone or email instead.',
   misconfigured: 'Google sign-in isn’t ready yet. Please try phone or email instead.',
   'row-level security': 'Could not save your profile. Please try again.',
