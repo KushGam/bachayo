@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
@@ -15,6 +16,7 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { initAnalytics } from '@/lib/analytics';
 import { wasIntentionalSignOut } from '@/lib/auth/signOutIntent';
+import { parseResetPasswordDeepLink } from '@/lib/deepLinks';
 import { supabase } from '@/lib/supabase';
 import Colors, { Palette } from '@/constants/Colors';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -65,11 +67,44 @@ function RootLayoutNav() {
   const segments = useSegments();
   const setAuthRole = useAuthStore((s) => s.setAuthRole);
   const hadSessionRef = useRef(false);
+  const handledDeepLinkRef = useRef<string | null>(null);
 
   usePushTokenRegistration();
   useNotificationObserver();
   useUnreadNotifications();
   useUnreadMessages();
+
+  useEffect(() => {
+    const handleDeepLink = (url: string | null) => {
+      if (!url) return;
+      if (handledDeepLinkRef.current === url) return;
+
+      const reset = parseResetPasswordDeepLink(url);
+      if (reset) {
+        handledDeepLinkRef.current = url;
+        const params = new URLSearchParams({ token: reset.token });
+        if (reset.email) params.set('email', reset.email);
+        router.push(`/auth/reset-password?${params.toString()}`);
+        return;
+      }
+
+      // OAuth / recovery callback — AuthCallbackScreen reads the full Linking URL.
+      if (url.includes('auth/callback')) {
+        handledDeepLinkRef.current = url;
+        router.push('/auth/callback');
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    void Linking.getInitialURL().then((url) => {
+      handleDeepLink(url);
+    });
+
+    return () => subscription.remove();
+  }, [router]);
 
   useEffect(() => {
     const {
@@ -185,6 +220,8 @@ function RootLayoutNav() {
         <Stack.Screen name="profile/privacy" options={{ headerShown: false }} />
         <Stack.Screen name="admin/subscriptions" options={{ title: 'Subscriptions', headerShown: true }} />
         <Stack.Screen name="auth/callback" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="auth/reset-password" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="payment/callback" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>

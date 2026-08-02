@@ -72,7 +72,7 @@ export default function ForgotPasswordScreen() {
     try {
       const { error: resetError } = await requestPasswordReset(email);
       if (resetError) {
-        setError(friendlyAuthError(resetError, 'Could not send reset code.'));
+        setError(resetError.message || 'Could not send reset code.');
         return false;
       }
       void hapticSuccess();

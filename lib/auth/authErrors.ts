@@ -143,6 +143,10 @@ export type OtpFailureKind =
 export function classifyOtpError(error: unknown): OtpFailureKind {
   const raw = errorBlob(error).toLowerCase();
   if (isNetworkError(error)) return 'network';
+  // Don't treat our clearer API-unreachable copy as generic "no internet"
+  if (raw.includes('can’t reach lastbag') || raw.includes("can't reach lastbag")) {
+    return 'other';
+  }
   if (raw.includes('rate_limit') || raw.includes('too many attempts. please wait')) {
     return 'rate_limit';
   }

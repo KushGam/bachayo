@@ -709,6 +709,172 @@ export async function reduceReservationQuantity(
   };
 }
 
+/**
+ * Partner adjusts quantity on an active reservation.
+ * Stock is resynced via migration 049 trigger (+ explicit sync fallback).
+ * Do not call a separate increment RPC — that would double-count reserved stock.
+ */
+export async function updatePartnerOrderQuantity(orderId: string, newQuantity: number) {
+  const { data: orderRow, error: fetchError } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      bag:rescue_bags(*),
+      partner:partners(id, name, user_id)
+    `)
+    .eq('id', orderId)
+    .single();
+
+  if (fetchError || !orderRow) {
+    return {
+      error: fetchError ?? new Error('Order not found'),
+      bagId: null as string | null,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  const order = orderRow as unknown as PartnerOrderWithCustomer & {
+    partner: { id: string; name: string; user_id: string };
+  };
+
+  if (order.status !== 'pending' && order.status !== 'confirmed') {
+    return {
+      error: new Error('Only active orders can be edited'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  if (!Number.isInteger(newQuantity) || newQuantity < 1) {
+    return {
+      error: new Error('Quantity must be at least 1'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  if (newQuantity === order.quantity) {
+    return {
+      error: new Error('Choose a different quantity'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  const bag = order.bag;
+  const remaining =
+    Math.max(0, bag.quantity_available - bag.quantity_reserved) + order.quantity;
+  const maxPerCustomer = Math.max(1, bag.max_per_customer ?? 3);
+  const maxAllowed = Math.max(1, Math.min(maxPerCustomer, remaining));
+
+  if (newQuantity > maxAllowed) {
+    return {
+      error: new Error(
+        newQuantity > remaining
+          ? `Only ${remaining} bag${remaining === 1 ? '' : 's'} available for this listing`
+          : `Max ${maxPerCustomer} per customer on this listing`,
+      ),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+      maxAllowed,
+    };
+  }
+
+  const unitPrice =
+    order.quantity > 0 ? Math.round(order.total_price / order.quantity) : order.total_price;
+  const nextTotal = unitPrice * newQuantity;
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from('orders')
+    .update({
+      quantity: newQuantity,
+      total_price: nextTotal,
+      quantity_adjusted_at: new Date().toISOString(),
+    } as never)
+    .eq('id', orderId)
+    .in('status', ['pending', 'confirmed'])
+    .select(
+      `
+      *,
+      bag:rescue_bags(*),
+      customer:profiles(id, full_name, phone, privacy_settings)
+    `,
+    )
+    .maybeSingle();
+
+  if (updateError || !updatedRow) {
+    return {
+      error: updateError ?? new Error('Could not update quantity'),
+      bagId: order.bag_id,
+      bagStock: null,
+      order: null,
+    };
+  }
+
+  try {
+    await supabase.rpc('sync_rescue_bag_reserved_quantity' as never, {
+      target_bag_id: order.bag_id,
+    } as never);
+  } catch {
+    // Trigger from migration 049 should already have run.
+  }
+
+  const { data: refreshedBag } = await supabase
+    .from('rescue_bags')
+    .select('id, quantity_reserved, quantity_available, status')
+    .eq('id', order.bag_id)
+    .maybeSingle();
+
+  const bagStock = refreshedBag
+    ? {
+        quantity_reserved: refreshedBag.quantity_reserved,
+        quantity_available: refreshedBag.quantity_available,
+        status: refreshedBag.status as typeof bag.status,
+      }
+    : null;
+
+  if (order.customer_id) {
+    const partnerName = order.partner?.name?.trim() || 'The restaurant';
+    await sendNotification({
+      userId: order.customer_id,
+      title: 'Order updated 📦',
+      body: `${partnerName} updated your order quantity to ${newQuantity} bag${newQuantity === 1 ? '' : 's'}`,
+      type: 'order_updated',
+      data: {
+        order_id: orderId,
+        orderId,
+        bag_id: order.bag_id,
+        type: 'order_updated',
+      },
+    });
+  }
+
+  return {
+    error: null,
+    bagId: order.bag_id,
+    bagStock,
+    order: updatedRow as unknown as PartnerOrderWithCustomer,
+    maxAllowed,
+  };
+}
+
+export function getPartnerEditableOrderMaxQty(input: {
+  quantity: number;
+  quantity_available: number;
+  quantity_reserved: number;
+  max_per_customer?: number | null;
+}) {
+  const remaining =
+    Math.max(0, input.quantity_available - input.quantity_reserved) + input.quantity;
+  const maxPerCustomer = Math.max(1, input.max_per_customer ?? 3);
+  return Math.max(1, Math.min(maxPerCustomer, remaining));
+}
+
 export async function submitReview(input: {
   orderId: string;
   customerId: string;

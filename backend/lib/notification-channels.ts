@@ -12,6 +12,7 @@ const CHANNEL_BY_TYPE: Record<string, AndroidChannelId> = {
   cancellation: 'orders',
   order_message: 'orders',
   pickup_confirmed: 'orders',
+  order_updated: 'orders',
   new_bag: 'bags',
   bag_expiring: 'bags',
   pickup_reminder: 'reminders',

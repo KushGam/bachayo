@@ -536,9 +536,20 @@ export function PartnerTodayBagCard({
         <BagOrdersExpandedPanel
           orders={orders}
           loading={ordersLoading}
+          bag={{
+            title: bag.title,
+            quantity_available: bag.quantity_available,
+            quantity_reserved: bag.quantity_reserved,
+            max_per_customer: bag.max_per_customer,
+          }}
           markingPickup={markingPickup}
           onMarkPickedUp={(orderId) => void markAsPickedUp(orderId)}
           onOpenChat={onOpenChat}
+          onQuantityUpdated={(updated) => {
+            setOrders((prev) =>
+              (prev ?? []).map((row) => (row.id === updated.id ? { ...row, ...updated } : row)),
+            );
+          }}
           unreadByOrder={unreadByOrder}
         />
       </ExpandableOrders>

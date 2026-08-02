@@ -1,6 +1,6 @@
 import { Phone } from 'lucide-react-native';
-import { useEffect } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,8 +8,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { EditOrderQtySheet } from '@/components/partner/EditOrderQtySheet';
+import { SuccessToast } from '@/components/ui/SuccessToast';
 import { formatRelativeTime, getInitials } from '@/lib/helpers';
 import { isConfirmedOrderStatus, isReservedOrderStatus, normalizeOrderStatus } from '@/lib/orderStatus';
+import {
+  getPartnerEditableOrderMaxQty,
+  updatePartnerOrderQuantity,
+} from '@/lib/orders';
 import { formatNprFromPaisa, type PartnerBagOrder } from '@/lib/partnerBags';
 import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
 
@@ -102,23 +108,36 @@ function OrderSkeletonRow() {
 
 type BagExpandedOrderRowProps = {
   order: PartnerBagOrder;
+  bag?: {
+    title?: string;
+    quantity_available: number;
+    quantity_reserved: number;
+    max_per_customer?: number | null;
+  } | null;
   isLast: boolean;
   historyMode?: boolean;
   markingPickup?: string | null;
   onMarkPickedUp?: (orderId: string) => void;
   onOpenChat?: (orderId: string) => void;
+  onQuantityUpdated?: (order: PartnerBagOrder) => void;
   unreadMessages?: number;
 };
 
 export function BagExpandedOrderRow({
   order,
+  bag,
   isLast,
   historyMode = false,
   markingPickup,
   onMarkPickedUp,
   onOpenChat,
+  onQuantityUpdated,
   unreadMessages = 0,
 }: BagExpandedOrderRowProps) {
+  const [editQtyVisible, setEditQtyVisible] = useState(false);
+  const [qtyLoading, setQtyLoading] = useState(false);
+  const [qtyToast, setQtyToast] = useState(false);
+
   const customerName = getDisplayName(order.customer) || order.customer_name || 'Customer';
   const phone = getDisplayPhone(order.customer);
   const normalizedStatus = normalizeOrderStatus(order.status);
@@ -129,6 +148,12 @@ export function BagExpandedOrderRow({
   const quantity = order.quantity ?? 1;
   const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
     'takeaway') as 'takeaway' | 'dinein';
+  const maxQty = getPartnerEditableOrderMaxQty({
+    quantity,
+    quantity_available: bag?.quantity_available ?? quantity,
+    quantity_reserved: bag?.quantity_reserved ?? quantity,
+    max_per_customer: bag?.max_per_customer,
+  });
 
   const statusLabel = isPickedUp
     ? 'Picked up'
@@ -136,8 +161,37 @@ export function BagExpandedOrderRow({
       ? 'Cancelled'
       : `Reserved ${formatRelativeTime(order.created_at)}`;
 
+  const saveQuantity = async (newQty: number) => {
+    setQtyLoading(true);
+    const result = await updatePartnerOrderQuantity(order.id, newQty);
+    setQtyLoading(false);
+    if (result.error) {
+      Alert.alert('Could not update', result.error.message);
+      return;
+    }
+    setEditQtyVisible(false);
+    setQtyToast(true);
+    if (result.order) {
+      onQuantityUpdated?.(result.order as unknown as PartnerBagOrder);
+    }
+  };
   return (
     <View style={[styles.orderRow, isLast && styles.orderRowLast, isCancelled && styles.orderRowCancelled]}>
+      <SuccessToast visible={qtyToast} title="Order updated ✅" onHide={() => setQtyToast(false)} />
+      <EditOrderQtySheet
+        visible={editQtyVisible}
+        order={{
+          id: order.id,
+          quantity,
+          customer_name: customerName,
+          bag_title: bag?.title ?? 'Rescue bag',
+        }}
+        maxQty={maxQty}
+        submitting={qtyLoading}
+        onClose={() => setEditQtyVisible(false)}
+        onSave={(qty) => void saveQuantity(qty)}
+      />
+
       <View style={styles.initialsCircle}>
         <Text style={styles.initialsText}>{getInitials(customerName)}</Text>
       </View>
@@ -186,16 +240,25 @@ export function BagExpandedOrderRow({
           <Text style={[styles.reservedTime, isCancelled && styles.cancelledTime]}>
             {statusLabel}
           </Text>
-          {!historyMode && isConfirmed && onMarkPickedUp ? (
-            <Pressable
-              onPress={() => onMarkPickedUp(order.id)}
-              disabled={isLoading}
-              style={({ pressed }) => [
-                styles.markPickedUpBtn,
-                (isLoading || pressed) && { opacity: 0.85 },
-              ]}>
-              <Text style={styles.markPickedUpText}>{isLoading ? '…' : '✓ Done'}</Text>
-            </Pressable>
+          {!historyMode && isConfirmed ? (
+            <View style={styles.footerActions}>
+              <Pressable
+                onPress={() => setEditQtyVisible(true)}
+                style={({ pressed }) => [styles.editQtyBtn, pressed && { opacity: 0.85 }]}>
+                <Text style={styles.editQtyText}>✏️ Edit qty</Text>
+              </Pressable>
+              {onMarkPickedUp ? (
+                <Pressable
+                  onPress={() => onMarkPickedUp(order.id)}
+                  disabled={isLoading}
+                  style={({ pressed }) => [
+                    styles.markPickedUpBtn,
+                    (isLoading || pressed) && { opacity: 0.85 },
+                  ]}>
+                  <Text style={styles.markPickedUpText}>{isLoading ? '…' : '✓ Done'}</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : isPickedUp ? (
             <View style={styles.pickedUpPill}>
               <Text style={styles.pickedUpPillText}>✓ Done</Text>
@@ -224,21 +287,30 @@ export function BagExpandedOrderRow({
 type BagOrdersExpandedPanelProps = {
   orders: PartnerBagOrder[] | null;
   loading: boolean;
+  bag?: {
+    title?: string;
+    quantity_available: number;
+    quantity_reserved: number;
+    max_per_customer?: number | null;
+  } | null;
   /** When true, show picked up + cancelled history instead of only active confirmed orders. */
   historyMode?: boolean;
   markingPickup?: string | null;
   onMarkPickedUp?: (orderId: string) => void;
   onOpenChat?: (orderId: string) => void;
+  onQuantityUpdated?: (order: PartnerBagOrder) => void;
   unreadByOrder?: Record<string, number>;
 };
 
 export function BagOrdersExpandedPanel({
   orders,
   loading,
+  bag,
   historyMode = false,
   markingPickup,
   onMarkPickedUp,
   onOpenChat,
+  onQuantityUpdated,
   unreadByOrder,
 }: BagOrdersExpandedPanelProps) {
   const displayOrders = historyMode
@@ -258,11 +330,13 @@ export function BagOrdersExpandedPanel({
           <BagExpandedOrderRow
             key={order.id}
             order={order}
+            bag={bag}
             isLast={index === displayOrders.length - 1}
             historyMode={historyMode}
             markingPickup={markingPickup}
             onMarkPickedUp={onMarkPickedUp}
             onOpenChat={onOpenChat}
+            onQuantityUpdated={onQuantityUpdated}
             unreadMessages={unreadByOrder?.[order.id] ?? 0}
           />
         ))
@@ -413,6 +487,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 6,
     gap: 8,
+  },
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  editQtyBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#D85A30',
+    backgroundColor: '#FAECE7',
+  },
+  editQtyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D85A30',
   },
   reservedTime: {
     fontSize: 11,

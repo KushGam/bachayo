@@ -1,8 +1,9 @@
 import { QrCode } from 'lucide-react-native';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
+import { EditOrderQtySheet } from '@/components/partner/EditOrderQtySheet';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
@@ -15,7 +16,11 @@ import {
   getOrderShortCode,
 } from '@/lib/helpers';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
-import { confirmPartnerPickup } from '@/lib/orders';
+import {
+  confirmPartnerPickup,
+  getPartnerEditableOrderMaxQty,
+  updatePartnerOrderQuantity,
+} from '@/lib/orders';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
 import { promptPartnerPickupConfirm } from '@/lib/partnerPickupUi';
 import { getDisplayName, getDisplayPhone } from '@/lib/privacy';
@@ -30,6 +35,7 @@ type PartnerOrderRowProps = {
   onPickupReverted?: (orderId: string) => void;
   onScan?: () => void;
   onOpenChat?: (orderId: string) => void;
+  onQuantityUpdated?: (order: PartnerOrderWithCustomer) => void;
   unreadMessages?: number;
 };
 
@@ -63,12 +69,16 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   onPickupReverted,
   onScan,
   onOpenChat,
+  onQuantityUpdated,
   unreadMessages = 0,
 }: PartnerOrderRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [qtyLoading, setQtyLoading] = useState(false);
+  const [editQtyVisible, setEditQtyVisible] = useState(false);
   const [localStatus, setLocalStatus] = useState(order.status);
   const [showToast, setShowToast] = useState(false);
+  const [qtyToast, setQtyToast] = useState(false);
   const prevOrderStatusRef = useRef(order.status);
 
   useEffect(() => {
@@ -94,6 +104,22 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const canExpand = !isCancelled && !isPickedUp && normalizedStatus === 'confirmed';
   const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
     'takeaway') as 'takeaway' | 'dinein';
+  const quantity = order.quantity ?? 1;
+  const maxQty = useMemo(
+    () =>
+      getPartnerEditableOrderMaxQty({
+        quantity,
+        quantity_available: order.bag.quantity_available,
+        quantity_reserved: order.bag.quantity_reserved,
+        max_per_customer: order.bag.max_per_customer,
+      }),
+    [
+      order.bag.max_per_customer,
+      order.bag.quantity_available,
+      order.bag.quantity_reserved,
+      quantity,
+    ],
+  );
 
   const runConfirm = async (allowOutsideWindow = false) => {
     if (isPickedUp) return;
@@ -133,12 +159,49 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
 
   const pickupWindow = `${formatTime12h(order.bag.pickup_start)} – ${formatTime12h(order.bag.pickup_end)}`;
 
+  const saveQuantity = async (newQty: number) => {
+    setQtyLoading(true);
+    const result = await updatePartnerOrderQuantity(order.id, newQty);
+    setQtyLoading(false);
+
+    if (result.error) {
+      Alert.alert('Could not update', result.error.message);
+      return;
+    }
+
+    void hapticSuccess();
+    setEditQtyVisible(false);
+    setQtyToast(true);
+    if (result.order) {
+      onQuantityUpdated?.(result.order);
+    }
+  };
+
   return (
     <View style={[styles.wrap, isPickedUp && styles.wrapDone]}>
       <SuccessToast
         visible={showToast}
         title="Pickup confirmed! ✓"
         onHide={() => setShowToast(false)}
+      />
+      <SuccessToast
+        visible={qtyToast}
+        title="Order updated ✅"
+        onHide={() => setQtyToast(false)}
+      />
+
+      <EditOrderQtySheet
+        visible={editQtyVisible}
+        order={{
+          id: order.id,
+          quantity,
+          customer_name: customerName,
+          bag_title: order.bag.title,
+        }}
+        maxQty={maxQty}
+        submitting={qtyLoading}
+        onClose={() => setEditQtyVisible(false)}
+        onSave={(qty) => void saveQuantity(qty)}
       />
 
       <Pressable
@@ -180,7 +243,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
               </Text>
             </View>
             <Text numberOfLines={1} style={styles.bagTitle}>
-              {order.bag.title} · {pickupWindow}
+              {order.bag.title} · ×{quantity} · {pickupWindow}
             </Text>
             {isPickedUp && order.picked_up_at ? (
               <Text style={styles.pickedUpMeta}>
@@ -215,7 +278,20 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
             {order.customer_note ? (
               <Text style={styles.detailNote}>{order.customer_note}</Text>
             ) : null}
-            <Text style={styles.detailMeta}>Reserved {formatRelativeTime(order.created_at)}</Text>
+            <Text style={styles.detailMeta}>
+              ×{quantity} bag{quantity === 1 ? '' : 's'} · Reserved{' '}
+              {formatRelativeTime(order.created_at)}
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                void hapticButtonPress();
+                setEditQtyVisible(true);
+              }}
+              style={({ pressed }) => [styles.editQtyBtn, pressed && { opacity: 0.9 }]}>
+              <Text style={styles.editQtyEmoji}>✏️</Text>
+              <Text style={styles.editQtyText}>Edit qty</Text>
+            </Pressable>
 
             <View style={styles.qrBlock}>
               <View style={styles.qrWrap}>
@@ -412,6 +488,27 @@ const styles = StyleSheet.create({
     ...Type.label,
     color: Palette.textTertiary,
     marginBottom: Spacing.sm,
+  },
+  editQtyBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Palette.primary,
+    backgroundColor: Palette.primaryLight,
+    marginBottom: Spacing.sm,
+  },
+  editQtyEmoji: {
+    fontSize: 12,
+  },
+  editQtyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Palette.primary,
   },
   qrBlock: {
     alignItems: 'center',

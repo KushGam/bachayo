@@ -17,14 +17,27 @@ export async function deleteCustomerAccount(userId: string) {
     throw new Error(profileError.message);
   }
 
-  if (profile && profile.role !== 'customer') {
+  if (!profile) {
+    // Auth user may still exist without a profile row.
+    const { error: deleteOrphanAuth } = await admin.auth.admin.deleteUser(userId);
+    if (deleteOrphanAuth) {
+      const msg = deleteOrphanAuth.message.toLowerCase();
+      if (msg.includes('not found') || msg.includes('user not found')) {
+        throw Object.assign(new Error('Customer not found.'), { code: 'NOT_FOUND' });
+      }
+      throw new Error(deleteOrphanAuth.message);
+    }
+    return;
+  }
+
+  if (profile.role !== 'customer') {
     throw Object.assign(new Error('Only customer accounts can be deleted this way.'), {
       code: 'NOT_CUSTOMER',
     });
   }
 
   const fallbackName =
-    (typeof profile?.full_name === 'string' && profile.full_name.trim()) || 'Customer';
+    (typeof profile.full_name === 'string' && profile.full_name.trim()) || 'Customer';
 
   // Fill missing display names before the profile row disappears.
   await admin
@@ -43,6 +56,15 @@ export async function deleteCustomerAccount(userId: string) {
 
   const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
   if (deleteError) {
+    const msg = deleteError.message.toLowerCase();
+    // Auth already gone — remove orphaned profile so admin delete still succeeds.
+    if (msg.includes('not found') || msg.includes('user not found')) {
+      const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
+      if (profileDeleteError) {
+        throw new Error(profileDeleteError.message);
+      }
+      return;
+    }
     throw new Error(deleteError.message);
   }
 }

@@ -155,6 +155,10 @@ export function CustomerOrderCard({
           <View style={styles.metaRow}>
             <Text style={styles.metaChip}>{formatNprPaisa(order.total_price)}</Text>
             <View style={styles.metaDot} />
+            <Text style={styles.metaChip}>
+              ×{order.quantity ?? 1} bag{(order.quantity ?? 1) === 1 ? '' : 's'}
+            </Text>
+            <View style={styles.metaDot} />
             <Text style={styles.metaChip}>{serviceType === 'dinein' ? 'Dine-in' : 'Takeaway'}</Text>
             {isActiveOrder ? (
               <>
@@ -163,6 +167,13 @@ export function CustomerOrderCard({
               </>
             ) : null}
           </View>
+
+          {isActiveOrder &&
+          (order as { quantity_adjusted_at?: string | null }).quantity_adjusted_at ? (
+            <View style={styles.qtyUpdatedPill}>
+              <Text style={styles.qtyUpdatedText}>📦 Quantity updated by restaurant</Text>
+            </View>
+          ) : null}
 
           {isActiveOrder && !expanded ? (
             <Text style={styles.tapHint}>Tap to show QR code</Text>
@@ -283,7 +294,7 @@ export function CustomerOrderCard({
                   pressed && styles.pressed,
                 ]}>
                 <Star size={14} color={Palette.primary} strokeWidth={2.2} />
-                <Text style={styles.reviewCtaText}>Leave a review →</Text>
+                <Text style={styles.reviewCtaText}>Rate your experience →</Text>
               </Pressable>
             ) : null}
           </View>
@@ -430,6 +441,19 @@ const styles = StyleSheet.create({
     ...Type.caption,
     color: Palette.textTertiary,
     fontWeight: '500',
+  },
+  qtyUpdatedPill: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.warningBg,
+  },
+  qtyUpdatedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Palette.warning,
   },
   metaDot: {
     width: 3,

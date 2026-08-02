@@ -204,6 +204,7 @@ export const ANDROID_CHANNEL_BY_TYPE: Record<string, AndroidChannelId> = {
   cancellation: 'orders',
   order_message: 'orders',
   pickup_confirmed: 'orders',
+  order_updated: 'orders',
   new_bag: 'bags',
   bag_expiring: 'bags',
   pickup_reminder: 'reminders',
@@ -230,6 +231,9 @@ export function getRouteFromNotificationData(data: NotificationData) {
     return `/bag/${bagId}` as const;
   }
   if (type === 'pickup_confirmed' && orderId) {
+    return '/(tabs)/customer/my-bags' as const;
+  }
+  if (type === 'order_updated' && orderId) {
     return '/(tabs)/customer/my-bags' as const;
   }
   if (type === 'cancellation' || type === 'bag_cancelled') {

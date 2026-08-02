@@ -15,7 +15,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CancelReservationSheet } from '@/components/customer/CancelReservationSheet';
-import { ReviewPromptSheet } from '@/components/customer/ReviewPromptSheet';
+import { PostPickupReview } from '@/components/customer/PostPickupReview';
 import { CustomerMyBagsEmpty } from '@/components/customer/my-bags/CustomerMyBagsEmpty';
 import {
   CustomerMyBagsHeader,
@@ -63,7 +63,7 @@ function isPastOrderStatus(status: string) {
 
 export default function MyBagsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ review?: string }>();
+  const params = useLocalSearchParams<{ review?: string; show_review?: string }>();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<CustomerMyBagsTab>('active');
   const [orders, setOrders] = useState<CustomerOrderWithDetails[]>([]);
@@ -118,7 +118,7 @@ export default function MyBagsScreen() {
         const order = ordersCacheRef.current?.find((row) => row.id === orderId);
         if (!order) return;
         void openReviewPrompt(order);
-      }, 1000);
+      }, 1500);
     },
     [openReviewPrompt],
   );
@@ -288,17 +288,20 @@ export default function MyBagsScreen() {
 
   const listData = tab === 'active' ? activeOrders : pastOrders;
 
-  // Deep link / notification tap: ?review=orderId
+  // Deep link / notification tap: ?review=orderId or ?show_review=orderId
   useEffect(() => {
-    const reviewId = typeof params.review === 'string' ? params.review : undefined;
+    const reviewId =
+      (typeof params.review === 'string' && params.review) ||
+      (typeof params.show_review === 'string' && params.show_review) ||
+      undefined;
     if (!reviewId || loading) return;
     const order = orders.find((row) => row.id === reviewId);
     if (!order) return;
     void (async () => {
       await openReviewPrompt(order, { force: true });
-      router.setParams({ review: undefined });
+      router.setParams({ review: undefined, show_review: undefined });
     })();
-  }, [params.review, orders, loading, openReviewPrompt, router]);
+  }, [params.review, params.show_review, orders, loading, openReviewPrompt, router]);
 
   const toggleExpand = (id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -389,7 +392,7 @@ export default function MyBagsScreen() {
 
   const handleSubmitReview = useCallback(
     async (rating: number, comment: string) => {
-      if (!reviewOrder || !customerId) return;
+      if (!reviewOrder || !customerId) return false;
 
       setReviewSubmitting(true);
       const result = await submitCustomerReview({
@@ -410,7 +413,7 @@ export default function MyBagsScreen() {
           Alert.alert('Already reviewed', 'You already reviewed this order.');
           dismissReviewPrompt();
           void refreshOrdersRef.current();
-          return;
+          return false;
         }
         const message =
           result.error instanceof Error
@@ -419,7 +422,7 @@ export default function MyBagsScreen() {
               ? String((result.error as { message: unknown }).message)
               : 'Could not submit review.';
         Alert.alert('Could not submit', message);
-        return;
+        return false;
       }
 
       const localReview: Review = {
@@ -447,10 +450,7 @@ export default function MyBagsScreen() {
       });
 
       void markReviewPromptShown(reviewOrder.id);
-      setShowReviewPrompt(false);
-      setReviewOrder(null);
-      void hapticSuccess();
-      setShowReviewToast(true);
+      return true;
     },
     [customerId, dismissReviewPrompt, reviewOrder],
   );
@@ -563,11 +563,11 @@ export default function MyBagsScreen() {
         onConfirm={(payload) => void handleConfirmCancel(payload)}
       />
 
-      <ReviewPromptSheet
+      <PostPickupReview
         visible={showReviewPrompt}
         order={reviewOrder}
         submitting={reviewSubmitting}
-        onSubmit={(rating, comment) => void handleSubmitReview(rating, comment)}
+        onSubmit={handleSubmitReview}
         onDismiss={dismissReviewPrompt}
       />
 

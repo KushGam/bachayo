@@ -737,6 +737,20 @@ export default function PartnerDashboardScreen() {
               onMarkPickedUp={markAsPickedUp}
               onScan={() => router.push('/(tabs)/partner/scan')}
               onOpenChat={(id) => router.push(`/order/chat/${id}`)}
+              onQuantityUpdated={(updated) => {
+                setOrders((prev) =>
+                  prev.map((row) =>
+                    row.id === updated.id
+                      ? {
+                          ...row,
+                          ...updated,
+                          bag: updated.bag ?? row.bag,
+                          customer: updated.customer ?? row.customer,
+                        }
+                      : row,
+                  ),
+                );
+              }}
               unreadMessages={unreadByOrder[order.id] ?? 0}
             />
           ))}

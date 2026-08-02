@@ -8,11 +8,21 @@ async function postJson<T>(path: string, body: Record<string, unknown>): Promise
     throw Object.assign(new Error('API URL is not configured'), { code: 'NO_API_URL' });
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw Object.assign(
+      new Error(
+        'Can’t reach LastBag servers right now. Check your connection, or restart Expo after changing EXPO_PUBLIC_API_URL.',
+      ),
+      { code: 'API_UNREACHABLE' },
+    );
+  }
 
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string;

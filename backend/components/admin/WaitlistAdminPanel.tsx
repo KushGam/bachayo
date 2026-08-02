@@ -1,8 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-
-import { removeWaitlistEmail } from '@/app/admin/actions';
 
 type WaitlistRow = {
   id: string;
@@ -194,25 +193,50 @@ export function WaitlistLaunchPanel({
 }
 
 export function WaitlistRowActions({ row }: { row: WaitlistRow }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="flex items-center justify-end gap-2">
-      <a
-        href={`mailto:${row.email}`}
-        className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-        📧 Email
-      </a>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => {
-          if (!confirm(`Remove ${row.email} from the waitlist?`)) return;
-          start(async () => removeWaitlistEmail(row.id));
-        }}
-        className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60">
-        {pending ? '…' : '🗑 Remove'}
-      </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center justify-end gap-2">
+        <a
+          href={`mailto:${row.email}`}
+          className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          📧 Email
+        </a>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (!confirm(`Remove ${row.email} from the waitlist?`)) return;
+            start(async () => {
+              setError(null);
+              try {
+                const response = await fetch('/api/admin/waitlist/delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ id: row.id }),
+                });
+                const data = (await response.json().catch(() => ({}))) as {
+                  success?: boolean;
+                  error?: string;
+                };
+                if (!response.ok || !data.success) {
+                  throw new Error(data.error ?? `Request failed (${response.status})`);
+                }
+                router.refresh();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Remove failed');
+              }
+            });
+          }}
+          className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60">
+          {pending ? '…' : '🗑 Remove'}
+        </button>
+      </div>
+      {error ? <p className="max-w-[12rem] text-right text-[11px] text-red-600">{error}</p> : null}
     </div>
   );
 }
