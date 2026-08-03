@@ -70,19 +70,25 @@ function getNotificationIcon(type: InboxNotificationType) {
   }
 }
 
-function getNotificationRoute(notification: InboxNotification): Href | null {
+function getNotificationRoute(notification: InboxNotification): Href {
   const data = notification.data ?? {};
   const orderId = String(data.order_id ?? data.orderId ?? '');
   const bagId = String(data.bag_id ?? data.bagId ?? '');
+  const dataType = typeof data.type === 'string' ? data.type : '';
+  const detail = `/notifications/${notification.id}` as Href;
+
+  if (dataType === 'partner_dashboard') {
+    return '/(tabs)/partner/dashboard' as Href;
+  }
 
   switch (notification.type) {
     case 'reservation':
     case 'new_bag':
-      return bagId ? (`/bag/${bagId}` as Href) : null;
+      return bagId ? (`/bag/${bagId}` as Href) : detail;
     case 'cancellation':
       return '/(tabs)/customer/my-bags' as Href;
     case 'pickup_reminder':
-      return orderId ? (`/order/${orderId}` as Href) : null;
+      return orderId ? (`/order/${orderId}` as Href) : detail;
     case 'review_request':
       return orderId
         ? (`/(tabs)/customer/my-bags?review=${orderId}` as Href)
@@ -93,8 +99,10 @@ function getNotificationRoute(notification: InboxNotification): Href | null {
       return '/(tabs)/partner/my-bags' as Href;
     case 'subscription':
       return '/(tabs)/partner/subscription' as Href;
+    case 'system':
+    case 'announcement':
     default:
-      return null;
+      return detail;
   }
 }
 
@@ -307,8 +315,7 @@ export default function NotificationsScreen() {
             <NotificationRow
               item={item}
               onPress={() => {
-                const route = getNotificationRoute(item);
-                if (route) router.push(route);
+                router.push(getNotificationRoute(item));
               }}
             />
           )}

@@ -215,6 +215,7 @@ function RootLayoutNav() {
         <Stack.Screen name="support/help" options={{ headerShown: false }} />
         <Stack.Screen name="messages/index" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="notifications/preferences" options={{ headerShown: false }} />
         <Stack.Screen name="profile/edit" options={{ headerShown: false }} />
         <Stack.Screen name="profile/privacy" options={{ headerShown: false }} />

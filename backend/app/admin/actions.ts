@@ -278,7 +278,10 @@ export async function sendAdminNotification(input: {
     const batch = unique.slice(i, i + 10);
     const results = await Promise.all(
       batch.map((userId) =>
-        deliverNotification(userId, input.title, input.body).catch(() => ({ success: false })),
+        deliverNotification(userId, input.title, input.body, {
+          type: 'announcement',
+          data: { type: 'announcement' },
+        }).catch(() => ({ success: false })),
       ),
     );
     sent += results.filter((r) => r.success).length;

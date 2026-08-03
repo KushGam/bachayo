@@ -269,8 +269,17 @@ export function getRouteFromNotificationData(data: NotificationData) {
   if (type === 'bag' && bagId) {
     return `/bag/${bagId}` as const;
   }
-  // Anything without a dedicated screen (announcements, generic system notices)
-  // still needs somewhere to land — a tap that does nothing reads as a bug.
+  const notificationId =
+    (typeof data.notification_id === 'string' && data.notification_id) ||
+    (typeof data.notificationId === 'string' && data.notificationId) ||
+    null;
+
+  // Announcements / system notices — open the full message when we have an id.
+  if (notificationId && (type === 'system' || type === 'announcement' || !type)) {
+    return `/notifications/${notificationId}` as const;
+  }
+
+  // Anything without a dedicated screen still needs somewhere to land.
   if (type) {
     return '/notifications' as const;
   }

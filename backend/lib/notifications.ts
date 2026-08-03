@@ -24,18 +24,25 @@ async function saveInboxNotification(
   body: string,
   type: string,
   data: Record<string, unknown> | null,
-) {
-  const { error } = await supabase.from('notifications').insert({
-    user_id: userId,
-    title,
-    body,
-    type,
-    data,
-  } as never);
+): Promise<string | null> {
+  const { data: row, error } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      title,
+      body,
+      type,
+      data,
+    } as never)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.warn('[notifications] inbox insert failed:', error.message);
+    return null;
   }
+
+  return typeof row?.id === 'string' ? row.id : null;
 }
 
 export async function deliverNotification(
@@ -47,13 +54,29 @@ export async function deliverNotification(
   const supabase = createSupabaseAdmin();
   const notificationType = options?.type ?? 'system';
   const notificationData = options?.data ?? null;
-  const pushData = notificationData ?? { type: notificationType };
 
   if (!options?.force) {
     const allowed = await shouldSendNotification(userId, notificationType);
     if (!allowed) {
       return { success: true, skipped: true, reason: 'User preference' };
     }
+  }
+
+  const notificationId = await saveInboxNotification(
+    supabase,
+    userId,
+    title,
+    body,
+    notificationType,
+    notificationData,
+  );
+
+  const pushData: Record<string, unknown> = {
+    ...(notificationData ?? { type: notificationType }),
+    type: (notificationData?.type as string | undefined) ?? notificationType,
+  };
+  if (notificationId) {
+    pushData.notification_id = notificationId;
   }
 
   const { data: profile, error } = await supabase
@@ -80,15 +103,6 @@ export async function deliverNotification(
     ]);
     pushSent = true;
   }
-
-  await saveInboxNotification(
-    supabase,
-    userId,
-    title,
-    body,
-    notificationType,
-    notificationData,
-  );
 
   if (!pushSent) {
     return { success: true, error: 'no_push_token' };

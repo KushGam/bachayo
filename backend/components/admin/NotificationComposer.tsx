@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 
 import { sendAdminNotification } from '@/app/admin/actions';
 import type { AdminCityOption } from '@/lib/admin/cities';
 
-type PartnerOption = { id: string; name: string };
+type UserOption = { id: string; name: string; subtitle?: string | null };
 
 export function NotificationComposer({
   partners,
+  customers,
   cities,
   recentLog,
 }: {
-  partners: PartnerOption[];
+  partners: UserOption[];
+  customers: UserOption[];
   cities: AdminCityOption[];
   recentLog: {
     id: string;
@@ -25,18 +27,36 @@ export function NotificationComposer({
   }[];
 }) {
   const [targetType, setTargetType] = useState('all');
+  const [userKind, setUserKind] = useState<'partner' | 'customer'>('partner');
   const [cityId, setCityId] = useState(cities[0]?.id ?? '');
   const [userId, setUserId] = useState('');
+  const [userQuery, setUserQuery] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [result, setResult] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  const userOptions = userKind === 'partner' ? partners : customers;
+
+  const filteredUsers = useMemo(() => {
+    const q = userQuery.trim().toLowerCase();
+    if (!q) return userOptions;
+    return userOptions.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.subtitle?.toLowerCase().includes(q) ?? false),
+    );
+  }, [userOptions, userQuery]);
+
+  const selectedUser = userOptions.find((u) => u.id === userId);
+
   const targetLabel =
     targetType === 'city'
-      ? cityId
+      ? (cities.find((c) => c.id === cityId)?.name ?? cityId)
       : targetType === 'user'
-        ? userId
+        ? selectedUser
+          ? `${userKind === 'partner' ? 'Partner' : 'Customer'}: ${selectedUser.name}`
+          : userId
         : targetType;
 
   return (
@@ -48,7 +68,12 @@ export function NotificationComposer({
             <label className="mb-1 block text-sm font-medium text-gray-700">Target</label>
             <select
               value={targetType}
-              onChange={(e) => setTargetType(e.target.value)}
+              onChange={(e) => {
+                setTargetType(e.target.value);
+                setUserId('');
+                setUserQuery('');
+                setResult(null);
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
               <option value="all">All users</option>
               <option value="partners">All partners</option>
@@ -74,14 +99,65 @@ export function NotificationComposer({
             )
           ) : null}
           {targetType === 'user' ? (
-            <select value={userId} onChange={(e) => setUserId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              <option value="">Select partner…</option>
-              {partners.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserKind('partner');
+                    setUserId('');
+                    setUserQuery('');
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    userKind === 'partner'
+                      ? 'bg-[#D85A30] text-white'
+                      : 'border border-gray-300 bg-white text-gray-700'
+                  }`}>
+                  Partner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserKind('customer');
+                    setUserId('');
+                    setUserQuery('');
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    userKind === 'customer'
+                      ? 'bg-[#D85A30] text-white'
+                      : 'border border-gray-300 bg-white text-gray-700'
+                  }`}>
+                  Customer
+                </button>
+              </div>
+              <input
+                type="search"
+                value={userQuery}
+                onChange={(e) => setUserQuery(e.target.value)}
+                placeholder={
+                  userKind === 'partner'
+                    ? 'Search partners…'
+                    : 'Search customers by name or phone…'
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+              <select
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">
+                  {userKind === 'partner' ? 'Select partner…' : 'Select customer…'}
                 </option>
-              ))}
-            </select>
+                {filteredUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.subtitle ? `${u.name} · ${u.subtitle}` : u.name}
+                  </option>
+                ))}
+              </select>
+              {filteredUsers.length === 0 ? (
+                <p className="text-sm text-gray-500">No matches.</p>
+              ) : null}
+            </div>
           ) : null}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Title (max 50)</label>
@@ -135,7 +211,7 @@ export function NotificationComposer({
         <h2 className="mb-4 text-sm font-medium uppercase text-gray-500">Preview</h2>
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <div className="mx-auto max-w-xs rounded-xl bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500">BACHAYO</p>
+            <p className="text-xs font-semibold text-gray-500">LASTBAG</p>
             <p className="mt-1 text-sm font-semibold text-gray-900">{title || 'Notification title'}</p>
             <p className="mt-1 text-sm text-gray-600">{body || 'Notification body preview…'}</p>
           </div>

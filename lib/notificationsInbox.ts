@@ -9,7 +9,8 @@ export type InboxNotificationType =
   | 'bag_expiring'
   | 'subscription'
   | 'new_bag'
-  | 'system';
+  | 'system'
+  | 'announcement';
 
 export type InboxNotification = {
   id: string;
@@ -43,6 +44,29 @@ export async function fetchNotifications(userId: string, limit = 50) {
 
   if (error) throw error;
   return (data ?? []) as unknown as InboxNotification[];
+}
+
+export async function fetchNotificationById(id: string, userId: string) {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as InboxNotification | null) ?? null;
+}
+
+export async function markNotificationRead(id: string, userId: string) {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true } as never)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .eq('is_read', false);
+
+  if (error) throw error;
 }
 
 export async function markAllNotificationsRead(userId: string) {
