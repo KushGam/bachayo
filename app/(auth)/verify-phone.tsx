@@ -243,7 +243,7 @@ export default function VerifyPhoneScreen() {
         return;
       }
 
-      // Existing account — sign them in (login or accidental signup with existing phone)
+      // Existing account — open that account (login or signup with known phone)
       if ('profile' in result && result.profile && !result.isNewUser) {
         verifyingRef.current = false;
         setVerifying(false);
@@ -259,7 +259,7 @@ export default function VerifyPhoneScreen() {
         return;
       }
 
-      // Signup — continue onboarding for brand-new users
+      // Signup — continue profile setup for brand-new users
       if (signupPassword) {
         const { error: passwordError } = await setAuthPassword(signupPassword);
         if (passwordError) {
@@ -271,6 +271,25 @@ export default function VerifyPhoneScreen() {
       }
 
       setPhoneOtpVerified(true);
+
+      // Name was collected on basics; if somehow missing, finish it before location/business.
+      if ('needsProfileName' in result && result.needsProfileName && 'userId' in result) {
+        verifyingRef.current = false;
+        setVerifying(false);
+        router.replace({
+          pathname: '/(auth)/complete-profile',
+          params: {
+            phone: formatPhone(phoneDigits),
+            role,
+            userId: String(result.userId),
+            fromPhoneSignup: '1',
+          },
+        } as never);
+        return;
+      }
+
+      verifyingRef.current = false;
+      setVerifying(false);
 
       if (role === 'partner') {
         router.replace('/(auth)/signup-partner/business');
@@ -296,6 +315,7 @@ export default function VerifyPhoneScreen() {
       signupPassword,
       verifyOTP,
       wrongAttempts,
+      formatPhone,
     ],
   );
 
@@ -308,9 +328,18 @@ export default function VerifyPhoneScreen() {
   const handleResend = async () => {
     if (!canResend || !phoneDigits) return;
     setError(null);
-    const result = await sendOTP(phoneDigits);
+    const result = await sendOTP(phoneDigits, mode === 'login' ? 'login' : 'signup');
     if (result.success) {
       resetTimersAfterResend();
+      return;
+    }
+    if ('accountExists' in result && result.accountExists) {
+      setError(result.error);
+      return;
+    }
+    if ('noAccount' in result && result.noAccount) {
+      setNoAccount(true);
+      setError(result.error);
       return;
     }
     if (result.kind === 'rate_limit') {

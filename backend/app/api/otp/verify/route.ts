@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
   const requestPhoneLocal = normalizeNepalPhone(phone);
   if (bound.phoneLocal !== requestPhoneLocal) {
     return NextResponse.json(
-      { error: 'Phone number does not match this verification.', code: 'INVALID_OTP' },
+      { error: 'Phone number does not match this verification.', code: 'PHONE_MISMATCH' },
       { status: 400 },
     );
   }
 
   try {
-    const result = await verifyOtp(bound.otpId, code);
+    const result = await verifyOtp(bound.otpId, String(code).trim());
 
     if (result.verified === false) {
       return NextResponse.json(
@@ -74,12 +74,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If the provider returns a phone, it must match the bound session.
-    if (result.phone) {
+    // otp_id is already bound to this phone at send time. Only cross-check
+    // when the provider returns a full Nepal mobile — skip masked/partial values.
+    if (result.phone && isValidNepalMobile(result.phone)) {
       const verifiedLocal = normalizeNepalPhone(result.phone);
       if (verifiedLocal !== bound.phoneLocal) {
         return NextResponse.json(
-          { error: 'Phone number does not match this verification.', code: 'INVALID_OTP' },
+          { error: 'Phone number does not match this verification.', code: 'PHONE_MISMATCH' },
           { status: 400 },
         );
       }

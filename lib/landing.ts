@@ -133,16 +133,28 @@ export async function resolveInitialRoute(): Promise<string> {
       if (role === 'customer') {
         const { data: onboardingRow } = await supabase
           .from('profiles')
-          .select('onboarding_completed')
+          .select('onboarding_completed, full_name, phone')
           .eq('id', userId)
           .maybeSingle();
-        const completed = (onboardingRow as { onboarding_completed?: boolean | null } | null)
-          ?.onboarding_completed;
-        if (completed === false) {
+        const row = onboardingRow as {
+          onboarding_completed?: boolean | null;
+          full_name?: string | null;
+          phone?: string | null;
+        } | null;
+        // Treat null the same as false — incomplete profiles must finish setup.
+        if (row?.onboarding_completed !== true) {
           if (__DEV__) console.log('[boot] customer onboarding incomplete');
           return '/(onboarding)/customer';
         }
+        if (!row.full_name?.trim() && !row.phone?.trim()) {
+          if (__DEV__) console.log('[boot] profile missing name/phone — complete-profile');
+          return '/(auth)/complete-profile';
+        }
       }
+    } else {
+      // Session without a profile (e.g. phone OTP created auth user only).
+      if (__DEV__) console.log('[boot] session without profile — complete-profile');
+      return '/(auth)/complete-profile';
     }
 
     return resolveAuthenticatedRoute(userId, role);

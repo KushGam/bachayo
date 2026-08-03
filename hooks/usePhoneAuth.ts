@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { config } from '@/constants/config';
+import { phoneProfileExists, phoneProfileRole } from '@/lib/auth';
 import {
   classifyOtpError,
   friendlyAuthError,
@@ -21,6 +22,9 @@ export type PhoneAuthFailure = {
   kind: ReturnType<typeof classifyOtpError>;
   retryAfterSeconds?: number;
   code?: string;
+  accountExists?: boolean;
+  noAccount?: boolean;
+  role?: string | null;
 };
 
 /** Shared across screens so OTP verify works after navigation. */
@@ -55,7 +59,7 @@ export function usePhoneAuth() {
 
   const validatePhone = (phone: string) => /^(97|98)\d{8}$/.test(cleanPhone(phone));
 
-  const sendOTP = async (phone: string) => {
+  const sendOTP = async (phone: string, mode: 'signup' | 'login' = 'signup') => {
     setLoading(true);
     setError(null);
 
@@ -65,6 +69,42 @@ export function usePhoneAuth() {
       }
 
       const formatted = formatPhone(phone);
+
+      // Gate before SMS so signup/login never waste an OTP on the wrong path.
+      try {
+        const exists = await phoneProfileExists(formatted);
+        if (mode === 'signup' && exists) {
+          let role: string | null = null;
+          try {
+            role = await phoneProfileRole(formatted);
+          } catch {
+            role = null;
+          }
+          const message = 'This number is already registered. Please login instead.';
+          setError(message);
+          return {
+            success: false as const,
+            accountExists: true as const,
+            role,
+            error: message,
+            kind: 'other' as const,
+          };
+        }
+
+        if (mode === 'login' && !exists) {
+          const message = 'No account found with this number. Please sign up first.';
+          setError(message);
+          return {
+            success: false as const,
+            noAccount: true as const,
+            error: message,
+            kind: 'other' as const,
+          };
+        }
+      } catch (lookupError) {
+        // RPC may be missing in older envs — still attempt OTP rather than hard-block.
+        console.warn('[phone-auth] phone lookup failed, continuing to OTP:', lookupError);
+      }
 
       let response: Response;
       try {
@@ -219,7 +259,12 @@ export function usePhoneAuth() {
         };
       }
 
+      // Login with a number that has no profile yet — drop the ghost session.
       if (mode === 'login') {
+        await supabase.auth.signOut();
+        sharedPhoneForVerify = null;
+        sharedOtpId = null;
+        setPhoneForVerify(null);
         return {
           success: true as const,
           isNewUser: true as const,
@@ -233,9 +278,10 @@ export function usePhoneAuth() {
 
       if (!user) throw new Error('Could not start your session');
 
-      await supabase.from('profiles').upsert({
+      const displayName = userData.name?.trim();
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: user.id,
-        full_name: userData.name,
+        full_name: displayName && displayName !== 'Customer' ? displayName : null,
         phone,
         email: userData.email || null,
         role: userData.role,
@@ -243,6 +289,8 @@ export function usePhoneAuth() {
         terms_version: 'v1.0',
         onboarding_completed: false,
       });
+
+      if (profileError) throw profileError;
 
       sharedPhoneForVerify = null;
       sharedOtpId = null;
@@ -253,6 +301,7 @@ export function usePhoneAuth() {
         isNewUser: true as const,
         userId: user.id,
         role: userData.role,
+        needsProfileName: !displayName || displayName === 'Customer',
       };
     } catch (err: unknown) {
       const message = friendlyAuthError(err, 'Verification failed');

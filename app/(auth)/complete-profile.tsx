@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
 import { AuthButton } from '@/components/auth/AuthButton';
+import { FormField } from '@/components/auth/FormField';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { PhoneInput } from '@/components/auth/PhoneInput';
 import { TermsCheckbox } from '@/components/auth/TermsCheckbox';
@@ -22,6 +23,7 @@ import { recordTermsAcceptance } from '@/lib/terms';
 import { supabase } from '@/lib/supabase';
 import { phoneSchema } from '@/lib/validation/auth';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useSignupStore } from '@/store/useSignupStore';
 import type { UserRole } from '@/types/database';
 
 const completeProfileSchema = z.object({
@@ -33,10 +35,27 @@ type Step = 'phone' | 'otp';
 
 const RESEND_SECONDS = 60;
 
+function localFromPhoneEmail(email: string | null | undefined) {
+  if (!email?.endsWith('@lastbag.phone')) return null;
+  const digits = email.split('@')[0] ?? '';
+  const local = digits.replace(/^977/, '');
+  return /^(97|98)\d{8}$/.test(local) ? local : null;
+}
+
 export default function CompleteProfileScreen() {
   const router = useRouter();
-  const { locale, pendingRole, setPendingRole, setAuthRole } = useAuthStore();
-  const [userId, setUserId] = useState<string | null>(null);
+  const params = useLocalSearchParams<{
+    phone?: string;
+    role?: string;
+    userId?: string;
+    fromPhoneSignup?: string;
+  }>();
+  const { locale, pendingRole, setPendingRole, setAuthRole, setPendingPhone, setPendingName } =
+    useAuthStore();
+  const { setCustomer, setPartner } = useSignupStore();
+  const [userId, setUserId] = useState<string | null>(
+    typeof params.userId === 'string' ? params.userId : null,
+  );
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -44,10 +63,19 @@ export default function CompleteProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [step, setStep] = useState<Step>('phone');
-  const [pendingPhone, setPendingPhone] = useState('');
+  const [pendingPhone, setPendingPhoneLocal] = useState('');
   const [otp, setOtp] = useState('');
   const [otpId, setOtpId] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [phoneSignupMode, setPhoneSignupMode] = useState(params.fromPhoneSignup === '1');
+  const [verifiedPhoneLocal, setVerifiedPhoneLocal] = useState(
+    typeof params.phone === 'string'
+      ? params.phone.replace(/\s/g, '').replace(/^\+977/, '').replace(/^977/, '')
+      : '',
+  );
   const goBack = useSafeBack('/(auth)/welcome');
 
   const {
@@ -73,8 +101,15 @@ export default function CompleteProfileScreen() {
         (user.user_metadata?.name as string | undefined) ??
         null;
       setDisplayName(name);
+
+      const phoneLocal = localFromPhoneEmail(user.email);
+      if (phoneLocal && params.fromPhoneSignup !== '1') {
+        // Orphan phone-auth session (OTP minted auth user, no profile yet).
+        setPhoneSignupMode(true);
+        setVerifiedPhoneLocal(phoneLocal);
+      }
     });
-  }, [router]);
+  }, [params.fromPhoneSignup, router]);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -82,7 +117,73 @@ export default function CompleteProfileScreen() {
     return () => clearTimeout(timer);
   }, [secondsLeft]);
 
-  const role: UserRole = pendingRole === 'partner' ? 'partner' : 'customer';
+  const role: UserRole =
+    params.role === 'partner' || pendingRole === 'partner' ? 'partner' : 'customer';
+
+  const finishPhoneSignupProfile = async () => {
+    if (!userId) return;
+    if (!fullName.trim()) {
+      setNameError('Please enter your name');
+      return;
+    }
+    if (fullName.trim().length < 2) {
+      setNameError('Name must be at least 2 characters');
+      return;
+    }
+
+    setNameError('');
+    setLoading(true);
+    setSubmitError(null);
+
+    try {
+      const phoneE164 = verifiedPhoneLocal
+        ? formatNepalPhone(verifiedPhoneLocal)
+        : null;
+
+      const { error } = await supabase.from('profiles').upsert({
+        id: userId,
+        full_name: fullName.trim(),
+        email: email.trim() || null,
+        phone: phoneE164,
+        role,
+        onboarding_completed: false,
+        terms_accepted_at: new Date().toISOString(),
+        terms_version: 'v1.0',
+      });
+      if (error) throw error;
+
+      await recordTermsAcceptance(userId);
+      setAuthRole(role);
+      setPendingRole(role);
+      if (verifiedPhoneLocal) {
+        setPendingPhone(verifiedPhoneLocal);
+        setPendingName(fullName.trim());
+        setCustomer({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phone: verifiedPhoneLocal,
+        });
+        setPartner({
+          ownerName: fullName.trim(),
+          email: email.trim(),
+          phone: verifiedPhoneLocal,
+          businessPhone: verifiedPhoneLocal,
+        });
+      }
+
+      if (role === 'partner') {
+        router.replace('/(auth)/signup-partner/business');
+        return;
+      }
+      router.replace('/(auth)/signup-customer/location');
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : t(locale, 'authError'),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const finishOnboarding = async (phoneDigits: string | null) => {
     if (!userId) return;
@@ -137,7 +238,7 @@ export default function CompleteProfileScreen() {
         return;
       }
 
-      setPendingPhone(phone);
+      setPendingPhoneLocal(phone);
       setOtpId(result.otp_id);
       setOtp('');
       setSecondsLeft(RESEND_SECONDS);
@@ -220,6 +321,10 @@ export default function CompleteProfileScreen() {
       <StatusBar style="dark" />
       <Pressable
         onPress={() => {
+          if (phoneSignupMode) {
+            goBack();
+            return;
+          }
           if (step === 'otp') {
             setStep('phone');
             setOtp('');
@@ -232,20 +337,78 @@ export default function CompleteProfileScreen() {
         <Text style={styles.backText}>←</Text>
       </Pressable>
 
-      <View style={styles.header}>
-        <Text style={styles.title}>{step === 'otp' ? 'Verify your phone' : 'Almost there'}</Text>
-        <Text style={styles.subtitle}>
-          {step === 'otp'
-            ? `Enter the 6-digit code sent to +977 ${pendingPhone}`
-            : `${displayName ? `Hi ${displayName.split(' ')[0]}! ` : ''}Add a Nepal phone number for pickup updates. We’ll text you a code to confirm it.`}
-        </Text>
-        {userEmail && step === 'phone' ? (
-          <Text style={styles.emailHint}>Signed in as {userEmail}</Text>
-        ) : null}
-      </View>
-
-      {step === 'phone' ? (
+      {phoneSignupMode ? (
         <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Complete your profile</Text>
+            <Text style={styles.subtitle}>
+              {verifiedPhoneLocal
+                ? `Your number +977 ${verifiedPhoneLocal} is verified. Add your name to continue.`
+                : 'Add your name to finish setting up your account.'}
+            </Text>
+          </View>
+
+          <View style={styles.roleRow}>
+            <Pressable
+              onPress={() => setPendingRole('customer')}
+              style={[styles.roleChip, role === 'customer' && styles.roleChipActive]}>
+              <Text style={[styles.roleChipText, role === 'customer' && styles.roleChipTextActive]}>
+                I want rescue food
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setPendingRole('partner')}
+              style={[styles.roleChip, role === 'partner' && styles.roleChipActive]}>
+              <Text style={[styles.roleChipText, role === 'partner' && styles.roleChipTextActive]}>
+                I run a restaurant
+              </Text>
+            </Pressable>
+          </View>
+
+          <FormField
+            label="Full name"
+            value={fullName}
+            onChangeText={(value) => {
+              setFullName(value);
+              setNameError('');
+            }}
+            placeholder="Your name"
+            autoCapitalize="words"
+            error={nameError || undefined}
+          />
+
+          <FormField
+            label="Email (optional)"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+
+          <AuthButton
+            label="Continue →"
+            onPress={() => void finishPhoneSignupProfile()}
+            loading={loading}
+            style={styles.submit}
+          />
+        </>
+      ) : null}
+
+      {!phoneSignupMode && step === 'phone' ? (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Almost there</Text>
+            <Text style={styles.subtitle}>
+              {`${displayName ? `Hi ${displayName.split(' ')[0]}! ` : ''}Add a Nepal phone number for pickup updates. We’ll text you a code to confirm it.`}
+            </Text>
+            {userEmail ? (
+              <Text style={styles.emailHint}>Signed in as {userEmail}</Text>
+            ) : null}
+          </View>
+
           <View style={styles.roleRow}>
             <Pressable
               onPress={() => setPendingRole('customer')}
@@ -314,8 +477,17 @@ export default function CompleteProfileScreen() {
             You can add and verify a phone later in Profile. Needed for some pickup alerts.
           </Text>
         </>
-      ) : (
+      ) : null}
+
+      {!phoneSignupMode && step === 'otp' ? (
         <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Verify your phone</Text>
+            <Text style={styles.subtitle}>
+              {`Enter the 6-digit code sent to +977 ${pendingPhone}`}
+            </Text>
+          </View>
+
           <OtpInput
             value={otp}
             onChange={(value) => {
@@ -356,7 +528,7 @@ export default function CompleteProfileScreen() {
             <Text style={styles.changePhone}>Change number</Text>
           </Pressable>
         </>
-      )}
+      ) : null}
     </Screen>
   );
 }

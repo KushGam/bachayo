@@ -5,16 +5,28 @@ import { Radius, Spacing, Type } from '@/constants/theme';
 
 type AuthAccountExistsBannerProps = {
   onGoToLogin: () => void;
+  /** Defaults to email copy; use phone for OTP signup collisions. */
+  channel?: 'email' | 'phone';
 };
 
-export function AuthAccountExistsBanner({ onGoToLogin }: AuthAccountExistsBannerProps) {
+export function AuthAccountExistsBanner({
+  onGoToLogin,
+  channel = 'email',
+}: AuthAccountExistsBannerProps) {
+  const body =
+    channel === 'phone'
+      ? 'An account with this phone number already exists. Please login instead.'
+      : 'This email is already registered. Please login instead.';
+
   return (
     <View style={styles.wrap}>
       <View style={styles.banner}>
         <Text style={styles.emoji}>⚠️</Text>
         <View style={styles.copy}>
-          <Text style={styles.title}>Account already exists</Text>
-          <Text style={styles.body}>This email is already registered. Please login instead.</Text>
+          <Text style={styles.title}>
+            {channel === 'phone' ? 'This number is already registered' : 'Account already exists'}
+          </Text>
+          <Text style={styles.body}>{body}</Text>
         </View>
       </View>
       <Pressable

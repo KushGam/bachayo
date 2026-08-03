@@ -34,7 +34,6 @@ import {
   emailProfileExists,
   fetchUserRole,
   navigateAfterGoogleSignIn,
-  phoneProfileExists,
 } from '@/lib/auth';
 import {
   friendlyAuthError,
@@ -81,6 +80,7 @@ export default function CustomerBasicsScreen() {
   } = usePhoneAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [emailExists, setEmailExists] = useState(false);
+  const [phoneExists, setPhoneExists] = useState(false);
   const [checking, setChecking] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -182,6 +182,7 @@ export default function CustomerBasicsScreen() {
 
     setSubmitError(null);
     setEmailExists(false);
+    setPhoneExists(false);
     setChecking(true);
 
     try {
@@ -201,17 +202,6 @@ export default function CustomerBasicsScreen() {
           }
           // RPC may not be deployed yet — allow signup to continue.
         }
-      } else {
-        try {
-          const exists = await phoneProfileExists(values.phone);
-          if (exists) {
-            setSubmitError('This number is already registered. Try logging in instead.');
-            setChecking(false);
-            return;
-          }
-        } catch {
-          // RPC may not be deployed yet — allow signup to continue.
-        }
       }
 
       setCustomerAuthMethod(values.authMethod);
@@ -229,8 +219,13 @@ export default function CustomerBasicsScreen() {
         setPendingRole('customer');
         setPendingName(values.fullName);
 
-        const result = await sendOTP(values.phone);
+        const result = await sendOTP(values.phone, 'signup');
         if (!result.success) {
+          if ('accountExists' in result && result.accountExists) {
+            setPhoneExists(true);
+            setChecking(false);
+            return;
+          }
           setSubmitError(
             result.error ||
               friendlyAuthError(result.error, 'Could not send verification code.'),
@@ -423,6 +418,13 @@ export default function CustomerBasicsScreen() {
 
             {emailExists && authMethod === 'email' ? (
               <AuthAccountExistsBanner onGoToLogin={() => router.push('/(auth)/login')} />
+            ) : null}
+
+            {phoneExists && authMethod === 'phone' ? (
+              <AuthAccountExistsBanner
+                channel="phone"
+                onGoToLogin={() => router.push('/(auth)/login')}
+              />
             ) : null}
 
             {authMethod === 'email' ? (

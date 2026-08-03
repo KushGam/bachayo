@@ -102,12 +102,29 @@ export async function hasUserProfile(userId: string) {
 }
 
 export async function phoneProfileExists(phoneDigits: string) {
-  const { data, error } = await supabase.rpc('phone_profile_exists', {
-    p_phone: formatNepalPhone(phoneDigits),
-  });
+  const { data, error } = await supabase.rpc('phone_profile_exists' as never, {
+    p_phone: formatNepalPhone(cleanPhoneDigits(phoneDigits)),
+  } as never);
 
   if (error) throw error;
   return Boolean(data);
+}
+
+export async function phoneProfileRole(phoneDigits: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('phone_profile_role' as never, {
+    p_phone: formatNepalPhone(cleanPhoneDigits(phoneDigits)),
+  } as never);
+
+  if (error) throw error;
+  return typeof data === 'string' ? data : null;
+}
+
+function cleanPhoneDigits(phone: string) {
+  return phone
+    .replace(/\s/g, '')
+    .replace(/^\+977/, '')
+    .replace(/^977/, '')
+    .replace(/^0/, '');
 }
 
 export async function fetchProfileByUserId(userId: string) {

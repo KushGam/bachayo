@@ -61,7 +61,7 @@ export async function resolveAuthenticatedRoute(
 
     const completed = (profile as { onboarding_completed?: boolean | null } | null)
       ?.onboarding_completed;
-    if (completed === false) {
+    if (completed !== true) {
       return '/(onboarding)/customer' as Href;
     }
   }

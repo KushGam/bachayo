@@ -212,15 +212,22 @@ export async function sendOtp(phone: string): Promise<SendResult> {
 /** Docs require otp_id + otp (not phone + code). */
 export async function verifyOtp(otpId: string, code: string): Promise<VerifyResult> {
   const apiKey = process.env.NEPALOTP_API_KEY ?? '';
+  const normalizedCode = String(code).replace(/\D/g, '');
+
+  if (!normalizedCode) {
+    throw new NepalOtpError('The code is incorrect', 'INVALID_OTP', 400);
+  }
 
   if (otpId.startsWith('otp_offline_') && isTestApiKey(apiKey)) {
-    return offlineVerify(otpId, code);
+    return offlineVerify(otpId, normalizedCode);
   }
 
   try {
+    // Docs use `otp`; send `code` too for older API compatibility.
     const payload = await request('/otp/verify', {
       otp_id: otpId,
-      otp: code,
+      otp: normalizedCode,
+      code: normalizedCode,
     });
 
     const nested =
@@ -239,7 +246,7 @@ export async function verifyOtp(otpId: string, code: string): Promise<VerifyResu
       error.code === 'NETWORK_ERROR' &&
       isTestApiKey(apiKey)
     ) {
-      return offlineVerify(otpId, code);
+      return offlineVerify(otpId, normalizedCode);
     }
     throw error;
   }

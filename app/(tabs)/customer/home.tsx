@@ -166,8 +166,16 @@ export default function HomeScreen() {
       .eq('id', sessionUser.id)
       .maybeSingle();
 
+    const emailLocal = sessionUser.email?.split('@')[0] || '';
+    const looksLikePhoneEmail =
+      Boolean(sessionUser.email?.endsWith('@lastbag.phone')) || /^\d{10,15}$/.test(emailLocal);
+
     setUser({
-      name: profile?.full_name || profile?.phone || sessionUser.email?.split('@')[0] || 'Guest',
+      name:
+        profile?.full_name?.trim() ||
+        profile?.phone ||
+        (looksLikePhoneEmail ? 'there' : emailLocal) ||
+        'Guest',
     });
     setIsSignedIn(true);
   }, []);
