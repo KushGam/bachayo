@@ -11,8 +11,8 @@ export type PhoneProfile = {
 };
 
 /**
- * Auth users are keyed by a synthetic email because Supabase magic links are
- * email-based. The phone itself stays on `profiles`, which is what the app reads.
+ * Synthetic email used only for phone-only accounts (no real email signup).
+ * Email accounts that later add a phone keep their real auth email.
  */
 function phoneEmail(e164: string) {
   return `${e164.replace(/\D/g, '')}@lastbag.phone`;
@@ -21,13 +21,7 @@ function phoneEmail(e164: string) {
 function phoneLookupVariants(e164: string): string[] {
   const digits = e164.replace(/\D/g, '');
   const local = digits.replace(/^977/, '').replace(/^0/, '');
-  const variants = [
-    e164,
-    `+977${local}`,
-    `977${local}`,
-    local,
-    `0${local}`,
-  ];
+  const variants = [e164, `+977${local}`, `977${local}`, local, `0${local}`];
   return [...new Set(variants.filter(Boolean))];
 }
 
@@ -40,63 +34,20 @@ async function findProfileByPhone(
     .from('profiles')
     .select('id, role, phone, full_name, onboarding_completed')
     .in('phone', variants)
-    .limit(1)
-    .maybeSingle<PhoneProfile>();
-  return data ?? null;
+    .limit(1);
+  return (data?.[0] as PhoneProfile | undefined) ?? null;
 }
 
-/**
- * Exchanges a proven-verified phone number for a real Supabase session.
- * Only ever call this after the OTP gateway has confirmed the code.
- *
- * Existing account = a profiles row for this phone (any common format) OR for
- * the auth user behind the phone email. Brand-new numbers get an auth user
- * with no profile so the app can route them into setup.
- */
-export async function mintSessionForPhone(e164: string) {
+async function mintSessionForAuthEmail(email: string) {
   const admin = createSupabaseAdmin();
-  const email = phoneEmail(e164);
-
-  let profile = await findProfileByPhone(admin, e164);
-
-  if (profile?.id) {
-    const { data: existing } = await admin.auth.admin.getUserById(profile.id);
-    if (existing?.user && !existing.user.email) {
-      await admin.auth.admin.updateUserById(profile.id, {
-        email,
-        email_confirm: true,
-      });
-    }
-    // Normalize stored phone to E.164 when we found a legacy format.
-    if (profile.phone && profile.phone !== e164) {
-      await admin.from('profiles').update({ phone: e164 }).eq('id', profile.id);
-      profile = { ...profile, phone: e164 };
-    }
-  } else {
-    const { error: createError } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { phone: e164 },
-    });
-
-    // A half-finished signup can leave the auth user without a profile row;
-    // that account is still usable, so only real failures should bubble up.
-    if (createError && !/already been registered|already exists/i.test(createError.message)) {
-      throw createError;
-    }
-  }
-
   const { data: link, error: linkError } = await admin.auth.admin.generateLink({
     type: 'magiclink',
     email,
   });
-
   if (linkError) throw linkError;
 
   const tokenHash = link?.properties?.hashed_token;
-  if (!tokenHash) {
-    throw new Error('Could not create session');
-  }
+  if (!tokenHash) throw new Error('Could not create session');
 
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!anonKey) {
@@ -111,15 +62,67 @@ export async function mintSessionForPhone(e164: string) {
     token_hash: tokenHash,
     type: 'magiclink',
   });
-
   if (verifyError) throw verifyError;
-  if (!verified.session) {
-    throw new Error('Could not create session');
+  if (!verified.session) throw new Error('Could not create session');
+
+  return verified.session;
+}
+
+/**
+ * After NepalOTP verifies the SMS code, open the SAME account that owns this
+ * phone on profiles (email signup that added a phone, or a phone-only account).
+ */
+export async function mintSessionForPhone(e164: string) {
+  const admin = createSupabaseAdmin();
+  const syntheticEmail = phoneEmail(e164);
+
+  let profile = await findProfileByPhone(admin, e164);
+  let sessionEmail = syntheticEmail;
+
+  if (profile?.id) {
+    const { data: existing } = await admin.auth.admin.getUserById(profile.id);
+    if (existing?.user?.email) {
+      // Email (or phone) account that already owns this number — sign into THAT user.
+      sessionEmail = existing.user.email;
+    } else if (existing?.user) {
+      await admin.auth.admin.updateUserById(profile.id, {
+        email: syntheticEmail,
+        email_confirm: true,
+      });
+      sessionEmail = syntheticEmail;
+    }
+
+    if (profile.phone !== e164) {
+      await admin.from('profiles').update({ phone: e164 }).eq('id', profile.id);
+      profile = { ...profile, phone: e164 };
+    }
+  } else {
+    // Brand-new phone — create synthetic auth user if needed.
+    const { error: createError } = await admin.auth.admin.createUser({
+      email: syntheticEmail,
+      email_confirm: true,
+      user_metadata: { phone: e164 },
+    });
+
+    if (createError && !/already been registered|already exists/i.test(createError.message)) {
+      throw createError;
+    }
+    sessionEmail = syntheticEmail;
   }
 
-  const userId = verified.session.user.id;
+  const session = await mintSessionForAuthEmail(sessionEmail);
+  const userId = session.user.id;
 
-  // Auth user existed from a prior OTP attempt — attach profile if present.
+  // Safety: session must match the profile we found.
+  if (profile && profile.id !== userId) {
+    console.error('[phone-session] session/profile mismatch', {
+      profileId: profile.id,
+      sessionUserId: userId,
+      sessionEmail,
+    });
+    throw new Error('Could not open the account for this phone number');
+  }
+
   if (!profile) {
     const { data: byId } = await admin
       .from('profiles')
@@ -128,14 +131,14 @@ export async function mintSessionForPhone(e164: string) {
       .maybeSingle<PhoneProfile>();
     profile = byId ?? null;
 
-    if (profile && (!profile.phone || profile.phone !== e164)) {
+    if (profile && profile.phone !== e164) {
       await admin.from('profiles').update({ phone: e164 }).eq('id', userId);
       profile = { ...profile, phone: e164 };
     }
   }
 
   return {
-    session: verified.session,
+    session,
     isNewUser: !profile,
     profile: profile ?? null,
   };
