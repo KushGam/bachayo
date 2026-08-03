@@ -38,6 +38,7 @@ import {
   navigateAfterGoogleSignIn,
   navigateAfterPasswordSignIn,
   signInWithEmail,
+  signInWithPhone,
 } from '@/lib/auth';
 import {
   friendlyAuthError,
@@ -67,10 +68,6 @@ function cleanPhoneDigits(value: string) {
     .replace(/^0/, '')
     .replace(/\D/g, '')
     .slice(0, 10);
-}
-
-function phoneAuthEmail(localDigits: string) {
-  return `977${localDigits}@lastbag.phone`;
 }
 
 function MethodRow({
@@ -302,13 +299,11 @@ export default function LoginScreen() {
     setLoading(true);
     setError('');
     try {
-      const { data, error: signError } = await supabase.auth.signInWithPassword({
-        email: phoneAuthEmail(local),
-        password,
-      });
+      const { data, error: signError } = await signInWithPhone(local, password);
       if (signError || !data.user) {
         setError(
-          isInvalidCredentialsError(signError)
+          isInvalidCredentialsError(signError) ||
+            /wrong phone|wrong password|invalid login/i.test(signError?.message ?? '')
             ? 'Wrong phone number or password. Please try again.'
             : friendlyAuthError(signError, t(locale, 'authError')),
         );

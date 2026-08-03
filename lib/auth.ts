@@ -357,11 +357,47 @@ export async function signInWithEmail(email: string, password: string) {
   });
 }
 
+/**
+ * Sign in with phone + password against the SAME auth account as email login.
+ * Resolves profiles.phone → auth email on the server, then sets a session.
+ */
 export async function signInWithPhone(phoneDigits: string, password: string) {
-  return supabase.auth.signInWithPassword({
-    phone: formatNepalPhone(phoneDigits),
-    password,
+  const response = await fetch(`${config.apiUrl}/api/auth/phone-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone: formatNepalPhone(cleanPhoneDigits(phoneDigits)),
+      password,
+    }),
   });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    access_token?: string;
+    refresh_token?: string;
+    user_id?: string;
+  };
+
+  if (!response.ok || !payload.access_token || !payload.refresh_token) {
+    return {
+      data: { user: null, session: null },
+      error: new Error(payload.error || 'Wrong phone number or password. Please try again.'),
+    };
+  }
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+  });
+
+  if (error || !data.user) {
+    return {
+      data: { user: null, session: null },
+      error: error ?? new Error('Could not start your session.'),
+    };
+  }
+
+  return { data: { user: data.user, session: data.session }, error: null };
 }
 
 export async function setAuthPassword(password: string) {
