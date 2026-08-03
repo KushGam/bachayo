@@ -10,6 +10,7 @@ const DEFAULT_SUCCESS =
 export function WaitlistForm() {
   const [email, setEmail] = useState('');
   const [city, setCity] = useState('');
+  const [cityOther, setCityOther] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -20,11 +21,21 @@ export function WaitlistForm() {
     setError('');
     setMessage('');
 
+    if (city === 'Other' && !cityOther.trim()) {
+      setStatus('error');
+      setError('Please enter your city');
+      return;
+    }
+
     try {
       const response = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, city: city || null }),
+        body: JSON.stringify({
+          email,
+          city: city || null,
+          cityOther: city === 'Other' ? cityOther.trim() : undefined,
+        }),
       });
       const data = (await response.json()) as {
         success?: boolean;
@@ -40,6 +51,7 @@ export function WaitlistForm() {
       setStatus('success');
       setEmail('');
       setCity('');
+      setCityOther('');
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -79,7 +91,10 @@ export function WaitlistForm() {
               name="city"
               required
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setCity(e.target.value);
+                if (e.target.value !== 'Other') setCityOther('');
+              }}
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -99,6 +114,19 @@ export function WaitlistForm() {
                 </option>
               ))}
             </select>
+            {city === 'Other' ? (
+              <input
+                type="text"
+                name="cityOther"
+                required
+                value={cityOther}
+                onChange={(e) => setCityOther(e.target.value)}
+                placeholder="Which city?"
+                maxLength={80}
+                autoComplete="address-level2"
+                className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[var(--primary)]/50 focus:bg-white/[0.09]"
+              />
+            ) : null}
             <button
               type="submit"
               disabled={status === 'loading'}

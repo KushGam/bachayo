@@ -5,7 +5,7 @@ import {
 } from '@/components/admin/WaitlistAdminPanel';
 import { formatActivityTime, formatDate, todayIso, weekAgoIso } from '@/lib/admin/format';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
-import { WAITLIST_CITIES } from '@/lib/waitlist-cities';
+import { WAITLIST_CITIES, WAITLIST_PRIMARY_CITIES } from '@/lib/waitlist-cities';
 
 export default async function AdminWaitlistPage({
   searchParams,
@@ -30,7 +30,11 @@ export default async function AdminWaitlistPage({
   if (params.q?.trim()) {
     query = query.ilike('email', `%${params.q.trim()}%`);
   }
-  if (cityFilter) {
+  if (cityFilter === 'Other') {
+    query = query.or(
+      `city.is.null,city.eq.Other,city.not.in.(${WAITLIST_PRIMARY_CITIES.join(',')})`,
+    );
+  } else if (cityFilter) {
     query = query.eq('city', cityFilter);
   }
 
@@ -60,11 +64,23 @@ export default async function AdminWaitlistPage({
     string,
     number
   >;
+  const customCityCounts = new Map<string, number>();
   for (const row of cityRows ?? []) {
     const c = row.city;
-    if (c && c in cityCounts) cityCounts[c] += 1;
-    else cityCounts.Other += 1;
+    if (c && WAITLIST_PRIMARY_CITIES.includes(c as (typeof WAITLIST_PRIMARY_CITIES)[number])) {
+      cityCounts[c] += 1;
+    } else {
+      cityCounts.Other += 1;
+      const label = c?.trim() || 'Unknown';
+      if (label !== 'Other') {
+        customCityCounts.set(label, (customCityCounts.get(label) ?? 0) + 1);
+      }
+    }
   }
+
+  const topOtherCities = [...customCityCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
 
   const filteredCount = cityFilter ? (cityCounts[cityFilter] ?? 0) : (total ?? 0);
 
@@ -94,6 +110,23 @@ export default async function AdminWaitlistPage({
           </div>
         ))}
       </div>
+
+      {topOtherCities.length > 0 ? (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Other cities (demand)
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {topOtherCities.map(([name, count]) => (
+              <span
+                key={name}
+                className="rounded-full bg-[#FAECE7] px-3 py-1 text-sm font-medium text-[#993C1D]">
+                {name}: {count}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <form className="mb-4 flex flex-col gap-2 sm:flex-row">
         <input

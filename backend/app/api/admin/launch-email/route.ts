@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ADMIN_COOKIE, verifyAdminSession } from '@/lib/admin-auth';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
-import { normalizeWaitlistCity } from '@/lib/waitlist-cities';
+import { isOtherWaitlistCity, normalizeWaitlistCity } from '@/lib/waitlist-cities';
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -226,22 +226,23 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createSupabaseAdmin();
-  let query = supabase
+  const { data: allRows, error } = await supabase
     .from('waitlist')
     .select('email, city')
     .order('created_at', { ascending: true });
-
-  if (cityFilter) {
-    query = query.eq('city', cityFilter);
-  }
-
-  const { data: waitlist, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (!waitlist || waitlist.length === 0) {
+  const waitlist =
+    cityFilter === 'Other'
+      ? (allRows ?? []).filter((row) => isOtherWaitlistCity(row.city))
+      : cityFilter
+        ? (allRows ?? []).filter((row) => row.city === cityFilter)
+        : (allRows ?? []);
+
+  if (waitlist.length === 0) {
     return NextResponse.json(
       {
         error: cityFilter
@@ -253,11 +254,15 @@ export async function POST(request: NextRequest) {
   }
 
   const emails = waitlist.map((w) => w.email).filter(Boolean);
-  const placeLabel = cityFilter ?? 'Nepal';
-  const subject = cityFilter
-    ? `LastBag is now live in ${cityFilter}! 🎉`
-    : 'LastBag is now live in Nepal! 🎉';
-  const html = launchEmailHtml(placeLabel);
+  const placeLabel =
+    cityFilter === 'Other' ? 'your city' : (cityFilter ?? 'Nepal');
+  const subject =
+    cityFilter === 'Other'
+      ? 'LastBag is now live near you! 🎉'
+      : cityFilter
+        ? `LastBag is now live in ${cityFilter}! 🎉`
+        : 'LastBag is now live in Nepal! 🎉';
+  const html = launchEmailHtml(placeLabel === 'your city' ? 'Nepal' : placeLabel);
 
   let sent = 0;
   let failed = 0;

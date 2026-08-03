@@ -4,13 +4,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
 import {
   mapGeoCityToWaitlist,
-  normalizeWaitlistCity,
-  type WaitlistCity,
+  resolveWaitlistCityInput,
 } from '@/lib/waitlist-cities';
 
 type WaitlistBody = {
   email?: string;
   city?: string | null;
+  cityOther?: string | null;
 };
 
 const transporter = nodemailer.createTransport({
@@ -34,7 +34,7 @@ function clientIp(request: NextRequest) {
   return forwarded || request.headers.get('x-real-ip')?.trim() || '127.0.0.1';
 }
 
-async function detectCityFromIp(ip: string): Promise<WaitlistCity | null> {
+async function detectCityFromIp(ip: string): Promise<string | null> {
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('10.') || ip.startsWith('192.168.')) {
     return null;
   }
@@ -256,14 +256,20 @@ function confirmationHtml(city: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, city: cityRaw } = (await request.json()) as WaitlistBody;
+    const { email, city: cityRaw, cityOther } = (await request.json()) as WaitlistBody;
     const normalizedEmail = email ? normalizeEmail(email) : '';
 
     if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       return NextResponse.json({ error: 'Please enter a valid email' }, { status: 400 });
     }
 
-    let city = normalizeWaitlistCity(cityRaw);
+    let city = resolveWaitlistCityInput(cityRaw, cityOther);
+    if (
+      (typeof cityRaw === 'string' && cityRaw.trim().toLowerCase() === 'other') &&
+      !city
+    ) {
+      return NextResponse.json({ error: 'Please enter your city' }, { status: 400 });
+    }
     if (!city) {
       city = await detectCityFromIp(clientIp(request));
     }
