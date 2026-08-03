@@ -1,4 +1,4 @@
-const NEPALOTP_BASE_URL = process.env.NEPALOTP_BASE_URL ?? 'https://api.nepalotp.com/v1';
+const NEPALOTP_BASE_URL = process.env.NEPALOTP_BASE_URL ?? 'https://nepalotp.com/api/v1';
 
 export type NepalOtpErrorCode =
   | 'RATE_LIMIT_EXCEEDED'
@@ -27,7 +27,7 @@ export class NepalOtpError extends Error {
 type SendResult = { otp_id: string; phone: string; expires_at?: string };
 type VerifyResult = { verified: boolean; phone?: string };
 
-/** Strips +977 / 977 / leading 0 → 10-digit local form NepalOTP expects. */
+/** Strips +977 / 977 / leading 0 → 10-digit local form. */
 export function normalizeNepalPhone(phone: string) {
   return phone
     .replace(/\s/g, '')
@@ -72,7 +72,7 @@ function readError(payload: Record<string, unknown>, status: number) {
   return { code, message };
 }
 
-async function request<T>(path: string, body: Record<string, unknown>): Promise<T> {
+async function request(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const apiKey = process.env.NEPALOTP_API_KEY;
   if (!apiKey) {
     throw new NepalOtpError('OTP service is not configured', 'MISSING_API_KEY', 503);
@@ -92,7 +92,7 @@ async function request<T>(path: string, body: Record<string, unknown>): Promise<
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'network error';
     throw new NepalOtpError(
-      `Cannot reach NepalOTP (${detail}). Check api.nepalotp.com DNS / NEPALOTP_BASE_URL.`,
+      `Cannot reach NepalOTP (${detail}). Check nepalotp.com / NEPALOTP_BASE_URL.`,
       'NETWORK_ERROR',
       503,
     );
@@ -113,9 +113,7 @@ async function request<T>(path: string, body: Record<string, unknown>): Promise<
     throw new NepalOtpError(message, code, response.status >= 400 ? response.status : 400);
   }
 
-  // Docs wrap payloads in `{ success, data }`; tolerate flat responses too.
-  const data = (payload.data as T | undefined) ?? (payload as T);
-  return data;
+  return payload;
 }
 
 function offlineSend(phoneLocal: string): SendResult {
@@ -161,28 +159,43 @@ function offlineVerify(otpId: string, code: string): VerifyResult {
 }
 
 /**
- * NepalOTP docs: phone is 10-digit local (97/98…), not E.164.
+ * NepalOTP docs: phone is E.164 (+977…); verify body uses `otp` (not `code`).
+ * Base URL is https://nepalotp.com/api/v1 (api.nepalotp.com has no DNS).
  * Sandbox / test keys always use code 123456 when the live API is down.
  */
 export async function sendOtp(phone: string): Promise<SendResult> {
   const apiKey = process.env.NEPALOTP_API_KEY ?? '';
   const phoneLocal = normalizeNepalPhone(phone);
+  const phoneE164 = toE164NepalPhone(phone);
 
   try {
-    const data = await request<Partial<SendResult> & { id?: string }>('/otp/send', {
-      phone: phoneLocal,
-      channel: 'sms',
+    const payload = await request('/otp/send', {
+      phone: phoneE164,
     });
 
-    const otp_id = data.otp_id ?? data.id;
+    const nested =
+      payload.data && typeof payload.data === 'object'
+        ? (payload.data as Record<string, unknown>)
+        : {};
+    const otp_id =
+      (typeof payload.otp_id === 'string' && payload.otp_id) ||
+      (typeof nested.otp_id === 'string' && nested.otp_id) ||
+      (typeof nested.id === 'string' && nested.id) ||
+      null;
+
     if (!otp_id) {
       throw new NepalOtpError('OTP provider returned no otp_id', 'INTERNAL_ERROR', 502);
     }
 
+    const expires_at =
+      (typeof nested.expires_at === 'string' && nested.expires_at) ||
+      (typeof payload.expires_at === 'string' && payload.expires_at) ||
+      undefined;
+
     return {
       otp_id,
-      phone: data.phone ?? phoneLocal,
-      expires_at: data.expires_at,
+      phone: phoneLocal,
+      expires_at,
     };
   } catch (error) {
     if (
@@ -196,7 +209,7 @@ export async function sendOtp(phone: string): Promise<SendResult> {
   }
 }
 
-/** Docs require otp_id + code (not phone + code). */
+/** Docs require otp_id + otp (not phone + code). */
 export async function verifyOtp(otpId: string, code: string): Promise<VerifyResult> {
   const apiKey = process.env.NEPALOTP_API_KEY ?? '';
 
@@ -205,11 +218,21 @@ export async function verifyOtp(otpId: string, code: string): Promise<VerifyResu
   }
 
   try {
-    const data = await request<Partial<VerifyResult>>('/otp/verify', {
+    const payload = await request('/otp/verify', {
       otp_id: otpId,
-      code,
+      otp: code,
     });
-    return { verified: data.verified !== false, phone: data.phone };
+
+    const nested =
+      payload.data && typeof payload.data === 'object'
+        ? (payload.data as Record<string, unknown>)
+        : {};
+    const phone =
+      (typeof nested.phone === 'string' && nested.phone) ||
+      (typeof payload.phone === 'string' && payload.phone) ||
+      undefined;
+
+    return { verified: true, phone };
   } catch (error) {
     if (
       error instanceof NepalOtpError &&
