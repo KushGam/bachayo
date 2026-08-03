@@ -2,6 +2,11 @@ import nodemailer from 'nodemailer';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { createSupabaseAdmin } from '@/lib/supabase-admin';
+import {
+  mapGeoCityToWaitlist,
+  normalizeWaitlistCity,
+  type WaitlistCity,
+} from '@/lib/waitlist-cities';
 
 type WaitlistBody = {
   email?: string;
@@ -22,6 +27,30 @@ function normalizeEmail(email: string) {
 
 function isValidEmail(email: string) {
   return email.includes('@') && email.includes('.');
+}
+
+function clientIp(request: NextRequest) {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return forwarded || request.headers.get('x-real-ip')?.trim() || '127.0.0.1';
+}
+
+async function detectCityFromIp(ip: string): Promise<WaitlistCity | null> {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('10.') || ip.startsWith('192.168.')) {
+    return null;
+  }
+
+  try {
+    const geoRes = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!geoRes.ok) return null;
+    const geo = (await geoRes.json()) as { status?: string; city?: string };
+    if (geo.status !== 'success') return null;
+    return mapGeoCityToWaitlist(geo.city);
+  } catch (error) {
+    console.warn('[waitlist] IP geolocation failed:', error);
+    return null;
+  }
 }
 
 function confirmationHtml(city: string | null) {
@@ -227,17 +256,23 @@ function confirmationHtml(city: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = (await request.json()) as WaitlistBody;
+    const { email, city: cityRaw } = (await request.json()) as WaitlistBody;
     const normalizedEmail = email ? normalizeEmail(email) : '';
 
     if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       return NextResponse.json({ error: 'Please enter a valid email' }, { status: 400 });
     }
 
+    let city = normalizeWaitlistCity(cityRaw);
+    if (!city) {
+      city = await detectCityFromIp(clientIp(request));
+    }
+
     const supabaseAdmin = createSupabaseAdmin();
     const { error: dbError } = await supabaseAdmin.from('waitlist').insert({
       email: normalizedEmail,
-      city: null,
+      city: city || null,
+      created_at: new Date().toISOString(),
     });
 
     if (dbError?.code === '23505') {
@@ -264,7 +299,7 @@ export async function POST(request: NextRequest) {
           from: `"LastBag Nepal" <${gmailUser}>`,
           to: normalizedEmail,
           subject: "You're on the LastBag waitlist! 🛍",
-          html: confirmationHtml(null),
+          html: confirmationHtml(city),
         });
 
         await transporter.sendMail({
@@ -275,6 +310,7 @@ export async function POST(request: NextRequest) {
         <h2>New waitlist signup! 🎉</h2>
         <p>
           <strong>Email:</strong> ${normalizedEmail}<br/>
+          <strong>City:</strong> ${city ?? '—'}<br/>
           <strong>Time:</strong>
             ${new Date().toLocaleString('en-NP', {
               timeZone: 'Asia/Kathmandu',

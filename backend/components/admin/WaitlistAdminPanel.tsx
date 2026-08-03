@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+
+import { WAITLIST_CITIES } from '@/lib/waitlist-cities';
 
 type WaitlistRow = {
   id: string;
@@ -13,24 +15,41 @@ type WaitlistRow = {
 export function WaitlistLaunchPanel({
   subscriberCount,
   pushUserCount,
+  cityCounts,
 }: {
   subscriberCount: number;
   pushUserCount: number;
+  cityCounts: Record<string, number>;
 }) {
   const [launchOpen, setLaunchOpen] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [launchCity, setLaunchCity] = useState('all');
   const [pushTitle, setPushTitle] = useState('LastBag is live! 🎉');
   const [pushBody, setPushBody] = useState(
-    'Rescue bags are now available in Kathmandu. Find your first bag now!',
+    'Rescue bags are now available near you. Find your first bag now!',
   );
+
+  const launchRecipientCount = useMemo(() => {
+    if (launchCity === 'all') return subscriberCount;
+    return cityCounts[launchCity] ?? 0;
+  }, [launchCity, subscriberCount, cityCounts]);
+
+  const launchSubject =
+    launchCity === 'all'
+      ? 'LastBag is now live in Nepal! 🎉'
+      : `LastBag is now live in ${launchCity}! 🎉`;
 
   async function sendLaunchEmail() {
     setSending(true);
     setResult(null);
     try {
-      const response = await fetch('/api/admin/send-launch-email', { method: 'POST' });
+      const response = await fetch('/api/admin/launch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ city: launchCity }),
+      });
       const data = (await response.json()) as {
         success?: boolean;
         sent?: number;
@@ -41,7 +60,9 @@ export function WaitlistLaunchPanel({
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to send');
       }
-      setResult(`Sent to ${data.sent}/${data.total} subscribers${data.failed ? ` (${data.failed} failed)` : ''}.`);
+      setResult(
+        `Sent to ${data.sent}/${data.total} subscribers${data.failed ? ` (${data.failed} failed)` : ''}.`,
+      );
       setLaunchOpen(false);
     } catch (err) {
       setResult(err instanceof Error ? err.message : 'Failed to send launch email');
@@ -87,7 +108,7 @@ export function WaitlistLaunchPanel({
           type="button"
           onClick={() => setLaunchOpen(true)}
           className="rounded-xl bg-[#D85A30] px-6 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(216,90,48,0.25)] transition hover:bg-[#993C1D]">
-          🚀 Send launch announcement to all {subscriberCount} subscribers
+          🚀 Send launch announcement
         </button>
         <button
           type="button"
@@ -108,21 +129,34 @@ export function WaitlistLaunchPanel({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-[#1A1A1A]">Send launch announcement</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Subject: LastBag is live in Kathmandu! 🎉🛍
-            </p>
+
+            <label className="mt-4 block text-sm font-medium text-gray-700">Target city</label>
+            <select
+              value={launchCity}
+              onChange={(e) => setLaunchCity(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="all">All cities ({subscriberCount})</option>
+              {WAITLIST_CITIES.map((city) => (
+                <option key={city} value={city}>
+                  {city} ({cityCounts[city] ?? 0})
+                </option>
+              ))}
+            </select>
+
+            <p className="mt-3 text-sm text-gray-500">Subject: {launchSubject}</p>
 
             <div className="mt-4 rounded-xl border border-[#F0EDE8] bg-[#FAFAF8] p-4 text-sm text-gray-700">
               <p className="font-semibold text-[#1A1A1A]">LastBag is live!</p>
               <p className="mt-2">
-                Rescue bags are now live in Kathmandu. You signed up to be notified — and today is
-                that day!
+                Rescue bags are now live in{' '}
+                {launchCity === 'all' ? 'Nepal' : launchCity}. You signed up to be notified — and
+                today is that day!
               </p>
               <p className="mt-3 text-xs text-gray-400">Preview of the email that will be sent.</p>
             </div>
 
             <p className="mt-4 text-sm font-medium text-[#92400E]">
-              This will send to {subscriberCount} people. This cannot be undone.
+              This will send to {launchRecipientCount} people. This cannot be undone.
             </p>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -135,10 +169,10 @@ export function WaitlistLaunchPanel({
               </button>
               <button
                 type="button"
-                disabled={sending || subscriberCount === 0}
+                disabled={sending || launchRecipientCount === 0}
                 onClick={() => void sendLaunchEmail()}
                 className="rounded-lg bg-[#D85A30] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
-                {sending ? 'Sending…' : `Send to ${subscriberCount} people →`}
+                {sending ? 'Sending…' : `Send to ${launchRecipientCount} people →`}
               </button>
             </div>
           </div>
@@ -150,7 +184,8 @@ export function WaitlistLaunchPanel({
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-[#1A1A1A]">Send push notification</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Sends to all app users with a push token ({pushUserCount}).
+              Sends to all app users with a push token ({pushUserCount}). For city targeting, use
+              Admin → Notifications.
             </p>
 
             <label className="mt-4 block text-sm font-medium text-gray-700">Title</label>

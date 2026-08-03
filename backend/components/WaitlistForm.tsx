@@ -2,11 +2,14 @@
 
 import { FormEvent, useState } from 'react';
 
+import { WAITLIST_CITIES } from '@/lib/waitlist-cities';
+
 const DEFAULT_SUCCESS =
   "✅ You're on the list! We'll notify you when LastBag launches near you.";
 
 export function WaitlistForm() {
   const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +24,7 @@ export function WaitlistForm() {
       const response = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, city: city || null }),
       });
       const data = (await response.json()) as {
         success?: boolean;
@@ -36,6 +39,7 @@ export function WaitlistForm() {
       setMessage(data.message?.trim() || DEFAULT_SUCCESS);
       setStatus('success');
       setEmail('');
+      setCity('');
     } catch (err) {
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -62,17 +66,39 @@ export function WaitlistForm() {
         {status === 'success' ? (
           <p className="mt-10 text-base font-semibold text-white">{message || DEFAULT_SUCCESS}</p>
         ) : (
-          <form
-            onSubmit={onSubmit}
-            className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row sm:gap-3">
+          <form onSubmit={onSubmit} className="mx-auto mt-10 flex max-w-md flex-col gap-3">
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="flex-1 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[var(--primary)]/50 focus:bg-white/[0.09]"
+              className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[var(--primary)]/50 focus:bg-white/[0.09]"
             />
+            <select
+              name="city"
+              required
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                color: 'white',
+                fontSize: '15px',
+                appearance: 'none',
+              }}>
+              <option value="" disabled style={{ color: '#111' }}>
+                Select your city
+              </option>
+              {WAITLIST_CITIES.map((c) => (
+                <option key={c} value={c} style={{ color: '#111' }}>
+                  {c}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               disabled={status === 'loading'}
