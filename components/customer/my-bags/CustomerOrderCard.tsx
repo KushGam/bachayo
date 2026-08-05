@@ -44,6 +44,7 @@ type CustomerOrderCardProps = {
   onChat: () => void;
   onPrivacySettings?: () => void;
   onFindNearby?: () => void;
+  onReport?: () => void;
   unreadMessages: number;
 };
 
@@ -88,11 +89,14 @@ export function CustomerOrderCard({
   onChat,
   onPrivacySettings,
   onFindNearby,
+  onReport,
   unreadMessages,
 }: CustomerOrderCardProps) {
   const status = normalizeOrderStatus(order.status);
   const isActiveOrder = status === 'confirmed' || status === 'pending';
   const isPast = tab === 'past';
+  const canReport =
+    Boolean(onReport) && isPast && (status === 'picked_up' || status === 'missed');
   const isCancelBlocked = cancelEligibility === 'blocked' || cancelEligibility === 'expired';
   const serviceType = (order.service_type ?? 'takeaway') as OrderServiceType;
   const needsReview = isPast && status === 'picked_up' && !order.review;
@@ -282,6 +286,15 @@ export function CustomerOrderCard({
               <Store size={14} color={Palette.textPrimary} strokeWidth={2.2} />
               <Text style={styles.actionPillText}>Restaurant</Text>
             </Pressable>
+            {canReport ? (
+              <Pressable
+                onPress={onReport}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={({ pressed }) => [styles.actionPill, styles.actionPillFlex, pressed && styles.pressed]}>
+                <AlertTriangle size={14} color={Palette.danger} strokeWidth={2.2} />
+                <Text style={[styles.actionPillText, styles.reportText]}>Report</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {needsReview ? (
@@ -585,6 +598,9 @@ const styles = StyleSheet.create({
     ...Type.caption,
     fontWeight: '700',
     color: Palette.textPrimary,
+  },
+  reportText: {
+    color: Palette.danger,
   },
   actionPillTextPrimary: {
     ...Type.caption,

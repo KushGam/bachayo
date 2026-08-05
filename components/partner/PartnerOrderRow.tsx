@@ -4,6 +4,7 @@ import { Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from 'rea
 import QRCode from 'react-native-qrcode-svg';
 
 import { EditOrderQtySheet } from '@/components/partner/EditOrderQtySheet';
+import { ReportCustomerSheet } from '@/components/partner/ReportCustomerSheet';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
@@ -76,6 +77,7 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const [loading, setLoading] = useState(false);
   const [qtyLoading, setQtyLoading] = useState(false);
   const [editQtyVisible, setEditQtyVisible] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
   const [localStatus, setLocalStatus] = useState(order.status);
   const [showToast, setShowToast] = useState(false);
   const [qtyToast, setQtyToast] = useState(false);
@@ -101,6 +103,8 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
   const statusStyle = STATUS_STYLES[normalizedStatus] ?? STATUS_STYLES.pending;
   const isCancelled = normalizedStatus === 'cancelled' || normalizedStatus === 'missed';
   const isPickedUp = normalizedStatus === 'picked_up';
+  const canReport =
+    (isPickedUp || normalizedStatus === 'missed') && Boolean(order.customer_id);
   const canExpand = !isCancelled && !isPickedUp && normalizedStatus === 'confirmed';
   const serviceType = ((order as { service_type?: 'takeaway' | 'dinein' }).service_type ??
     'takeaway') as 'takeaway' | 'dinein';
@@ -349,6 +353,28 @@ export const PartnerOrderRow = memo(function PartnerOrderRow({
           </View>
         ) : null}
       </Pressable>
+
+      {canReport ? (
+        <Pressable
+          onPress={() => {
+            void hapticButtonPress();
+            setReportVisible(true);
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={({ pressed }) => [styles.reportBtn, pressed && { opacity: 0.85 }]}>
+          <Text style={styles.reportBtnText}>Report customer</Text>
+        </Pressable>
+      ) : null}
+
+      {reportVisible ? (
+        <ReportCustomerSheet
+          visible
+          customerId={order.customer_id ?? order.customer?.id ?? ''}
+          customerName={customerName}
+          orderId={order.id}
+          onClose={() => setReportVisible(false)}
+        />
+      ) : null}
     </View>
   );
 });
@@ -611,5 +637,18 @@ const styles = StyleSheet.create({
     color: Palette.white,
     fontSize: 10,
     fontWeight: '700',
+  },
+  reportBtn: {
+    marginTop: 4,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+  },
+  reportBtnText: {
+    ...Type.label,
+    color: Palette.danger,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

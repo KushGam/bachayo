@@ -79,6 +79,22 @@ export async function markAllNotificationsRead(userId: string) {
   if (error) throw error;
 }
 
+export async function deleteNotification(id: string, userId: string) {
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+
+  if (error) throw error;
+}
+
+export async function clearAllNotifications(userId: string) {
+  const { error } = await supabase.from('notifications').delete().eq('user_id', userId);
+
+  if (error) throw error;
+}
+
 export type NotificationDateGroup = 'Today' | 'Yesterday' | 'This week' | 'Earlier';
 
 export function getNotificationDateGroup(iso: string): NotificationDateGroup {

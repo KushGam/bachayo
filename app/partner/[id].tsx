@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ReportSheet } from '@/components/customer/ReportSheet';
 import { PartnerDetailAbout } from '@/components/partner-detail/PartnerDetailAbout';
 import { PartnerDetailBagsSection } from '@/components/partner-detail/PartnerDetailBagsSection';
 import { PartnerDetailHero } from '@/components/partner-detail/PartnerDetailHero';
@@ -56,6 +57,7 @@ export default function PartnerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [reportVisible, setReportVisible] = useState(false);
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<{
     eligibleOrderId: string | null;
@@ -319,6 +321,16 @@ export default function PartnerDetailScreen() {
           onShowAll={() => setShowAllReviews(true)}
           onWriteReview={(orderId) => router.push(`/review/${orderId}`)}
         />
+
+        <Pressable
+          onPress={() => {
+            void hapticButtonPress();
+            setReportVisible(true);
+          }}
+          style={styles.reportBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.reportBtnText}>Report restaurant</Text>
+        </Pressable>
       </ScrollView>
 
       {bags.length > 0 && lowestPrice != null ? (
@@ -327,6 +339,16 @@ export default function PartnerDetailScreen() {
           bagCount={bags.length}
           paddingBottom={insets.bottom + Spacing.md}
           onPress={handleStickyReserve}
+        />
+      ) : null}
+
+      {reportVisible ? (
+        <ReportSheet
+          visible
+          partnerId={partner.id}
+          partnerName={partner.name}
+          orderId={reviewEligibility?.eligibleOrderId ?? undefined}
+          onClose={() => setReportVisible(false)}
         />
       ) : null}
     </View>
@@ -353,5 +375,18 @@ const styles = StyleSheet.create({
   backLinkText: {
     color: Palette.primary,
     fontWeight: '600',
+  },
+  reportBtn: {
+    alignSelf: 'center',
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  reportBtnText: {
+    color: Palette.textTertiary,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

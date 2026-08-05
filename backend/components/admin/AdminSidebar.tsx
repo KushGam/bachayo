@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   CreditCard,
+  Flag,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -29,6 +30,7 @@ const NAV_PRIMARY = [
 
 const NAV_OPS = [
   { href: '/admin/support', label: 'Support', icon: Inbox },
+  { href: '/admin/reports', label: 'Reports', icon: Flag },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/notifications', label: 'Notifications', icon: Bell },
   { href: '/admin/cities', label: 'Cities', icon: MapPin },

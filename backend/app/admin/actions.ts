@@ -321,6 +321,28 @@ export async function updateSupportMessageStatus(
   revalidateTag('admin-support', { expire: 0 });
 }
 
+export async function updateReportStatus(
+  reportId: string,
+  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed',
+) {
+  const supabase = await admin();
+  const { error } = await supabase.from('reports').update({ status }).eq('id', reportId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/reports');
+}
+
+export async function banReportedUser(
+  reportedType: 'partner' | 'customer',
+  reportedId: string,
+) {
+  if (reportedType === 'partner') {
+    await suspendPartner(reportedId);
+  } else {
+    await suspendCustomer(reportedId);
+  }
+  revalidatePath('/admin/reports');
+}
+
 export async function markAdminOrderPickedUp(orderId: string) {
   const supabase = await admin();
   const { error } = await supabase

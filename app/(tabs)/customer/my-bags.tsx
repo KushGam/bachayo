@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CancelReservationSheet } from '@/components/customer/CancelReservationSheet';
 import { PostPickupReview } from '@/components/customer/PostPickupReview';
+import { ReportSheet } from '@/components/customer/ReportSheet';
 import { CustomerMyBagsEmpty } from '@/components/customer/my-bags/CustomerMyBagsEmpty';
 import {
   CustomerMyBagsHeader,
@@ -79,6 +80,7 @@ export default function MyBagsScreen() {
   });
   const [showPickupToast, setShowPickupToast] = useState(false);
   const [reviewOrder, setReviewOrder] = useState<CustomerOrderWithDetails | null>(null);
+  const [reportOrder, setReportOrder] = useState<CustomerOrderWithDetails | null>(null);
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showReviewToast, setShowReviewToast] = useState(false);
@@ -566,6 +568,7 @@ export default function MyBagsScreen() {
           onChat={() => router.push(`/order/chat/${item.id}`)}
           onPrivacySettings={() => router.push('/profile/privacy')}
           onFindNearby={() => router.push('/(tabs)/customer/home')}
+          onReport={() => setReportOrder(item)}
           unreadMessages={unreadByOrder[item.id] ?? 0}
         />
       );
@@ -639,6 +642,16 @@ export default function MyBagsScreen() {
         onSubmit={handleSubmitReview}
         onDismiss={dismissReviewPrompt}
       />
+
+      {reportOrder ? (
+        <ReportSheet
+          visible
+          partnerId={reportOrder.partner_id}
+          partnerName={reportOrder.partner.name}
+          orderId={reportOrder.id}
+          onClose={() => setReportOrder(null)}
+        />
+      ) : null}
 
       <SuccessToast
         visible={showPickupToast}

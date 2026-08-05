@@ -14,6 +14,7 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   RefreshControl,
   SectionList,
@@ -30,6 +31,8 @@ import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { formatRelativeTime } from '@/lib/helpers';
 import {
+  clearAllNotifications,
+  deleteNotification,
   fetchNotifications,
   groupNotificationsByDate,
   markAllNotificationsRead,
@@ -108,42 +111,76 @@ function getNotificationRoute(notification: InboxNotification): Href {
 
 function NotificationRow({
   item,
+  isDeleting,
   onPress,
+  onLongPress,
+  onDelete,
+  onCancelDelete,
 }: {
   item: InboxNotification;
+  isDeleting: boolean;
   onPress: () => void;
+  onLongPress: () => void;
+  onDelete: () => void;
+  onCancelDelete: () => void;
 }) {
   const icon = getNotificationIcon(item.type);
   const Icon = icon.Icon;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        !item.is_read && styles.rowUnread,
-        pressed && styles.rowPressed,
-      ]}>
-      <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
-        <Icon size={18} color={icon.color} strokeWidth={2.2} />
-      </View>
-
-      <View style={styles.rowBody}>
-        <View style={styles.rowTitleRow}>
-          <Text
-            style={[styles.rowTitle, !item.is_read && styles.rowTitleUnread]}
-            numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={styles.rowTime}>{formatRelativeTime(item.created_at)}</Text>
+    <View>
+      <Pressable
+        onLongPress={onLongPress}
+        delayLongPress={600}
+        unstable_pressDelay={0}
+        onPress={() => {
+          if (isDeleting) {
+            onCancelDelete();
+            return;
+          }
+          onPress();
+        }}
+        style={({ pressed }) => [
+          styles.row,
+          !item.is_read && styles.rowUnread,
+          pressed && styles.rowPressed,
+          isDeleting && styles.rowDeleting,
+        ]}>
+        <View style={[styles.iconCircle, { backgroundColor: icon.bg }]}>
+          <Icon size={18} color={icon.color} strokeWidth={2.2} />
         </View>
-        <Text style={styles.rowBodyText} numberOfLines={2}>
-          {item.body}
-        </Text>
-      </View>
 
-      {!item.is_read ? <View style={styles.unreadDot} /> : null}
-    </Pressable>
+        <View style={styles.rowBody}>
+          <View style={styles.rowTitleRow}>
+            <Text
+              style={[styles.rowTitle, !item.is_read && styles.rowTitleUnread]}
+              numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Text style={styles.rowTime}>{formatRelativeTime(item.created_at)}</Text>
+          </View>
+          <Text style={styles.rowBodyText} numberOfLines={2}>
+            {item.body}
+          </Text>
+        </View>
+
+        {!item.is_read ? <View style={styles.unreadDot} /> : null}
+      </Pressable>
+
+      {isDeleting ? (
+        <View style={styles.deleteActions}>
+          <Pressable onPress={onCancelDelete} style={styles.cancelChip}>
+            <Text style={styles.cancelChipText}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={onDelete}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.deleteChip}>
+            <Text style={styles.deleteChipText}>🗑️ Delete</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -198,6 +235,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const markRead = useCallback(
     async (uid: string) => {
@@ -250,6 +288,39 @@ export default function NotificationsScreen() {
     await markRead(userId);
   };
 
+  const handleDelete = async (id: string) => {
+    if (!userId) return;
+    try {
+      await deleteNotification(id, userId);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setDeletingId(null);
+    } catch (err) {
+      Alert.alert('Could not delete', getErrorMessage(err));
+    }
+  };
+
+  const handleClearAll = () => {
+    if (!userId || notifications.length === 0) return;
+    Alert.alert('Clear all notifications?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear all',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await clearAllNotifications(userId);
+              setNotifications([]);
+              setUnreadNotifications(0);
+            } catch (err) {
+              Alert.alert('Could not clear', getErrorMessage(err));
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
@@ -269,7 +340,11 @@ export default function NotificationsScreen() {
             ) : null}
           </View>
 
-          {unread > 0 ? (
+          {notifications.length > 0 ? (
+            <Pressable onPress={handleClearAll} hitSlop={8} style={styles.markReadBtn}>
+              <Text style={styles.markRead}>Clear all</Text>
+            </Pressable>
+          ) : unread > 0 ? (
             <Pressable
               onPress={() => void handleMarkAllRead()}
               hitSlop={8}
@@ -296,6 +371,8 @@ export default function NotificationsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={false}
           contentContainerStyle={{
             paddingTop: Spacing.md,
             paddingBottom: insets.bottom + 24,
@@ -314,9 +391,13 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => (
             <NotificationRow
               item={item}
+              isDeleting={deletingId === item.id}
+              onLongPress={() => setDeletingId(item.id)}
+              onCancelDelete={() => setDeletingId(null)}
               onPress={() => {
                 router.push(getNotificationRoute(item));
               }}
+              onDelete={() => void handleDelete(item.id)}
             />
           )}
         />
@@ -402,6 +483,37 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
   },
+  deleteActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  cancelChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: 'white',
+  },
+  cancelChipText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  deleteChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#DC2626',
+  },
+  deleteChipText: {
+    color: Palette.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   row: {
     ...CardChrome,
     marginHorizontal: Spacing.lg,
@@ -411,6 +523,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.md,
+  },
+  rowDeleting: {
+    marginBottom: 4,
   },
   rowUnread: {
     backgroundColor: '#FFFCF9',
