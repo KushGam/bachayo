@@ -97,7 +97,7 @@ export default function SupportPage() {
           </a>
 
           <a
-            href="https://wa.me/9779762623241"
+            href="https://wa.me/9779716318840"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -121,7 +121,7 @@ export default function SupportPage() {
                   color: '#D85A30',
                   fontSize: '13px',
                 }}>
-                +977 9762623241
+                +977 9716318840
               </div>
             </div>
           </a>
