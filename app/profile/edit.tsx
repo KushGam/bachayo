@@ -24,6 +24,7 @@ import { TimePickerSheet } from '@/components/partner/TimePickerSheet';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { FOOD_PREFERENCE_OPTIONS } from '@/constants/foodPreferences';
 import { Palette } from '@/constants/Colors';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { getInitials } from '@/lib/helpers';
 import { getProfileAvatarUrl } from '@/lib/images';
 import { clearPushToken } from '@/lib/notifications';
@@ -121,6 +122,7 @@ function ProfileEditSkeleton({ topInset }: { topInset: number }) {
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const { reset } = useAuthStore();
   const { min: minDob, max: maxDob } = useMemo(() => getDobLimits(), []);
 
@@ -455,7 +457,11 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View
+      style={[
+        styles.screen,
+        Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+      ]}>
       <StatusBar style="light" />
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -495,6 +501,7 @@ export default function EditProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionLabel}>Personal info</Text>
         <View style={styles.card}>
@@ -641,7 +648,11 @@ export default function EditProfileScreen() {
       ) : null}
 
       <Modal visible={deleteModalOpen} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
+        <View
+          style={[
+            styles.modalBackdrop,
+            Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+          ]}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Type DELETE to confirm</Text>
             <Text style={styles.modalBody}>

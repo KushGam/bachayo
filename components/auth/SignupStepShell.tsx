@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { StepProgress } from '@/components/auth/StepProgress';
 import { Button } from '@/components/ui/Button';
 import { Palette } from '@/constants/Colors';
 import { FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 
 type SignupStepShellProps = {
   currentStep: number;
@@ -50,25 +51,14 @@ export function SignupStepShell({
   children,
 }: SignupStepShellProps) {
   const insets = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardInset = useKeyboardBottomInset();
   // Footer height varies (e.g. with a Google button above Continue), so
   // measure it — a fixed constant leaves content trapped underneath.
   const [footerHeight, setFooterHeight] = useState(0);
   const measuredFooter =
     footerHeight > 0 ? footerHeight : FOOTER_FALLBACK_HEIGHT + insets.bottom;
-  const bottomPad =
-    measuredFooter + Spacing.xl + (keyboardVisible ? Spacing.xl : 0);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  const androidKeyboard = Platform.OS === 'android' ? keyboardInset : 0;
+  const bottomPad = measuredFooter + Spacing.xl + androidKeyboard;
 
   return (
     <View style={styles.screen}>
@@ -116,7 +106,14 @@ export function SignupStepShell({
       </KeyboardAvoidingView>
 
       <View
-        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }, FloatingShadow]}
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + Spacing.lg,
+            bottom: androidKeyboard,
+          },
+          FloatingShadow,
+        ]}
         pointerEvents="box-none"
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
         {secondaryAction}

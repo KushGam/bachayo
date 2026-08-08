@@ -1,19 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type ScrollView as ScrollViewType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { CUSTOMER_REPORT_REASONS, submitReport } from '@/lib/reports';
 
@@ -33,6 +37,8 @@ export function ReportCustomerSheet({
   onClose,
 }: ReportCustomerSheetProps) {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
+  const scrollRef = useRef<ScrollViewType>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -70,6 +76,8 @@ export function ReportCustomerSheet({
     }
   };
 
+  const sheetPad = Math.max(insets.bottom, 20) + keyboardInset;
+
   return (
     <>
       <SuccessToast
@@ -84,72 +92,83 @@ export function ReportCustomerSheet({
           visible={visible}
           transparent
           animationType="slide"
+          statusBarTranslucent
           onRequestClose={onClose}>
-          <Pressable
-            style={styles.backdrop}
-            onPress={submitting ? undefined : onClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss"
-          />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.handle} />
-            <Text style={styles.title}>Report {customerName}</Text>
-            <Text style={styles.subtitle}>Help us keep LastBag safe</Text>
+          <KeyboardAvoidingView
+            style={styles.root}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={0}>
+            <Pressable
+              style={styles.backdrop}
+              onPress={submitting ? undefined : onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss"
+            />
+            <View style={[styles.sheet, { paddingBottom: sheetPad }]}>
+              <View style={styles.handle} />
+              <Text style={styles.title}>Report {customerName}</Text>
+              <Text style={styles.subtitle}>Help us keep LastBag safe</Text>
 
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={styles.reasons}>
-              {CUSTOMER_REPORT_REASONS.map((item) => {
-                const selected = reason === item;
-                return (
-                  <Pressable
-                    key={item}
-                    onPress={() => {
-                      void hapticButtonPress();
-                      setReason(item);
-                    }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={[styles.pill, selected && styles.pillSelected]}>
-                    <Text style={[styles.pillText, selected && styles.pillTextSelected]}>
-                      {item}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              <ScrollView
+                ref={scrollRef}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={styles.reasons}>
+                {CUSTOMER_REPORT_REASONS.map((item) => {
+                  const selected = reason === item;
+                  return (
+                    <Pressable
+                      key={item}
+                      onPress={() => {
+                        void hapticButtonPress();
+                        setReason(item);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={[styles.pill, selected && styles.pillSelected]}>
+                      <Text style={[styles.pillText, selected && styles.pillTextSelected]}>
+                        {item}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
 
-              <Text style={styles.detailsLabel}>Add more details (optional)</Text>
-              <TextInput
-                value={details}
-                onChangeText={setDetails}
-                placeholder="Tell us what happened..."
-                placeholderTextColor={Palette.textTertiary}
-                multiline
-                maxLength={500}
-                style={styles.detailsInput}
-              />
+                <Text style={styles.detailsLabel}>Add more details (optional)</Text>
+                <TextInput
+                  value={details}
+                  onChangeText={setDetails}
+                  placeholder="Tell us what happened..."
+                  placeholderTextColor={Palette.textTertiary}
+                  multiline
+                  maxLength={500}
+                  style={styles.detailsInput}
+                  onFocus={() => {
+                    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+                  }}
+                />
 
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <Pressable
-                disabled={!reason || submitting}
-                onPress={() => void onSubmit()}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={({ pressed }) => [
-                  styles.submit,
-                  (!reason || submitting) && styles.submitDisabled,
-                  pressed && reason && !submitting && { opacity: 0.92 },
-                ]}>
-                {submitting ? (
-                  <ActivityIndicator color={Palette.white} />
-                ) : (
-                  <Text style={styles.submitText}>Submit report →</Text>
-                )}
-              </Pressable>
-            </ScrollView>
-          </View>
+                <Pressable
+                  disabled={!reason || submitting}
+                  onPress={() => void onSubmit()}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={({ pressed }) => [
+                    styles.submit,
+                    (!reason || submitting) && styles.submitDisabled,
+                    pressed && reason && !submitting && { opacity: 0.92 },
+                  ]}>
+                  {submitting ? (
+                    <ActivityIndicator color={Palette.white} />
+                  ) : (
+                    <Text style={styles.submitText}>Submit report →</Text>
+                  )}
+                </Pressable>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       ) : null}
     </>
@@ -157,8 +176,12 @@ export function ReportCustomerSheet({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  root: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
@@ -168,6 +191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     maxHeight: '88%',
+    zIndex: 2,
   },
   handle: {
     alignSelf: 'center',

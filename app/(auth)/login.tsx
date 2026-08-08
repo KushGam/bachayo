@@ -33,6 +33,7 @@ import { t } from '@/constants/i18n';
 import { CardChrome, Motion, Radius, Spacing, Type } from '@/constants/theme';
 import { usePhoneAuth } from '@/hooks/usePhoneAuth';
 import { useSafeBack } from '@/hooks/useSafeBack';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import {
   fetchUserRole,
   navigateAfterGoogleSignIn,
@@ -137,6 +138,7 @@ function MethodRow({
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const goBack = useSafeBack('/(auth)/welcome');
   const { locale, setAuthRole, setPendingPhone, setPendingMode } = useAuthStore();
   const { sendOTP, loading: phoneLoading, validatePhone } = usePhoneAuth();
@@ -352,8 +354,11 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      style={[
+        styles.root,
+        Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+      ]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="dark" />
       <View style={styles.glowTop} pointerEvents="none" />
       <View style={styles.glowBottom} pointerEvents="none" />
@@ -362,6 +367,7 @@ export default function LoginScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}>
         <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={10}>
           <ChevronLeft size={22} color={Palette.textPrimary} strokeWidth={2.25} />

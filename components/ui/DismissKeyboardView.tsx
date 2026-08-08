@@ -1,9 +1,16 @@
 import { ReactNode } from 'react';
-import { Keyboard, StyleSheet, TouchableWithoutFeedback, View, ViewStyle } from 'react-native';
+import {
+  Keyboard,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 type DismissKeyboardViewProps = {
   children: ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 /** Dismisses the keyboard when the user taps outside focused inputs. */

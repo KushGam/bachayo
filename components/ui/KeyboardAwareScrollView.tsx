@@ -9,6 +9,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
+
 type KeyboardAwareScrollViewProps = {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -24,17 +26,23 @@ export function KeyboardAwareScrollView({
   footer,
   keyboardVerticalOffset = 0,
 }: KeyboardAwareScrollViewProps) {
+  const keyboardInset = useKeyboardBottomInset();
+
   return (
     <KeyboardAvoidingView
-      style={[styles.flex, style]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[
+        styles.flex,
+        style,
+        Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+      ]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={keyboardVerticalOffset}>
       <ScrollView
         style={styles.flex}
         contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={Keyboard.dismiss}>
         {children}

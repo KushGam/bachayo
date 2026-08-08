@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import type { CustomerOrderWithDetails } from '@/types/app';
 
@@ -61,6 +62,7 @@ export function PostPickupReview({
   onDismiss,
 }: PostPickupReviewProps) {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -204,7 +206,9 @@ export function PostPickupReview({
             styles.sheetWrap,
             {
               transform: [{ translateY: slideAnim }],
-              paddingBottom: Math.max(insets.bottom, 20),
+              paddingBottom:
+                Math.max(insets.bottom, 20) +
+                (Platform.OS === 'android' ? keyboardInset : 0),
             },
           ]}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -234,6 +238,7 @@ export function PostPickupReview({
               ) : (
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode="on-drag"
                   showsVerticalScrollIndicator={false}
                   bounces={false}
                   contentContainerStyle={styles.formContent}>

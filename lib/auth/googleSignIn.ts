@@ -49,14 +49,42 @@ function ensureNativeConfigured(mod: GoogleNativeModule) {
       'Missing EXPO_PUBLIC_GOOGLE_CLIENT_ID (Google Cloud Web client ID). Required for native Google Sign-In.',
     );
   }
+  // Android: never pass androidClientId — the library rejects it and Google
+  // matches the app via package name + SHA-1 on the Android OAuth client.
   mod.GoogleSignin.configure({
     webClientId,
-    iosClientId: config.googleIosClientId || undefined,
-    androidClientId: config.googleAndroidClientId || undefined,
+    iosClientId: Platform.OS === 'ios' ? config.googleIosClientId || undefined : undefined,
     offlineAccess: false,
     scopes: ['openid', 'email', 'profile'],
   });
   nativeConfigured = true;
+}
+
+function isNativeModuleMissingError(message: string) {
+  return (
+    message.includes('RNGoogleSignin') ||
+    message.includes('TurboModuleRegistry') ||
+    message.includes('Native module')
+  );
+}
+
+/** Google Cloud / SHA-1 / package mismatch — common on Android EAS / Play builds. */
+function isDeveloperConfigError(err: unknown) {
+  const code =
+    typeof err === 'object' && err && 'code' in err ? String((err as { code?: unknown }).code) : '';
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err && 'message' in err
+        ? String((err as { message?: unknown }).message)
+        : String(err ?? '');
+  const blob = `${code} ${message}`.toLowerCase();
+  return (
+    code === '10' ||
+    blob.includes('developer_error') ||
+    blob.includes('developer console is not set up correctly') ||
+    blob.includes('api_exception: 10')
+  );
 }
 
 async function exchangeIdToken(idToken: string): Promise<GoogleSignInNativeResult> {
@@ -140,6 +168,10 @@ async function signInWithBrowserOAuth(): Promise<GoogleSignInNativeResult> {
       redirectTo: redirectUri,
       scopes: 'openid email profile',
       skipBrowserRedirect: true,
+      queryParams: {
+        // Prefer account picker every time on Android Custom Tabs.
+        prompt: 'select_account',
+      },
     },
   });
 
@@ -197,7 +229,8 @@ async function signInWithBrowserOAuth(): Promise<GoogleSignInNativeResult> {
 
 /**
  * Prefer native Google Sign-In (new EAS builds). Fall back to browser OAuth
- * when RNGoogleSignin is missing so older installs / Expo Go don't crash.
+ * when RNGoogleSignin is missing, or Android hits DEVELOPER_ERROR (SHA-1 /
+ * package mismatch) so the button still works until Google Cloud is fixed.
  */
 export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
   if (isExpoGo()) {
@@ -221,17 +254,30 @@ export async function signInWithGoogle(): Promise<GoogleSignInNativeResult> {
     return await signInWithBrowserOAuth();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // Native module linked in JS but missing from binary (common after OTA without rebuild).
-    if (
-      message.includes('RNGoogleSignin') ||
-      message.includes('TurboModuleRegistry') ||
-      message.includes('Native module')
-    ) {
+
+    if (isNativeModuleMissingError(message)) {
       console.warn('[Google] Native call failed, falling back to browser OAuth:', message);
       try {
         return await signInWithBrowserOAuth();
       } catch (fallbackErr) {
         return { success: false, error: fallbackErr };
+      }
+    }
+
+    // Android SHA-1 / package mismatch — still let the user sign in via browser.
+    if (Platform.OS === 'android' && isDeveloperConfigError(err)) {
+      console.warn(
+        '[Google] Native Android DEVELOPER_ERROR (check package com.lastbag.app SHA-1 in Google Cloud). Falling back to browser OAuth.',
+      );
+      try {
+        return await signInWithBrowserOAuth();
+      } catch (fallbackErr) {
+        return {
+          success: false,
+          error: new Error(
+            'Google sign-in isn’t configured for this Android build. Ask support to add the app SHA-1 in Google Cloud, or try phone/email.',
+          ),
+        };
       }
     }
 

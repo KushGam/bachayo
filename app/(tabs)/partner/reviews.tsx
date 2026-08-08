@@ -22,12 +22,14 @@ import { ListSkeleton } from '@/components/ui/Skeleton';
 import { RetryState } from '@/components/ui/RetryState';
 import { Palette } from '@/constants/Colors';
 import { Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { fetchPartnerReviews } from '@/lib/orders';
 import { sendNotification } from '@/lib/sendNotification';
 import { supabase } from '@/lib/supabase';
 
 export default function PartnerReviewsScreen() {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const [reviews, setReviews] = useState<PartnerReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -158,7 +160,10 @@ export default function PartnerReviewsScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      style={[
+        styles.screen,
+        Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
       <StatusBar style="light" />

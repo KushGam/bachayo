@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { AppSymbol } from '@/components/ui/AppSymbol';
 import { Palette } from '@/constants/Colors';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import {
   fetchOrderMessages,
   markOrderMessagesRead,
@@ -75,6 +76,7 @@ function toDateLabel(iso: string) {
 export default function OrderChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const flatListRef = useRef<FlatList<OrderMessage>>(null);
   const inputRef = useRef<TextInput>(null);
@@ -277,7 +279,6 @@ export default function OrderChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      // Android already resizes the window (softwareKeyboardLayoutMode: resize).
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
       <StatusBar style="light" />
@@ -363,7 +364,11 @@ export default function OrderChatScreen() {
       <View
         style={[
           styles.composer,
-          { paddingBottom: inputFocused ? Spacing.sm : Math.max(insets.bottom, Spacing.sm) },
+          {
+            paddingBottom:
+              Math.max(insets.bottom, Spacing.sm) +
+              (Platform.OS === 'android' ? keyboardInset : 0),
+          },
         ]}>
         {showQuickReplies ? (
           <ScrollView
@@ -387,7 +392,7 @@ export default function OrderChatScreen() {
             onChangeText={setMessageText}
             onFocus={() => {
               setInputFocused(true);
-              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 250);
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 280);
             }}
             onBlur={() => setInputFocused(false)}
             placeholder="Message…"

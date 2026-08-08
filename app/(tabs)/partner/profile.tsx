@@ -47,6 +47,7 @@ import { getCategoryById } from '@/constants/partnerCategories';
 import { Palette } from '@/constants/Colors';
 import { CardChrome, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
 import { DEFAULT_TIER_PRICING } from '@/constants/subscriptions';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { formatRsPaisa } from '@/lib/helpers';
 import { hapticButtonPress, hapticWarning } from '@/lib/haptics';
 import {
@@ -97,6 +98,7 @@ function ProfileSkeleton() {
 export default function PartnerProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const { locale, setLocale, reset } = useAuthStore();
   const storedPartner = usePartnerStore((s) => s.partner);
   const setPartnerInStore = usePartnerStore((s) => s.setPartner);
@@ -578,8 +580,11 @@ export default function PartnerProfileScreen() {
 
       <Modal visible={editNameOpen} transparent animationType="slide" onRequestClose={() => setEditNameOpen(false)}>
         <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          style={[
+            styles.modalRoot,
+            Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={styles.modalBackdrop} onPress={() => setEditNameOpen(false)} />
           <View style={styles.modalSheet}>
           <Text style={styles.modalTitle}>Your name</Text>
@@ -602,8 +607,11 @@ export default function PartnerProfileScreen() {
 
       <Modal visible={editEmailOpen} transparent animationType="slide" onRequestClose={() => setEditEmailOpen(false)}>
         <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          style={[
+            styles.modalRoot,
+            Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={styles.modalBackdrop} onPress={() => setEditEmailOpen(false)} />
           <View style={styles.modalSheet}>
           <Text style={styles.modalTitle}>Email</Text>

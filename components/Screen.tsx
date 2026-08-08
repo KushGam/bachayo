@@ -6,13 +6,15 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  ViewStyle,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '@/components/ui/DismissKeyboardView';
 import { Palette } from '@/constants/Colors';
 import { Spacing } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 
 type ScreenProps = {
   children: ReactNode;
@@ -28,9 +30,10 @@ export function Screen({
   contentContainerStyle,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const backgroundColor = Palette.background;
 
-  const containerStyle = [
+  const containerStyle: StyleProp<ViewStyle> = [
     styles.container,
     {
       backgroundColor,
@@ -44,15 +47,18 @@ export function Screen({
     return (
       <View style={containerStyle}>
         <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          style={[
+            styles.flex,
+            Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+          ]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
             style={styles.flex}
             contentContainerStyle={[styles.content, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             onScrollBeginDrag={Keyboard.dismiss}>
             {children}
           </ScrollView>
@@ -78,6 +84,5 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 100,
   },
 });

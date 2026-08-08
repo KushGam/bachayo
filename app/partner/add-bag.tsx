@@ -54,6 +54,7 @@ import { hapticButtonPress, hapticSuccess } from '@/lib/haptics';
 import { celebrateMilestoneOnce } from '@/lib/partnerMilestones';
 import { resolveBagImageUrl } from '@/lib/images';
 import { supabase } from '@/lib/supabase';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { useBagPrefillStore } from '@/store/useBagPrefillStore';
 import {
   addBagSchema,
@@ -250,6 +251,7 @@ function openTimePicker(
 export default function AddBagScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [partnerName, setPartnerName] = useState('');
   const [partnerCover, setPartnerCover] = useState<string | null>(null);
@@ -841,15 +843,18 @@ export default function AddBagScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      style={[
+        styles.screen,
+        Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+      ]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="light" />
 
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}>
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>

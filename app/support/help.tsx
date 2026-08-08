@@ -36,6 +36,7 @@ import {
   type SupportSubject,
 } from '@/constants/supportFaq';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { useUserRole } from '@/hooks/useUserRole';
 import { hapticButtonPress } from '@/lib/haptics';
 import { openExternalUrl, openWhatsAppChat } from '@/lib/helpers';
@@ -47,6 +48,7 @@ const MESSAGE_MAX = 500;
 export default function HelpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const { isPartner } = useUserRole();
 
   const [search, setSearch] = useState('');
@@ -216,14 +218,17 @@ export default function HelpScreen() {
       <HelpHeader paddingTop={insets.top + Spacing.sm} isPartner={isPartner} />
 
       <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        style={[
+          styles.flex,
+          Platform.OS === 'android' ? { paddingBottom: keyboardInset } : null,
+        ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            automaticallyAdjustKeyboardInsets
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
             <HelpSearchBar value={search} onChangeText={setSearch} />
             <HelpQuickLinks links={quickLinks} />

@@ -42,6 +42,12 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'user cancelled': 'Google sign-in was cancelled.',
   cancelled: 'Google sign-in was cancelled.',
   nonce: 'Google sign-in isn’t ready yet. Ask support to enable Skip nonce check in Supabase.',
+  'DEVELOPER_ERROR':
+    'Google sign-in isn’t set up for this Android build yet. Try phone or email, or ask support to add the app SHA-1 in Google Cloud.',
+  'developer console is not set up correctly':
+    'Google sign-in isn’t set up for this Android build yet. Try phone or email, or ask support to add the app SHA-1 in Google Cloud.',
+  'ApiException: 10':
+    'Google sign-in isn’t set up for this Android build yet. Try phone or email, or ask support to add the app SHA-1 in Google Cloud.',
   'Missing EXPO_PUBLIC_GOOGLE':
     'Google sign-in isn’t configured in this build. Please try phone or email instead.',
   'ID token': 'Google sign-in didn’t finish. Please try again, or use phone or email.',

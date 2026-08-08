@@ -20,30 +20,63 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const iosUrlScheme =
     process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME?.trim() ||
     iosUrlSchemeFromClientId(iosClientId);
+  const googleMapsApiKey =
+    process.env.GOOGLE_MAPS_API_KEY?.trim() ||
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ||
+    '';
 
   const plugins = [...(config.plugins ?? [])];
 
-  // Native Google Sign-In (replaces browser OAuth that showed supabase.co).
+  // Native Google Sign-In. Always register the plugin so Android binaries link
+  // RNGoogleSignin; iosUrlScheme is required for iOS Google Sign-In.
   if (iosUrlScheme) {
     plugins.push([
       '@react-native-google-signin/google-signin',
       { iosUrlScheme },
     ]);
   } else {
+    plugins.push('@react-native-google-signin/google-signin');
     console.warn(
       '[app.config] EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID (or EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME) missing — iOS Google Sign-In URL scheme not configured.',
+    );
+  }
+
+  if (!googleMapsApiKey) {
+    console.warn(
+      '[app.config] GOOGLE_MAPS_API_KEY missing — Android Explore map will crash without android.config.googleMaps.apiKey. Add the key and rebuild.',
     );
   }
 
   return {
     ...config,
     plugins,
+    ios: {
+      ...config.ios,
+      config: {
+        ...(typeof config.ios?.config === 'object' ? config.ios.config : {}),
+        ...(googleMapsApiKey ? { googleMapsApiKey } : {}),
+      },
+    },
+    android: {
+      ...config.android,
+      config: {
+        ...(typeof config.android?.config === 'object' ? config.android.config : {}),
+        ...(googleMapsApiKey
+          ? {
+              googleMaps: {
+                apiKey: googleMapsApiKey,
+              },
+            }
+          : {}),
+      },
+    },
     extra: {
       ...config.extra,
       eas: {
         ...(typeof config.extra?.eas === 'object' ? config.extra.eas : {}),
         ...(projectId ? { projectId } : {}),
       },
+      googleMapsApiKeyConfigured: Boolean(googleMapsApiKey),
     },
   } as ExpoConfig;
 };

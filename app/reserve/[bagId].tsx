@@ -25,6 +25,7 @@ import { PhoneInput } from '@/components/auth/PhoneInput';
 import { Palette } from '@/constants/Colors';
 import { getCategoryById } from '@/constants/partnerCategories';
 import { Border, FloatingShadow, Radius, Spacing, Type } from '@/constants/theme';
+import { useKeyboardBottomInset } from '@/hooks/useKeyboardBottomInset';
 import { formatNepalPhone } from '@/lib/auth';
 import { hapticButtonPress, hapticWarning } from '@/lib/haptics';
 import { enrichBagsWithLiveStock } from '@/lib/bagStock';
@@ -64,6 +65,7 @@ function isValidNepalMobile(digits: string) {
 export default function ReserveBagScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardBottomInset();
   const { latitude, longitude } = useLocationStore();
   const { bagId, qty: qtyParam, service: serviceParam } = useLocalSearchParams<{
     bagId: string;
@@ -396,8 +398,12 @@ export default function ReserveBagScreen() {
         <StatusBar style="dark" />
 
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 120 + (Platform.OS === 'android' ? keyboardInset : 0) },
+          ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}>
           <View style={styles.heroWrap}>
             <AppImage
@@ -630,7 +636,16 @@ export default function ReserveBagScreen() {
         </ScrollView>
 
         {!soldOut ? (
-          <View style={[styles.stickyBar, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <View
+            style={[
+              styles.stickyBar,
+              {
+                paddingBottom:
+                  insets.bottom +
+                  Spacing.md +
+                  (Platform.OS === 'android' ? keyboardInset : 0),
+              },
+            ]}>
             <View style={styles.stickyLeft}>
               <Text style={styles.stickyLabel}>Pay at pickup</Text>
               <Text style={styles.stickyPrice}>{formatNprPaisa(totalPrice)}</Text>
