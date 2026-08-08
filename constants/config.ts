@@ -11,4 +11,6 @@ export const config = {
   googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   /** Google Cloud → Credentials → OAuth 2.0 iOS client ID */
   googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '',
+  /** Google Cloud → Credentials → OAuth 2.0 Android client ID */
+  googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '',
 } as const;

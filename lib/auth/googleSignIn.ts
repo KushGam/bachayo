@@ -52,6 +52,7 @@ function ensureNativeConfigured(mod: GoogleNativeModule) {
   mod.GoogleSignin.configure({
     webClientId,
     iosClientId: config.googleIosClientId || undefined,
+    androidClientId: config.googleAndroidClientId || undefined,
     offlineAccess: false,
     scopes: ['openid', 'email', 'profile'],
   });
