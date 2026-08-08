@@ -62,6 +62,7 @@
       "backgroundColor": "#D85A30"
     },
     "plugins": [
+      "@react-native-google-signin/google-signin",
       "expo-router",
       [
         "expo-splash-screen",
